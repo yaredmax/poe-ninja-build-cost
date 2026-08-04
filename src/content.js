@@ -655,12 +655,11 @@ let lastRun = null;
  * return an invented price.
  */
 function isAppraisable(item) {
-  if (!item?.inventoryId) return false;
-  if (item.inventoryId !== 'PassiveJewels') return true;
-  // Ordinary rare jewels are just three modifiers, so they price fine. Cluster
-  // jewels are worth the notables they grant, and those aren't modifiers we can
-  // filter on, so spending a request on them would only invent a number.
-  return !/cluster jewel/i.test(item.baseType || '');
+  // Cluster jewels used to be excluded on the grounds that they are worth the
+  // notables they grant. They are — and each notable turns out to be an ordinary
+  // modifier with its own stat id ("1 Added Passive Skill is Magnifier"), so
+  // they can be searched like anything else.
+  return Boolean(item?.inventoryId);
 }
 
 /**

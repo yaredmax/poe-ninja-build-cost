@@ -247,6 +247,11 @@ const ROLLED_FIELDS = [
   ['fracturedMods', 'fractured'],
   ['craftedMods', 'crafted'],
   ['implicitMods', 'implicit'],
+  // Last, so it never displaces an explicit modifier on ordinary gear, where an
+  // enchantment is a nice extra rather than the point. On a cluster jewel it is
+  // the point: "Adds 5 Passive Skills" lives here and moves the price, and the
+  // cluster ordering below pulls it up when it matters.
+  ['enchantMods', 'enchant'],
 ];
 
 /** Gear also carries fractured and crafted mods, and they matter for price. */
@@ -294,6 +299,34 @@ export function isCoveredByTotals(text) {
   return COVERED_BY_TOTALS.some((re) => re.test(t));
 }
 
+/**
+ * A cluster jewel is bought for the notables it adds, and for how many passives
+ * it has. Everything else on it — the small-passive grants, the resistances —
+ * is filler that every cluster jewel of that base carries.
+ *
+ * Without this the first three modifiers listed win, and on a real jewel those
+ * were two resistance grants and one of its two notables, so the notable that
+ * made it worth buying never reached the query.
+ */
+const CLUSTER_PRIORITY = [
+  /^\d+ Added Passive Skill is /i,
+  /^Adds \d+ Passive Skills?$/i,
+  /^Added Small Passive Skills grant: /i,
+];
+
+export function isClusterJewel(item) {
+  return /cluster jewel/i.test(item?.baseType || '');
+}
+
+/** Reorders a cluster jewel's modifiers so the notables come first. */
+function clusterFirst(entries) {
+  const rank = (text) => {
+    const i = CLUSTER_PRIORITY.findIndex((re) => re.test(text));
+    return i === -1 ? CLUSTER_PRIORITY.length : i;
+  };
+  return entries.slice().sort((a, b) => rank(a.mod) - rank(b.mod));
+}
+
 export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIELDS) {
   // Without the pool we'd take the first mods listed, and on a Watcher's Eye
   // those are the three every copy has (energy shield, life, mana). Filtering by
@@ -301,19 +334,27 @@ export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIE
   // pool holds the modifiers poe.ninja marks `optional`, i.e. the rolled ones.
   const pool = rollPool?.length ? new Set(rollPool) : null;
   const local = wantsLocalStats(item);
-  const out = [];
+
+  const candidates = [];
   for (const [field, type] of fields) {
     for (const mod of item[field] || []) {
-      if (out.length >= limit) return out;
       if (pool && !pool.has(modTemplate(mod))) continue;
       // Resistances and defences are covered by the pseudo total and the
-      // armour filters the caller adds, so they never take a filter slot here.
+      // property filters the caller adds, so they never take a filter slot here.
       if (isResistanceMod(mod)) continue;
       if (local && isCoveredByTotals(mod)) continue;
-      const hit = matchMod(statIndex, mod, type, local);
-      if (!hit || out.some((s) => s.id === hit.id)) continue;
-      out.push({ ...hit, text: mod });
+      candidates.push({ mod, type });
     }
+  }
+
+  const ordered = isClusterJewel(item) ? clusterFirst(candidates) : candidates;
+
+  const out = [];
+  for (const { mod, type } of ordered) {
+    if (out.length >= limit) break;
+    const hit = matchMod(statIndex, mod, type, local);
+    if (!hit || out.some((s) => s.id === hit.id)) continue;
+    out.push({ ...hit, text: mod });
   }
   return out;
 }
