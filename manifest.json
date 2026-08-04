@@ -1,13 +1,17 @@
 {
   "manifest_version": 3,
   "name": "PoE Ninja Build Cost",
-  "version": "0.3.0",
-  "description": "Estimates what a poe.ninja build costs, using poe.ninja's public economy API.",
+  "version": "0.4.0",
+  "description": "Estimates what a poe.ninja build costs, using poe.ninja's public economy API and the official trade site.",
   "permissions": ["storage", "declarativeNetRequest"],
   "host_permissions": ["https://poe.ninja/*", "https://www.pathofexile.com/*"],
   "background": {
     "service_worker": "src/background.js",
     "type": "module"
+  },
+  "options_ui": {
+    "page": "src/options.html",
+    "open_in_tab": true
   },
   "content_scripts": [
     {
@@ -18,7 +22,7 @@
     },
     {
       "matches": ["https://poe.ninja/poe1/builds/*", "https://poe.ninja/poe1/profile/*"],
-      "js": ["src/content.js"],
+      "js": ["src/settings.js", "src/content.js"],
       "css": ["src/content.css"],
       "run_at": "document_idle"
     }

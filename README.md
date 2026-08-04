@@ -11,6 +11,25 @@ build would cost.
 3. Open any build: `https://poe.ninja/poe1/builds/.../character/...`
 4. Panel on the top right → **Calculate cost**.
 
+That one button does everything: poe.ninja's economy prices land immediately,
+then the trade pass runs behind them and the panel updates item by item.
+
+## Options
+
+`chrome://extensions` → Details → Extension options. Three settings, all
+explained on the page itself:
+
+- **Minimum roll** (default 80%) — how good a listing has to be to count as
+  comparable. Ignored for uniques, whose ranges are narrow, except timeless and
+  Time-Lost jewels.
+- **Which listings count** (default "Instant Buyout and In Person") — the same
+  choice as the trade site's own dropdown.
+- **Clear cached prices** — appraisals are kept for two hours, keyed on the item,
+  the league and the two settings above.
+
+They live in `chrome.storage.sync`, so they follow you between machines, and the
+content script re-reads them at the start of every run.
+
 ## Where the data comes from
 
 **The character's items: by reading what's already in the page.** poe.ninja's
@@ -286,17 +305,19 @@ of the icon, with `pointer-events: none` so it never covers poe.ninja's own item
 tooltip. Gems are a text list, so there it sits next to the name. `placeBadge()`
 decides based on the category and whether it finds an icon-sized container.
 
-## Trade buttons (removed)
+## Fractured and crafted modifiers
 
-There used to be a ⇗ button per item that opened the search on the trade site. It
-was pulled from the UI because it misbehaved.
+`fractured.stat_3556824919` does not mean "has +12% global crit multi" — it means
+"has it *and it is fractured*". Measured in one league: 7 listings against 2712
+for the plain explicit id.
 
-`buildQuery()` and `search()` are still in `src/lib/trade.js`, marked as not
-wired: both are tested and putting the button back is just calling them again.
-The flow was `POST /api/trade/search/{league}` → `id` → open
-`pathofexile.com/trade/search/{league}/{id}` via `chrome.tabs.create` from the
-service worker (from the content script the `await` breaks the user-gesture chain
-and Chrome blocks it as a popup).
+This was the single worst bug in the project. Every search containing a fractured
+modifier came back empty, which sent the combination search down through every
+subset, spending up to seven requests per item to arrive at a bad answer — and
+that, not GGG's budget, was what made the extension sit and wait. Matching now
+rewrites fractured and crafted ids to their explicit twin, and the three jewels
+that provoked it went from `0 listings → 1 div after 12 s` to
+`184 listings → 5 div after 1.8 s`.
 
 ## Tests
 
@@ -340,4 +361,6 @@ dumps the candidate texts and icons so you can see what changed.
 | `src/lib/trade.js` | Trade queries, rare appraisal, reliability |
 | `src/lib/stats.js` | Mod text → `stat id`, pseudo-mods, roll pools |
 | `src/lib/rate-limit.js` | Adaptive throttling from GGG's rate-limit headers |
+| `src/settings.js` | Defaults and storage, shared by the panel and the options page |
+| `src/options.html` `.css` `.js` | Options page |
 | `tools/fixtures/` | Real texts, icons, items and mods from a character page |

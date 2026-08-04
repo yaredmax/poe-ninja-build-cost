@@ -19,13 +19,11 @@ export const searchLimit = new RateLimiter('search');
 export const fetchLimit = new RateLimiter('fetch');
 
 /**
- * Turns an item into a trade query.
- * Returns `null` for anything we can't search yet (rares and magic items need
- * stat filters and pseudo-mods — see `buildRareQuery`).
+ * Turns an item into a trade query by name — good enough for uniques and gems,
+ * which are identified by what they are rather than by what they rolled.
  *
- * NOT WIRED TO ANYTHING right now: the "open in trade" button was removed from
- * the UI because it misbehaved. Kept alongside `search()` because both are
- * tested and bringing the button back is just calling them again.
+ * Returns `null` for rares and magic items: those need stat filters, and are
+ * handled by `buildComboQuery` and `buildRareQuery`.
  */
 export function buildQuery(item) {
   const query = { status: status(), stats: [{ type: 'and', filters: [] }] };
@@ -56,36 +54,9 @@ export function buildQuery(item) {
   return null;
 }
 
-export function canSearch(item) {
-  return buildQuery(item) !== null;
-}
-
 /** How many of a unique's own mods to pin down when searching for its variant. */
 const MAX_VARIANT_MODS = 3;
 
-/**
- * Query for a unique whose price depends on which mods it rolled.
- *
- * poe.ninja publishes a single price for all Watcher's Eyes — the cheapest one —
- * so the economy number is a floor, not a value. Here we search for the actual
- * item: same name and base, plus the mods it actually rolled. That's the only
- * way to find out what *this* one is worth.
- */
-export function buildVariantQuery(item, statIndex, helpers, rollPool, maxMods = MAX_VARIANT_MODS) {
-  if (!item.name) return null;
-  return buildOwnModsQuery(item, statIndex, helpers, { rollPool, maxMods, byName: true });
-}
-
-/**
- * Query built from the item's own modifiers.
- *
- * Used for two cases where `buildRareQuery`'s "similar gear" approach is wrong:
- *
- *  - uniques whose value is the roll (`byName: true` pins the name too);
- *  - rare jewels, which have no life or resistances to build pseudo-mods from
- *    and no equipment category. A jewel *is* its three modifiers, so searching
- *    for exactly those is what a person would do.
- */
 /**
  * Uniques where the number on the modifier is the whole point.
  *
@@ -353,15 +324,6 @@ export async function runQuery(body, league) {
   if (!res.ok) throw new Error(`Trade returned ${res.status}`);
   const data = await res.json();
   return { id: data.id, result: data.result || [], total: data.total ?? 0 };
-}
-
-/** Runs a search and returns the trade page URL, ready to open. */
-export async function search(item, league) {
-  const body = buildQuery(item);
-  if (!body) throw new Error("We can't build a search for this item yet.");
-  const { id } = await runQuery(body, league);
-  if (!id) throw new Error('Trade returned no search id.');
-  return webUrl(league, id);
 }
 
 /**

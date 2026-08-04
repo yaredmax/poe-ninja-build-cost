@@ -12,22 +12,14 @@ const PANEL_ID = 'pnc-panel';
 const BADGE_CLASS = 'pnc-badge';
 
 /**
- * How much of an item's own roll a listing must match to count as comparable.
+ * User settings, from the options page. Re-read at the start of every run so a
+ * change takes effect without reloading the page.
  *
- * Awakened PoE Trade defaults to 80% and so do we. It matters more than it
- * looks: a rare jewel with three crit multi mods is worth 17 div at good rolls
- * and a few chaos at bad ones, so searching without a minimum reports the price
- * of the bad ones.
+ * They shape the trade queries: `minRollPercent` decides how good a listing has
+ * to be to count as comparable, and `saleMode` decides which listings count at
+ * all. Both are explained on the options page.
  */
-const DEFAULT_MIN_ROLL = 80;
-let minRollPercent = DEFAULT_MIN_ROLL;
-
-/**
- * Which listings count. 'In Person (Online)' was hardcoded and is the worst
- * choice for pricing: those sellers have to be messaged and may never answer.
- * The default is now the combined instant-buyout-and-in-person mode.
- */
-let saleMode = 'available';
+let settings = { ...PNC_DEFAULTS };
 
 /** Must stay identical to `normalizeName` in lib/economy.js — both sides match. */
 function normalizeName(raw) {
@@ -448,17 +440,6 @@ function ensurePanel() {
     </div>
     <div class="pnc-body">
       <button class="pnc-run">Calculate cost</button>
-      <label class="pnc-roll">
-        <span>Min roll <b>${DEFAULT_MIN_ROLL}%</b></span>
-        <input type="range" min="0" max="100" step="5" value="${DEFAULT_MIN_ROLL}">
-      </label>
-      <select class="pnc-mode">
-        <option value="available" selected>Instant Buyout and In Person</option>
-        <option value="securable">Instant Buyout</option>
-        <option value="online">In Person (Online)</option>
-        <option value="onlineleague">In Person (Online in League)</option>
-        <option value="any">Any</option>
-      </select>
       <div class="pnc-status"></div>
       <div class="pnc-summary"></div>
     </div>
@@ -471,15 +452,6 @@ function ensurePanel() {
   });
   panel.querySelector('.pnc-run').addEventListener('click', run);
 
-  panel.querySelector('.pnc-mode').addEventListener('change', (ev) => {
-    saleMode = ev.target.value;
-  });
-
-  const slider = panel.querySelector('.pnc-roll input');
-  slider.addEventListener('input', () => {
-    minRollPercent = Number(slider.value);
-    panel.querySelector('.pnc-roll b').textContent = `${minRollPercent}%`;
-  });
   return panel;
 }
 
@@ -725,8 +697,8 @@ async function tradePass(matches, { league, chaosPerDivine, failed }) {
         rollPool: match.price?.rollPool,
         league,
         chaosPerDivine,
-        minRollPercent,
-        saleMode,
+        minRollPercent: settings.minRollPercent,
+        saleMode: settings.saleMode,
       });
       if (!match.appraisal.cached) live++;
       updateRareBadge(match, chaosPerDivine);
@@ -825,6 +797,7 @@ async function run() {
     runButton.disabled = true;
     runButton.textContent = 'Working…';
   }
+  settings = await pncLoadSettings();
   setStatus('Loading poe.ninja economy…');
 
   try {
@@ -857,8 +830,8 @@ async function run() {
         const { urls } = await send('links', {
           items: matches.map((m) => m.item),
           league,
-          minRollPercent,
-          saleMode,
+          minRollPercent: settings.minRollPercent,
+          saleMode: settings.saleMode,
         });
         for (const match of matches) {
           const url = urls[match.item?.index];

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PoE Ninja Build Cost — Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>PoE Ninja Build Cost</h1>
+
+      <section>
+        <h2>Minimum roll</h2>
+        <p>
+          How much of an item's own roll a listing has to match to count as
+          comparable. At 0% a rare jewel with three good modifiers matches every
+          jewel that has those modifiers at any value, and reports the price of
+          the worst one.
+        </p>
+        <div class="row">
+          <input id="minRoll" type="range" min="0" max="100" step="5" />
+          <output id="minRollValue"></output>
+        </div>
+        <p class="note">
+          Ignored for uniques, whose modifier ranges are narrow enough that a
+          minimum only costs listings — except timeless and Time-Lost jewels,
+          where the number is the item.
+        </p>
+      </section>
+
+      <section>
+        <h2>Which listings count</h2>
+        <p>
+          The same choice as the trade site's own dropdown. "In Person" sellers
+          have to be messaged and may never reply, so their asking prices are
+          softer than what you would actually pay.
+        </p>
+        <select id="saleMode"></select>
+      </section>
+
+      <section>
+        <h2>Cached prices</h2>
+        <p>
+          Trade appraisals are kept for two hours, keyed on the item, the league
+          and the settings above. That is what makes re-opening a build free
+          instead of spending GGG's request budget again.
+        </p>
+        <button id="clearCache" type="button">Clear cached prices</button>
+        <span id="cacheStatus" class="note"></span>
+      </section>
+
+      <p class="saved" id="saved" hidden>Saved.</p>
+    </main>
+    <script src="options.js"></script>
+  </body>
+</html>
