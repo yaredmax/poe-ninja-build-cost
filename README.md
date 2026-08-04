@@ -107,6 +107,24 @@ This is an estimate with a floor, not a valuation:
 
 That's why the total is labelled **Minimum**.
 
+## Items priced by their own modifiers
+
+Two kinds of item are searched for by the mods they actually carry, stepping
+down 3 → 2 → 1 filters until the market has something. When it prices on fewer
+mods than the item has, the badge shows `≥`: worth *at least* that.
+
+**Rare jewels.** A jewel has no life, no resistances and no equipment category,
+so the "similar gear" query below has nothing to work with. A jewel *is* its
+three modifiers. Measured on a real build:
+
+```
+Luminous Creed  3 mods -> 0 listings   2 mods -> 17 listings   =>  1.0 div
+Ghoul Sliver    3 mods -> 0 listings   2 mods -> 17 listings   =>  1.0 div
+Dragon Sliver   3 mods -> 0 listings   2 mods -> 11 listings   =>  4.0 div
+```
+
+**Uniques marked `≥`**, by their roll — see below.
+
 ## Pricing `≥` uniques by their actual roll
 
 poe.ninja publishes one price for every Watcher's Eye — the cheapest — so its
@@ -206,8 +224,9 @@ This is both faster and safer than the fixed 5 s gap it replaced: the seven-rare
 pass went from about 70 s to **23.8 s**, and the limiter now knows about traffic
 it didn't cause.
 
-Jewels are not appraised: a cluster jewel is worth whatever notables it grants,
-and that isn't expressible with the mods we read.
+Cluster jewels are the only thing left out: they're worth the notables they
+grant, and those aren't modifiers we can filter on. Ordinary rare jewels are
+priced like uniques, by their own mods — see below.
 
 ## Where the price is painted
 

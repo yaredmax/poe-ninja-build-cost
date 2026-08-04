@@ -73,6 +73,21 @@ const MAX_VARIANT_MODS = 3;
  */
 export function buildVariantQuery(item, statIndex, helpers, rollPool, maxMods = MAX_VARIANT_MODS) {
   if (!item.name) return null;
+  return buildOwnModsQuery(item, statIndex, helpers, { rollPool, maxMods, byName: true });
+}
+
+/**
+ * Query built from the item's own modifiers.
+ *
+ * Used for two cases where `buildRareQuery`'s "similar gear" approach is wrong:
+ *
+ *  - uniques whose value is the roll (`byName: true` pins the name too);
+ *  - rare jewels, which have no life or resistances to build pseudo-mods from
+ *    and no equipment category. A jewel *is* its three modifiers, so searching
+ *    for exactly those is what a person would do.
+ */
+export function buildOwnModsQuery(item, statIndex, helpers, opts = {}) {
+  const { rollPool, maxMods = MAX_VARIANT_MODS, byName = false } = opts;
   const mods = helpers.rolledMods(statIndex, item, maxMods, rollPool);
   if (!mods.length) return null;
 
@@ -85,18 +100,17 @@ export function buildVariantQuery(item, statIndex, helpers, rollPool, maxMods = 
     return filter;
   });
 
-  return {
-    query: {
-      status: { option: 'online' },
-      name: item.name,
-      type: item.baseType,
-      stats: [{ type: 'and', filters }],
-      filters: {
-        misc_filters: { filters: { corrupted: { option: String(!!item.corrupted) } } },
-      },
+  const query = {
+    status: { option: 'online' },
+    type: item.baseType,
+    stats: [{ type: 'and', filters }],
+    filters: {
+      misc_filters: { filters: { corrupted: { option: String(!!item.corrupted) } } },
     },
-    sort: { price: 'asc' },
   };
+  if (byName && item.name) query.name = item.name;
+
+  return { query, sort: { price: 'asc' } };
 }
 
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';

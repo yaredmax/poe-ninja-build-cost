@@ -2,7 +2,7 @@ import { buildPriceIndex, fetchLeagues } from './lib/economy.js';
 import {
   attemptPlan,
   buildRareQuery,
-  buildVariantQuery,
+  buildOwnModsQuery,
   fetchPrices,
   RELIABLE,
   isBetter,
@@ -118,9 +118,14 @@ const handlers = {
     const resolved = await resolveLeague(null, league);
     const index = await loadStatIndex();
 
-    // A unique gets a different treatment: we know its name, so we search for
-    // that exact item plus the mods it rolled, instead of hunting for lookalikes.
-    if (item.frameType === 3 || item.frameType === 10) {
+    const isUnique = item.frameType === 3 || item.frameType === 10;
+    // A jewel has no life, no resistances and no equipment category, so the
+    // "similar gear" query has nothing to work with. A jewel *is* its three
+    // modifiers, so we search for exactly those.
+    const isJewel = item.inventoryId === 'PassiveJewels';
+
+    // Both are searched by their own mods. The unique also pins its name.
+    if (isUnique || isJewel) {
       // Asking for every rolled mod at once describes a nearly unique item: the
       // test build's Watcher's Eye had zero listings on three mods and zero on
       // two, but ten on one — at 2 div against poe.ninja's 30 c floor. So we
@@ -128,13 +133,17 @@ const handlers = {
       let best = null;
       let width = -1;
       for (const n of VARIANT_MOD_STEPS) {
-        const variant = buildVariantQuery(item, index, { rolledMods }, rollPool, n);
-        if (!variant) continue;
-        const filters = variant.query.stats[0].filters.length;
+        const query = buildOwnModsQuery(item, index, { rolledMods }, {
+          rollPool,
+          maxMods: n,
+          byName: isUnique,
+        });
+        if (!query) continue;
+        const filters = query.query.stats[0].filters.length;
         if (filters === width) continue; // fewer mods requested, same query
         width = filters;
-        const attempt = await runQuery(variant, resolved);
-        best = { ...attempt, variant, mods: filters };
+        const attempt = await runQuery(query, resolved);
+        best = { ...attempt, variant: query, mods: filters };
         if (attempt.total > 0) break;
       }
       if (!best) return { skipped: 'none of its mods could be translated' };

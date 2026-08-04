@@ -637,7 +637,12 @@ let lastRun = null;
  * return an invented price.
  */
 function isAppraisable(item) {
-  return !!item?.inventoryId && item.inventoryId !== 'PassiveJewels';
+  if (!item?.inventoryId) return false;
+  if (item.inventoryId !== 'PassiveJewels') return true;
+  // Ordinary rare jewels are just three modifiers, so they price fine. Cluster
+  // jewels are worth the notables they grant, and those aren't modifiers we can
+  // filter on, so spending a request on them would only invent a number.
+  return !/cluster jewel/i.test(item.baseType || '');
 }
 
 /**
