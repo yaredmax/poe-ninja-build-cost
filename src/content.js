@@ -83,6 +83,15 @@ const EQUIPMENT_SLOTS = new Set([
  * data — only the name of the price line — so we guess from the base type and
  * anything that doesn't fit lands in "Other".
  */
+/**
+ * Section order in the summary, matching how poe.ninja lays the page out:
+ * equipment first, then flasks under it, then the jewel blocks, then skills.
+ *
+ * Sorting by subtotal put the money first, which read well but meant the panel
+ * shuffled itself between builds and never lined up with what was on screen.
+ */
+const SECTION_ORDER = ['Equipment', 'Flasks', 'Jewels', 'Gems', 'Other', 'Unpriced'];
+
 function categoryOf(match) {
   const item = match.item;
   if (item) {
@@ -527,7 +536,7 @@ function renderSummary(matches, chaosPerDivine, failed) {
       units: items.reduce((s, f) => s + f.count, 0),
       subtotal: items.reduce((s, f) => s + f.chaos, 0),
     }))
-    .sort((a, b) => b.subtotal - a.subtotal);
+    .sort((a, b) => SECTION_ORDER.indexOf(a.name) - SECTION_ORDER.indexOf(b.name));
 
   // Uniques poe.ninja doesn't price get their own section at the end: shown
   // only as a footnote, they would look like something the extension ate.

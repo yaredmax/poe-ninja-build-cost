@@ -81,6 +81,22 @@
     return found;
   }
 
+  const toNumber = (text) => parseFloat(String(text ?? '').replace(/[^\d.-]/g, '')) || 0;
+
+  /** "50-100" and "5-10, 20-30" both collapse to the average of every range. */
+  function average(text) {
+    const ranges = String(text ?? '').match(/\d+(?:\.\d+)?-\d+(?:\.\d+)?/g);
+    if (!ranges) return 0;
+    let total = 0;
+    for (const range of ranges) {
+      const [lo, hi] = range.split('-').map(Number);
+      total += (lo + hi) / 2;
+    }
+    return total;
+  }
+
+  const round1 = (n) => Math.round(n * 10) / 10;
+
   /** Keep only what pricing and trade queries actually need. */
   function slim(item, index, anchor) {
     const props = {};
@@ -111,12 +127,25 @@
       // The totals the item actually has, after its own modifiers and quality.
       // Searching these directly beats filtering on the flat and percentage
       // modifiers that produce them: one filter instead of two, and it matches
-      // items that reach the same defence a different way.
+      // items that reach the same number a different way.
+      //
+      // Property names verified against a real build: "Armour", "Evasion
+      // Rating", "Energy Shield", "Chance to Block", "Physical Damage",
+      // "Attacks per Second", "Critical Strike Chance".
       defences: {
         ar: parseInt(props.Armour, 10) || 0,
         ev: parseInt(props['Evasion Rating'], 10) || 0,
         es: parseInt(props['Energy Shield'], 10) || 0,
         ward: parseInt(props.Ward, 10) || 0,
+        block: parseInt(props['Chance to Block'], 10) || 0,
+      },
+      weapon: {
+        // "50-100" -> 75. Trade wants damage per second, so we need the average
+        // of the range times the attack rate.
+        pdps: round1(average(props['Physical Damage']) * toNumber(props['Attacks per Second'])),
+        edps: round1(average(props['Elemental Damage']) * toNumber(props['Attacks per Second'])),
+        aps: round1(toNumber(props['Attacks per Second'])),
+        crit: round1(toNumber(props['Critical Strike Chance'])),
       },
       implicitMods: item.implicitMods || [],
       explicitMods: item.explicitMods || [],

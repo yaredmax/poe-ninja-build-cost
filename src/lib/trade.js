@@ -129,17 +129,30 @@ export function searchUrl(league, body) {
 
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
 
-/** Defence totals worth filtering on, ignoring the ones the item doesn't have. */
-function defenceFilters(item, minRoll) {
-  const totals = item.defences;
+/** Turns a set of totals into trade filters, skipping the ones at zero. */
+function totalsToFilters(totals, keys, minRoll) {
   if (!totals) return null;
   const out = {};
-  for (const key of ['ar', 'ev', 'es', 'ward']) {
+  for (const key of keys) {
     const value = totals[key];
     if (!value) continue;
-    out[key] = minRoll > 0 ? { min: Math.floor((value * minRoll) / 100) } : {};
+    // One decimal kept: weapon dps is fractional, defences are not.
+    out[key] = minRoll > 0 ? { min: Math.floor((value * minRoll) / 10) / 10 } : {};
   }
   return Object.keys(out).length ? out : null;
+}
+
+/** Armour, evasion, energy shield, ward and block. */
+function defenceFilters(item, minRoll) {
+  return totalsToFilters(item.defences, ['ar', 'ev', 'es', 'ward', 'block'], minRoll);
+}
+
+/**
+ * The weapon equivalent. A rare weapon is bought for its damage per second, not
+ * for the modifiers that add up to it — the same argument as the defences.
+ */
+function weaponFilters(item, minRoll) {
+  return totalsToFilters(item.weapon, ['pdps', 'edps', 'aps', 'crit'], minRoll);
 }
 
 
@@ -159,8 +172,9 @@ export function buildComboQuery(item, mods, opts = {}) {
     if (minRoll > 0) filter.value = { min: Math.floor((resistance * minRoll) / 100) };
     pseudo.push(filter);
   }
-  const hasDefences = useCategory && defenceFilters(item, minRoll) !== null;
-  if (!mods.length && !pseudo.length && !hasDefences) return null;
+  const hasTotals =
+    useCategory && (defenceFilters(item, minRoll) || weaponFilters(item, minRoll));
+  if (!mods.length && !pseudo.length && !hasTotals) return null;
 
   const filters = pseudo.concat(mods.map((mod) => {
     const filter = { id: mod.id };
@@ -189,6 +203,8 @@ export function buildComboQuery(item, mods, opts = {}) {
   // defences on top would just exclude the copies with worse rolls.
   const defences = useCategory ? defenceFilters(item, minRoll) : null;
   if (defences) query.filters.armour_filters = { filters: defences };
+  const weapon = useCategory ? weaponFilters(item, minRoll) : null;
+  if (weapon) query.filters.weapon_filters = { filters: weapon };
 
   // Gear searches by category — "any boots with these mods". Pinning the exact
   // base on top of specific mods finds nothing: some bases have a single listing

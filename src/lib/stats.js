@@ -271,16 +271,27 @@ export function isResistanceMod(text) {
 }
 
 /**
- * Modifiers already covered by the defence filters above.
+ * Modifiers whose effect is already expressed by a property filter.
  *
- * Keeping both would double-count: the property is the result of these, so
- * filtering on each separately only narrows the search without adding meaning.
+ * A weapon is bought for its damage per second and a chest for its energy
+ * shield; the modifiers that add up to those numbers say the same thing twice
+ * and would eat the few filter slots we have. This only applies on gear, where
+ * these modifiers are local — on a jewel the same wording is global and real.
  */
-const DEFENCE_MODS =
-  /^([+-]?\d+ to (maximum Energy Shield|Armour|Evasion Rating|Ward)|\d+% increased (Armour|Evasion|Energy Shield|Ward)([, ]|$))/i;
+const COVERED_BY_TOTALS = [
+  /^[+-]?\d+ to (maximum Energy Shield|Armour|Evasion Rating|Ward)$/i,
+  /^\d+% increased (Armour|Evasion|Energy Shield|Ward)$/i,
+  /^\d+% increased (Armour and Evasion|Armour and Energy Shield|Evasion and Energy Shield|Armour, Evasion and Energy Shield)$/i,
+  /^\d+% increased Physical Damage$/i,
+  /^Adds \d+ to \d+ (Physical|Fire|Cold|Lightning|Chaos) Damage$/i,
+  /^\d+% increased Attack Speed$/i,
+  /^\d+% increased Critical Strike Chance$/i,
+  /^[+-]?\d+% Chance to Block$/i,
+];
 
-export function isDefenceMod(text) {
-  return DEFENCE_MODS.test(text.trim()) || /% increased .*(Armour|Evasion).*Energy Shield/i.test(text);
+export function isCoveredByTotals(text) {
+  const t = text.trim();
+  return COVERED_BY_TOTALS.some((re) => re.test(t));
 }
 
 export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIELDS) {
@@ -298,7 +309,7 @@ export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIE
       // Resistances and defences are covered by the pseudo total and the
       // armour filters the caller adds, so they never take a filter slot here.
       if (isResistanceMod(mod)) continue;
-      if (local && isDefenceMod(mod)) continue;
+      if (local && isCoveredByTotals(mod)) continue;
       const hit = matchMod(statIndex, mod, type, local);
       if (!hit || out.some((s) => s.id === hit.id)) continue;
       out.push({ ...hit, text: mod });
