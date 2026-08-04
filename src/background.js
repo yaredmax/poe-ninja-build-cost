@@ -1,6 +1,5 @@
 import { buildPriceIndex, fetchLeagues } from './lib/economy.js';
 import {
-  attemptPlan,
   buildRareQuery,
   buildOwnModsQuery,
   fetchPrices,
@@ -13,6 +12,7 @@ import {
   webUrl,
 } from './lib/trade.js';
 import {
+  GEAR_FIELDS,
   loadStatIndex,
   rolledMods,
   significantMods,
@@ -87,11 +87,14 @@ async function resolveLeague(slug, id) {
   return leagues[0]?.id ?? 'Standard';
 }
 
-/** How many mod filters the first appraisal attempt uses. */
-const INITIAL_MODS = 2;
+/** Priority mods added on top of the pseudo ones in the fallback query. */
+const FALLBACK_MODS = 1;
 
 /** Mod counts tried for a unique's variant search, most specific first. */
 const VARIANT_MOD_STEPS = [3, 2, 1];
+
+/** Same idea for rare gear, but two steps: the third search is the fallback. */
+const GEAR_MOD_STEPS = [3, 2];
 
 const handlers = {
   async ping() {
@@ -171,43 +174,65 @@ const handlers = {
       };
     }
 
+    // Rare gear, in two strategies within the same request budget as before.
     const helpers = { significantMods, totalElementalResistance, totalLife };
-    let body = buildRareQuery(item, index, helpers, INITIAL_MODS);
-    if (!body) return { skipped: 'no filterable mods recognised' };
+    let best = null;
+    const consider = (attempt, body, strategy) => {
+      if (!best || isBetter(attempt.total, best.total)) best = { ...attempt, body, strategy };
+    };
 
-    let { id, result, total } = await runQuery(body, resolved);
-
-    // Tune the filter count until the search is trustworthy, capped at two extra
-    // attempts. We only keep an attempt if it improves things: spending another
-    // request to make the estimate worse makes no sense.
-    let adjusted = false;
-    let width = body.query.stats[0].filters.length;
-    for (const n of attemptPlan(total, INITIAL_MODS)) {
-      if (RELIABLE.has(reliability(total))) break;
-      const other = buildRareQuery(item, index, helpers, n);
-      if (!other || other.query.stats[0].filters.length === width) continue;
-      width = other.query.stats[0].filters.length;
-      const attempt = await runQuery(other, resolved);
-      if (isBetter(attempt.total, total)) {
-        adjusted = true;
-        body = other;
-        ({ id, result, total } = attempt);
-      }
+    // 1) The item's own modifiers, searched across its equipment category.
+    //    This catches what the priority list misses — a Focused Amulet with
+    //    "+2 to Level of all Physical Skill Gems" is defined by that mod, and no
+    //    hand-written list will ever cover every such case.
+    let width = -1;
+    for (const n of GEAR_MOD_STEPS) {
+      const query = buildOwnModsQuery(item, index, { rolledMods }, {
+        maxMods: n,
+        fields: GEAR_FIELDS,
+        useCategory: true,
+      });
+      if (!query) continue;
+      const filters = query.query.stats[0].filters.length;
+      if (filters === width) continue;
+      width = filters;
+      consider(await runQuery(query, resolved), query, 'own-mods');
+      if (RELIABLE.has(reliability(best.total))) break;
     }
 
-    const prices = total ? await fetchPrices(id, result, chaosPerDivine) : [];
-    const rating = reliability(total);
+    // 2) Fall back to pseudo life / resistances plus one priority mod, which is
+    //    better for plain defensive gear whose individual mods are all common.
+    //    Deliberately broad: step 1 already tried the specific route, so this
+    //    one exists to find a market at all, and starting narrow would just burn
+    //    a request on another empty result.
+    if (!best || !RELIABLE.has(reliability(best.total))) {
+      const query = buildRareQuery(item, index, helpers, FALLBACK_MODS);
+      if (query) consider(await runQuery(query, resolved), query, 'pseudo');
+    }
+
+    if (!best) return { skipped: 'no filterable mods recognised' };
+
+    const prices = best.total ? await fetchPrices(best.id, best.result, chaosPerDivine) : [];
+    const rating = reliability(best.total);
+    const byOwnMods = best.strategy === 'own-mods';
 
     return {
-      url: webUrl(resolved, id),
-      total,
+      url: webUrl(resolved, best.id),
+      total: best.total,
       // Median of the ten cheapest: the single cheapest listing is nearly always
       // a joke price or a mislisted item.
       chaos: prices.length ? prices[Math.floor(prices.length / 2)] : null,
       reliability: rating,
-      reliable: RELIABLE.has(rating),
-      adjusted,
-      filters: body.query.stats[0].filters.map((f) => f.id),
+      // The "too few results" gate guards the lookalike search, where a single
+      // listing can be a fluke. A search built from the item's own modifiers is
+      // precise, so one listing means "an item like this is on sale for X" —
+      // which is exactly what we want to know.
+      reliable: byOwnMods ? best.total > 0 : RELIABLE.has(rating),
+      // We always filter on a subset of the item's mods, so whatever we find is
+      // a floor rather than a valuation.
+      partial: byOwnMods,
+      strategy: best.strategy,
+      filters: best.body.query.stats[0].filters.map((f) => f.id),
     };
   },
 

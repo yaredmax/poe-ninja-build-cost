@@ -186,14 +186,24 @@ const statNumber = (id) => id.replace(/^[a-z]+\./, '');
  * two or three mods out of ninety, and those mods *are* the item. Searching by
  * name alone returns the 40 c floor, which is what makes the `≥` mark useless.
  */
-export function rolledMods(statIndex, item, limit, rollPool) {
+/** Default order: the mods a player reads first. */
+const ROLLED_FIELDS = [['explicitMods', 'explicit'], ['implicitMods', 'implicit']];
+
+/** Gear also carries fractured and crafted mods, and they matter for price. */
+export const GEAR_FIELDS = [
+  ['explicitMods', 'explicit'],
+  ['fracturedMods', 'fractured'],
+  ['craftedMods', 'crafted'],
+];
+
+export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIELDS) {
   // Without the pool we'd take the first mods listed, and on a Watcher's Eye
   // those are the three every copy has (energy shield, life, mana). Filtering by
   // them finds every Watcher's Eye in the league — the floor price again. The
   // pool holds the modifiers poe.ninja marks `optional`, i.e. the rolled ones.
   const pool = rollPool?.length ? new Set(rollPool) : null;
   const out = [];
-  for (const [field, type] of [['explicitMods', 'explicit'], ['implicitMods', 'implicit']]) {
+  for (const [field, type] of fields) {
     for (const mod of item[field] || []) {
       if (out.length >= limit) return out;
       if (pool && !pool.has(modTemplate(mod))) continue;

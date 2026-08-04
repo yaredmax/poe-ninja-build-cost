@@ -152,10 +152,30 @@ poe.ninja floor:  30 c
 ## Rare appraisal
 
 A rare has no market price: that exact item isn't for sale. What we *can* do is
-search for **similar items** and see what they go for. Hence the `≈` mark and the
-wording in the panel.
+search for items like it and see what they go for. Two strategies are tried, in
+this order, within three searches:
 
-How the search is built:
+**1. The item's own modifiers, across its equipment category.** Up to three of
+them, stepping down to two if nothing comes back. This catches what no
+hand-written list ever will: the test build's Focused Amulet is defined by
+"+2 to Level of all Physical Skill Gems", a mod the priority list below doesn't
+know about, and pricing it any other way lands on junk.
+
+**2. Pseudo life and resistances plus one priority mod.** Deliberately broad —
+step 1 already tried the specific route. This is the better answer for plain
+defensive gear whose individual mods are all common.
+
+Measured on the seven rares of the test build, the hybrid took the reliable
+count from **3 of 7 to 6 of 7** in the same time and the same request budget.
+Nearly all of them are now answered by strategy 1.
+
+A search built from the item's own mods is precise, so a single listing is a
+real answer — "one like yours is on sale for X" — and is accepted. The
+"too few results" gate below only guards the lookalike search, where one result
+can be a fluke. Since we always filter on a subset of the mods, these are floors
+and show `≥`.
+
+How the lookalike search is built:
 
 1. Each mod text is translated to its `stat id` via `/api/trade/data/stats`
    (`src/lib/stats.js`). Measured coverage: **56 of 57** mods on the test build.

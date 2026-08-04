@@ -87,8 +87,8 @@ export function buildVariantQuery(item, statIndex, helpers, rollPool, maxMods = 
  *    for exactly those is what a person would do.
  */
 export function buildOwnModsQuery(item, statIndex, helpers, opts = {}) {
-  const { rollPool, maxMods = MAX_VARIANT_MODS, byName = false } = opts;
-  const mods = helpers.rolledMods(statIndex, item, maxMods, rollPool);
+  const { rollPool, maxMods = MAX_VARIANT_MODS, byName = false, fields, useCategory = false } = opts;
+  const mods = helpers.rolledMods(statIndex, item, maxMods, rollPool, fields);
   if (!mods.length) return null;
 
   const filters = mods.map((mod) => {
@@ -102,12 +102,22 @@ export function buildOwnModsQuery(item, statIndex, helpers, opts = {}) {
 
   const query = {
     status: { option: 'online' },
-    type: item.baseType,
     stats: [{ type: 'and', filters }],
     filters: {
       misc_filters: { filters: { corrupted: { option: String(!!item.corrupted) } } },
     },
   };
+
+  // Gear searches by category — "any boots with these mods". Pinning the exact
+  // base on top of specific mods finds nothing: some bases have a single listing
+  // in the whole league. Jewels and uniques keep the base, which is the point
+  // for them.
+  const category = useCategory ? categoryFor(item) : null;
+  if (category) {
+    query.filters.type_filters = { filters: { category: { option: category } } };
+  } else {
+    query.type = item.baseType;
+  }
   if (byName && item.name) query.name = item.name;
 
   return { query, sort: { price: 'asc' } };

@@ -1,6 +1,5 @@
-// Appraises a build's real rares against the actual trade API.
-// Up to three requests per item (search, optional retries, fetch) spaced 5 s
-// apart: with 7 rares that's under two minutes, well inside GGG's limits.
+// Appraises a build's real rare gear against the actual trade API, using the
+// same two strategies the extension does, and reports which one won.
 //
 //   node tools/rare-test.mjs
 
@@ -21,13 +20,17 @@ const realFetch = globalThis.fetch;
 globalThis.fetch = (url, init = {}) =>
   realFetch(url, { ...init, headers: { ...(init.headers || {}), 'User-Agent': UA } });
 
-const { loadStatIndex, significantMods, totalElementalResistance, totalLife, matchMod, MOD_FIELDS } =
-  await import('../src/lib/stats.js');
-const { buildRareQuery, runQuery, fetchPrices, reliability, RELIABLE, isBetter, attemptPlan } =
-  await import('../src/lib/trade.js');
+const {
+  GEAR_FIELDS, loadStatIndex, matchMod, MOD_FIELDS,
+  rolledMods, significantMods, totalElementalResistance, totalLife,
+} = await import('../src/lib/stats.js');
+const {
+  buildOwnModsQuery, buildRareQuery, fetchPrices, isBetter, reliability, RELIABLE, runQuery,
+} = await import('../src/lib/trade.js');
 const { fetchLeagues } = await import('../src/lib/economy.js');
 
-const INITIAL_MODS = 2;
+const FALLBACK_MODS = 1;
+const GEAR_MOD_STEPS = [3, 2];
 const rares = JSON.parse(readFileSync(join(here, 'fixtures', 'character-rares.json'), 'utf8')).items;
 const league = (await fetchLeagues())[0].id;
 const CHAOS_PER_DIV = 187;
@@ -46,55 +49,59 @@ for (const item of rares) {
   }
 }
 console.log(`Mod mapping: ${ok}/${ok + fail}`);
-if (unmatched.length) {
-  console.log('  unmatched:');
-  for (const u of unmatched) console.log(`    ${u}`);
-}
+for (const u of unmatched) console.log(`  unmatched  ${u}`);
 
-// 2) the real appraisal
+// 2) the real appraisal, mirroring src/background.js
 console.log(`\nLeague: ${league}\n`);
 const fmt = (c) =>
   c >= CHAOS_PER_DIV ? `${(c / CHAOS_PER_DIV).toFixed(1)} div` : `${Math.round(c)} c`;
 let sum = 0;
 let counted = 0;
 const startedAt = Date.now();
+const helpers = { significantMods, totalElementalResistance, totalLife };
 
 for (const item of rares) {
-  const helpers = { significantMods, totalElementalResistance, totalLife };
-  let body = buildRareQuery(item, index, helpers, INITIAL_MODS);
   const header = `${item.name} [${item.baseType}]`;
-  if (!body) { console.log(`  ${header}: no filterable mods`); continue; }
+  let best = null;
+  const consider = (attempt, body, strategy) => {
+    if (!best || isBetter(attempt.total, best.total)) best = { ...attempt, body, strategy };
+  };
 
   try {
-    let { id, result, total } = await runQuery(body, league);
-    let adjusted = false;
-    let width = body.query.stats[0].filters.length;
-    for (const n of attemptPlan(total, INITIAL_MODS)) {
-      if (RELIABLE.has(reliability(total))) break;
-      const other = buildRareQuery(item, index, helpers, n);
-      if (!other || other.query.stats[0].filters.length === width) continue;
-      width = other.query.stats[0].filters.length;
-      const attempt = await runQuery(other, league);
-      if (isBetter(attempt.total, total)) {
-        adjusted = true;
-        body = other;
-        ({ id, result, total } = attempt);
-      }
+    let width = -1;
+    for (const n of GEAR_MOD_STEPS) {
+      const query = buildOwnModsQuery(item, index, { rolledMods }, {
+        maxMods: n, fields: GEAR_FIELDS, useCategory: true,
+      });
+      if (!query) continue;
+      const filters = query.query.stats[0].filters.length;
+      if (filters === width) continue;
+      width = filters;
+      consider(await runQuery(query, league), query, 'own-mods');
+      if (RELIABLE.has(reliability(best.total))) break;
     }
 
-    const prices = total ? await fetchPrices(id, result, CHAOS_PER_DIV) : [];
+    if (!best || !RELIABLE.has(reliability(best.total))) {
+      const query = buildRareQuery(item, index, helpers, FALLBACK_MODS);
+      if (query) consider(await runQuery(query, league), query, 'pseudo');
+    }
+
+    if (!best) { console.log(`  ${header}: no filterable mods`); continue; }
+
+    const prices = best.total ? await fetchPrices(best.id, best.result, CHAOS_PER_DIV) : [];
     const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
-    const rating = reliability(total);
-    const counts = RELIABLE.has(rating) && median;
+    const rating = reliability(best.total);
+    // Same gate as src/background.js: an own-mods search is precise, so a
+    // single listing is a real answer rather than a fluke.
+    const counts =
+      (best.strategy === 'own-mods' ? best.total > 0 : RELIABLE.has(rating)) && median;
     if (counts) { sum += median; counted++; }
 
     console.log(
-      `  ${header.padEnd(42)} ${String(total).padStart(5)} res` +
+      `  ${header.padEnd(42)} ${String(best.total).padStart(5)} res` +
       `  ~ ${(median ? fmt(median) : '—').padStart(9)}` +
-      `  reliability=${rating.padEnd(7)}${counts ? 'COUNTED' : 'discarded'}` +
-      `${adjusted ? ' (adjusted)' : ''}`,
+      `  ${rating.padEnd(7)} ${(counts ? 'COUNTED' : 'discarded').padEnd(10)} via ${best.strategy}`,
     );
-    console.log(`      filters: ${body.query.stats[0].filters.map((f) => f.id).join(', ')}`);
   } catch (err) {
     console.log(`  ${header}: ERROR ${err.message}`);
   }
