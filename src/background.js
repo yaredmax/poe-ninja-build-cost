@@ -4,7 +4,9 @@ import {
   buildComboQuery,
   buildOwnModsQuery,
   combinations,
-  wantsValues,
+  DEFAULT_MIN_ROLL,
+  minRollFor,
+  searchUrl,
   fetchPrices,
   RELIABLE,
   isBetter,
@@ -118,8 +120,8 @@ const MAX_COMBO_QUERIES = 8;
  * Most items resolve on the first or second query; the combinatorial tail only
  * runs for the awkward ones.
  */
-async function priceByCombinations({ item, mods, byName, league, chaosPerDivine }) {
-  const withValues = wantsValues(item);
+async function priceByCombinations({ item, mods, byName, league, chaosPerDivine, minRollPercent }) {
+  const minRoll = minRollFor(item, minRollPercent);
   let budget = MAX_COMBO_QUERIES;
   let widest = mods.length;
 
@@ -127,7 +129,7 @@ async function priceByCombinations({ item, mods, byName, league, chaosPerDivine 
     const hits = [];
     for (const combo of combinations(mods, size)) {
       if (budget <= 0) break;
-      const query = buildComboQuery(item, combo, { byName, withValues });
+      const query = buildComboQuery(item, combo, { byName, minRoll });
       if (!query) continue;
       budget--;
       const attempt = await runQuery(query, league);
@@ -167,7 +169,7 @@ const handlers = {
    * Appraises a rare by searching trade for similar items. One search request
    * plus one fetch per item; the spacing is enforced by `runQuery`.
    */
-  async appraise({ item, rollPool, league, chaosPerDivine }) {
+  async appraise({ item, rollPool, league, chaosPerDivine, minRollPercent }) {
     await installUserAgentRule();
     const resolved = await resolveLeague(null, league);
     const index = await loadStatIndex();
@@ -189,6 +191,7 @@ const handlers = {
         byName: isUnique,
         league: resolved,
         chaosPerDivine,
+        minRollPercent,
       });
       if (!best) return { skipped: 'no listing found with any subset of its mods' };
 

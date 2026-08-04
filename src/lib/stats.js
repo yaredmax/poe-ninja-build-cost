@@ -186,8 +186,19 @@ const statNumber = (id) => id.replace(/^[a-z]+\./, '');
  * two or three mods out of ninety, and those mods *are* the item. Searching by
  * name alone returns the 40 c floor, which is what makes the `≥` mark useless.
  */
-/** Default order: the mods a player reads first. */
-const ROLLED_FIELDS = [['explicitMods', 'explicit'], ['implicitMods', 'implicit']];
+/**
+ * Every field that holds a real modifier.
+ *
+ * Fractured used to be missing here, and it cost us: a rare jewel in the test
+ * build carried "+12% to Global Critical Strike Multiplier" as a fractured mod,
+ * so we searched three of its four modifiers and left out the dearest one.
+ */
+const ROLLED_FIELDS = [
+  ['explicitMods', 'explicit'],
+  ['fracturedMods', 'fractured'],
+  ['craftedMods', 'crafted'],
+  ['implicitMods', 'implicit'],
+];
 
 /** Gear also carries fractured and crafted mods, and they matter for price. */
 export const GEAR_FIELDS = [

@@ -96,20 +96,43 @@ export function buildVariantQuery(item, statIndex, helpers, rollPool, maxMods = 
 const VALUE_SENSITIVE =
   /^(time-lost|elegant hubris|militant faith|brutal restraint|glorious vanity|lethal pride|that which was taken)/i;
 
-export function wantsValues(item) {
-  return VALUE_SENSITIVE.test(item.name || '');
+/**
+ * How much of the item's own roll a listing must match, as a percentage.
+ *
+ * For a **unique** the modifier pool is fixed and the ranges are narrow, so
+ * demanding a minimum mostly costs listings without changing the answer — which
+ * is why they're searched at 0. Timeless and Time-Lost jewels are the exception:
+ * there the number *is* the item.
+ *
+ * For a **rare** the magnitude is the entire value. A Cobalt Jewel with three
+ * crit multi mods is worth 17 div at good rolls and a few chaos at bad ones;
+ * searching without a minimum finds the bad ones and reports their price.
+ * Awakened PoE Trade defaults to 80% here, and so do we.
+ */
+export const DEFAULT_MIN_ROLL = 80;
+
+export function minRollFor(item, configured = DEFAULT_MIN_ROLL) {
+  const isUnique = item.frameType === 3 || item.frameType === 10;
+  if (!isUnique) return configured;
+  return VALUE_SENSITIVE.test(item.name || '') ? configured : 0;
+}
+
+/** Trade page URL carrying the query itself — costs no API request. */
+export function searchUrl(league, body) {
+  return `${WEB}/${encodeURIComponent(league)}?q=${encodeURIComponent(JSON.stringify(body))}`;
 }
 
 /** Query for one specific set of modifiers. */
 export function buildComboQuery(item, mods, opts = {}) {
-  const { byName = false, useCategory = false, withValues = false } = opts;
+  const { byName = false, useCategory = false, minRoll = 0 } = opts;
   if (!mods.length) return null;
 
   const filters = mods.map((mod) => {
     const filter = { id: mod.id };
     const value = mod.values[0];
-    if (withValues && typeof value === 'number') {
-      filter.value = { min: Math.floor(Math.abs(value) * SLACK) * Math.sign(value || 1) };
+    if (minRoll > 0 && typeof value === 'number') {
+      const floor = Math.floor((Math.abs(value) * minRoll) / 100);
+      filter.value = { min: floor * Math.sign(value || 1) };
     }
     return filter;
   });
@@ -154,7 +177,7 @@ export function* combinations(list, k) {
 export function buildOwnModsQuery(item, statIndex, helpers, opts = {}) {
   const { rollPool, maxMods = MAX_VARIANT_MODS, fields } = opts;
   const mods = helpers.rolledMods(statIndex, item, maxMods, rollPool, fields);
-  return buildComboQuery(item, mods, { ...opts, withValues: true });
+  return buildComboQuery(item, mods, { ...opts, minRoll: DEFAULT_MIN_ROLL });
 }
 
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';

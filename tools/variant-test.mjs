@@ -16,7 +16,7 @@ globalThis.fetch = (url, init = {}) =>
 
 const { buildPriceIndex, fetchLeagues, normalizeName } = await import('../src/lib/economy.js');
 const { loadStatIndex, rolledMods } = await import('../src/lib/stats.js');
-const { buildComboQuery, combinations, fetchPrices, runQuery, wantsValues, webUrl } =
+const { buildComboQuery, combinations, fetchPrices, minRollFor, runQuery, webUrl } =
   await import('../src/lib/trade.js');
 
 // The real Watcher's Eye from the test build. Its first three modifiers are the
@@ -47,7 +47,7 @@ const fmt = (c) =>
 const mods = rolledMods(statIndex, ITEM, 3, entry.rollPool);
 console.log(`League: ${league}`);
 console.log(`poe.ninja floor: ${fmt(entry.chaos)}   roll pool: ${entry.rollPool?.length ?? 0} mods`);
-console.log(`values in filters: ${wantsValues(ITEM)}\n`);
+console.log(`min roll percent: ${minRollFor(ITEM)}\n`);
 console.log('Rolled mods used:');
 for (const m of mods) console.log(`  ${m.text}`);
 
@@ -58,7 +58,7 @@ for (let size = mods.length; size >= 1; size--) {
   console.log(`\n--- ${size} mod(s) at a time`);
   const hits = [];
   for (const combo of combinations(mods, size)) {
-    const query = buildComboQuery(ITEM, combo, { byName: true, withValues: wantsValues(ITEM) });
+    const query = buildComboQuery(ITEM, combo, { byName: true, minRoll: minRollFor(ITEM) });
     queries++;
     const r = await runQuery(query, league);
     const label = combo.map((m) => m.text.slice(0, 34)).join('  +  ');
