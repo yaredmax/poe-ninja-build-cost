@@ -51,25 +51,28 @@
   background: hsl(43 55% 28%);
 }
 
-#pnc-panel .pnc-rares {
-  width: 100%;
-  margin-top: 8px;
-  padding: 7px 10px;
-  border: 1px solid hsl(190 40% 38%);
-  border-radius: 6px;
-  background: hsl(190 40% 20%);
-  color: hsl(190 55% 82%);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-#pnc-panel .pnc-rares:hover:not(:disabled) {
-  background: hsl(190 40% 26%);
-}
-
-#pnc-panel .pnc-rares:disabled {
+#pnc-panel .pnc-run:disabled {
   opacity: 0.7;
   cursor: default;
+}
+
+/* Minimum share of the item's own roll a listing must match. */
+#pnc-panel .pnc-roll {
+  display: block;
+  margin-top: 10px;
+  font-size: 11px;
+  color: hsl(204 10% 62%);
+}
+
+#pnc-panel .pnc-roll b {
+  color: hsl(43 60% 76%);
+  font-variant-numeric: tabular-nums;
+}
+
+#pnc-panel .pnc-roll input {
+  width: 100%;
+  margin-top: 4px;
+  accent-color: hsl(43 60% 50%);
 }
 
 #pnc-panel .pnc-status {

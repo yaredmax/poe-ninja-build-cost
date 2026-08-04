@@ -11,6 +11,17 @@
 const PANEL_ID = 'pnc-panel';
 const BADGE_CLASS = 'pnc-badge';
 
+/**
+ * How much of an item's own roll a listing must match to count as comparable.
+ *
+ * Awakened PoE Trade defaults to 80% and so do we. It matters more than it
+ * looks: a rare jewel with three crit multi mods is worth 17 div at good rolls
+ * and a few chaos at bad ones, so searching without a minimum reports the price
+ * of the bad ones.
+ */
+const DEFAULT_MIN_ROLL = 80;
+let minRollPercent = DEFAULT_MIN_ROLL;
+
 /** Must stay identical to `normalizeName` in lib/economy.js — both sides match. */
 function normalizeName(raw) {
   return String(raw)
@@ -430,7 +441,10 @@ function ensurePanel() {
     </div>
     <div class="pnc-body">
       <button class="pnc-run">Calculate cost</button>
-      <button class="pnc-rares" hidden></button>
+      <label class="pnc-roll">
+        <span>Min roll <b>${DEFAULT_MIN_ROLL}%</b></span>
+        <input type="range" min="0" max="100" step="5" value="${DEFAULT_MIN_ROLL}">
+      </label>
       <div class="pnc-status"></div>
       <div class="pnc-summary"></div>
     </div>
@@ -442,7 +456,12 @@ function ensurePanel() {
     panel.remove();
   });
   panel.querySelector('.pnc-run').addEventListener('click', run);
-  panel.querySelector('.pnc-rares').addEventListener('click', appraiseRares);
+
+  const slider = panel.querySelector('.pnc-roll input');
+  slider.addEventListener('input', () => {
+    minRollPercent = Number(slider.value);
+    panel.querySelector('.pnc-roll b').textContent = `${minRollPercent}%`;
+  });
   return panel;
 }
 
@@ -663,46 +682,47 @@ function needsTradeLookup(match) {
 }
 
 /**
- * Appraises rares one at a time against trade.
+ * Prices the items that need a trade search, one at a time, refreshing the
+ * panel after each so numbers appear as they arrive instead of after a minute
+ * of nothing.
  *
- * Serial and spaced out (the service worker enforces 5 s between searches)
- * because GGG allows 15 searches per minute and punishes overruns with bans of
- * up to half an hour. Each item costs one or two searches plus a fetch.
+ * Cached items come back instantly, so a second run on the same build — or a
+ * page refresh — costs no requests at all.
  */
-async function appraiseRares() {
-  if (!lastRun || running) return;
-  running = true;
+async function tradePass(matches, { league, chaosPerDivine, failed }) {
+  const pending = matches.filter((m) => needsTradeLookup(m));
+  if (!pending.length) return;
 
-  const button = document.querySelector(`#${PANEL_ID} .pnc-rares`);
-  const pending = lastRun.matches.filter((m) => needsTradeLookup(m));
   let done = 0;
+  let live = 0; // the ones that actually hit the network
 
   for (const match of pending) {
     done++;
-    if (button) button.textContent = `Pricing rares… ${done}/${pending.length}`;
-    setStatus(`Searching for items similar to ${match.item.name || match.item.baseType}…`);
+    const label = match.item.name || match.item.baseType;
+    setStatus(`Pricing on trade… ${done}/${pending.length} — ${label}`);
 
     try {
       match.appraisal = await send('appraise', {
         item: match.item,
         rollPool: match.price?.rollPool,
-        league: lastRun.league,
-        chaosPerDivine: lastRun.chaosPerDivine,
+        league,
+        chaosPerDivine,
+        minRollPercent,
       });
-      updateRareBadge(match, lastRun.chaosPerDivine);
+      if (!match.appraisal.cached) live++;
+      updateRareBadge(match, chaosPerDivine);
+      renderSummary(matches, chaosPerDivine, failed);
     } catch (err) {
-      setStatus(`Stopped: ${err.message}`, 'pnc-warn');
-      break;
+      setStatus(`Stopped after ${done - 1} of ${pending.length}: ${err.message}`, 'pnc-warn');
+      return;
     }
   }
 
-  if (button) {
-    button.textContent = `Price rares again (${pending.length})`;
-    button.disabled = false;
-  }
-  renderSummary(lastRun.matches, lastRun.chaosPerDivine, lastRun.failed);
-  setStatus(`Done: ${done} of ${pending.length}.`);
-  running = false;
+  const cached = pending.length - live;
+  setStatus(
+    `Done. ${pending.length} item(s) priced on trade` +
+      (cached ? `, ${cached} from cache.` : '.'),
+  );
 }
 
 /**
@@ -781,6 +801,11 @@ async function run() {
   if (running) return;
   running = true;
   clearBadges();
+  const runButton = document.querySelector(`#${PANEL_ID} .pnc-run`);
+  if (runButton) {
+    runButton.disabled = true;
+    runButton.textContent = 'Working…';
+  }
   setStatus('Loading poe.ninja economy…');
 
   try {
@@ -805,30 +830,42 @@ async function run() {
     renderSummary(matches, chaosPerDivine, failed);
     lastRun = { matches, chaosPerDivine, league, failed };
 
-    // Not just rares any more: `≥` uniques go to trade too, to find out what
-    // the roll they actually have is worth.
-    const pending = matches.filter((m) => needsTradeLookup(m));
-    const button = document.querySelector(`#${PANEL_ID} .pnc-rares`);
-    if (button) {
-      button.hidden = !pending.length;
-      button.textContent = `Price ${pending.length} item(s) on trade`;
-      if (pending.length) {
-        // The queue is no longer a fixed delay, so the estimate comes from the
-        // limiter, which knows how much of GGG's budget is already spent.
-        send('estimate', { count: pending.length })
-          .then(({ seconds }) => {
-            button.textContent = `Price ${pending.length} item(s) on trade (~${seconds} s)`;
-          })
-          .catch(() => {});
+    // Every badge gets a trade link, including the ones priced from poe.ninja's
+    // economy. The trade site accepts the query in the URL, so this costs no
+    // requests at all — it just builds links.
+    if (usingBridge) {
+      try {
+        const { urls } = await send('links', {
+          items: matches.map((m) => m.item),
+          league,
+          minRollPercent,
+        });
+        for (const match of matches) {
+          const url = urls[match.item?.index];
+          if (url && match.badge) linkToSearch(match.badge, url);
+        }
+      } catch {
+        // links are a nicety; never let them break the run
       }
     }
 
+    // Not just rares any more: `≥` uniques go to trade too, to find out what
+    // the roll they actually have is worth.
     const withPrice = matches.filter((m) => m.price).length;
     setStatus(`${withPrice} of ${matches.length} items priced — via ${source}.`);
+
+    // Straight on into the trade pass. Everything above is already on screen, so
+    // the slow part runs behind numbers the user can already read.
+    await tradePass(matches, { league, chaosPerDivine, failed });
   } catch (err) {
     setStatus(`Error: ${err.message}`, 'pnc-warn');
   } finally {
     running = false;
+    const button = document.querySelector(`#${PANEL_ID} .pnc-run`);
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Calculate cost';
+    }
   }
 }
 

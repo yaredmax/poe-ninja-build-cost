@@ -1,5 +1,6 @@
 import { buildPriceIndex, fetchLeagues } from './lib/economy.js';
 import {
+  buildQuery,
   buildRareQuery,
   buildComboQuery,
   buildOwnModsQuery,
@@ -12,8 +13,6 @@ import {
   isBetter,
   reliability,
   runQuery,
-  searchLimit,
-  fetchLimit,
   webUrl,
 } from './lib/trade.js';
 import {
@@ -149,9 +148,62 @@ async function priceByCombinations({ item, mods, byName, league, chaosPerDivine,
   return null;
 }
 
+/**
+ * Appraisals are cached on the item's own GGG id, which is stable across page
+ * loads, so refreshing a build costs nothing. This is what makes the trade pass
+ * affordable: the second look at a build is free, and changing the roll slider
+ * only re-prices what that slider actually affects.
+ */
+const APPRAISAL_TTL_MS = 2 * 60 * 60 * 1000;
+
+function cacheKey(item, league, minRoll) {
+  return item.id ? `ap:${league}:${minRoll}:${item.id}` : null;
+}
+
+async function cachedAppraisal(key) {
+  if (!key) return null;
+  const store = await chrome.storage.local.get(key);
+  const entry = store[key];
+  if (!entry || Date.now() - entry.at > APPRAISAL_TTL_MS) return null;
+  return { ...entry.data, cached: true };
+}
+
+async function cacheAppraisal(key, data) {
+  if (!key) return;
+  await chrome.storage.local.set({ [key]: { at: Date.now(), data } });
+}
+
+/** A trade link for any item, built without spending a request. */
+async function linkFor(item, league, minRollPercent) {
+  const simple = buildQuery(item);
+  if (simple) return searchUrl(league, simple);
+
+  // Rares and magic items have no name to search by, so we link the same query
+  // the appraisal would run: its own modifiers at the configured roll.
+  const index = await loadStatIndex();
+  const useCategory = item.inventoryId !== 'PassiveJewels';
+  const mods = rolledMods(index, item, MAX_COMBO_MODS, null, GEAR_FIELDS);
+  const body = buildComboQuery(item, mods, {
+    minRoll: minRollFor(item, minRollPercent),
+    useCategory,
+  });
+  return body ? searchUrl(league, body) : null;
+}
+
 const handlers = {
   async ping() {
     return { ok: true };
+  },
+
+  /** Trade links for every item, so any badge can be clicked. Costs nothing. */
+  async links({ items, league, minRollPercent }) {
+    const resolved = await resolveLeague(null, league);
+    const urls = {};
+    for (const item of items) {
+      const url = await linkFor(item, resolved, minRollPercent);
+      if (url) urls[item.index] = url;
+    }
+    return { urls };
   },
 
   async leagues() {
@@ -172,6 +224,25 @@ const handlers = {
   async appraise({ item, rollPool, league, chaosPerDivine, minRollPercent }) {
     await installUserAgentRule();
     const resolved = await resolveLeague(null, league);
+
+    const key = cacheKey(item, resolved, minRollPercent ?? DEFAULT_MIN_ROLL);
+    const hit = await cachedAppraisal(key);
+    if (hit) return hit;
+
+    const result = await appraiseItem({ item, rollPool, league: resolved, chaosPerDivine, minRollPercent });
+    await cacheAppraisal(key, result);
+    return result;
+  },
+
+  async clearCache() {
+    await chrome.storage.local.clear();
+    return { ok: true };
+  },
+};
+
+/** The actual work, split out so `appraise` can serve cached answers first. */
+async function appraiseItem({ item, rollPool, league: resolved, chaosPerDivine, minRollPercent }) {
+  {
     const index = await loadStatIndex();
 
     const isUnique = item.frameType === 3 || item.frameType === 10;
@@ -274,19 +345,8 @@ const handlers = {
       strategy: best.strategy,
       filters: best.body.query.stats[0].filters.map((f) => f.id),
     };
-  },
-
-  /** Seconds the queue will take, asked of the limiter's own bucket state. */
-  async estimate({ count }) {
-    // One search plus one fetch per item, and the search is the tight one.
-    return { seconds: Math.max(searchLimit.estimate(count), fetchLimit.estimate(count)) };
-  },
-
-  async clearCache() {
-    await chrome.storage.local.clear();
-    return { ok: true };
-  },
-};
+  }
+}
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const handler = handlers[msg?.type];
