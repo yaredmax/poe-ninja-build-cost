@@ -1,9 +1,6 @@
-// Checks that a unique whose price depends on its roll gets searched by the
-// mods it actually has, instead of by name alone.
-//
-// The item below is the real Watcher's Eye from the test build. Its first three
-// modifiers are the ones every copy has; only the "while affected by" ones are
-// rolled, and those are what it is worth.
+// Prices a unique whose value is its roll, by trying its modifiers and then
+// every combination of one fewer, taking the dearest hit at the first level
+// that has a market.
 //
 //   node tools/variant-test.mjs
 
@@ -19,8 +16,11 @@ globalThis.fetch = (url, init = {}) =>
 
 const { buildPriceIndex, fetchLeagues, normalizeName } = await import('../src/lib/economy.js');
 const { loadStatIndex, rolledMods } = await import('../src/lib/stats.js');
-const { buildVariantQuery, runQuery, fetchPrices } = await import('../src/lib/trade.js');
+const { buildComboQuery, combinations, fetchPrices, runQuery, wantsValues, webUrl } =
+  await import('../src/lib/trade.js');
 
+// The real Watcher's Eye from the test build. Its first three modifiers are the
+// ones every copy has; only the "while affected by" ones are rolled.
 const ITEM = {
   name: "Watcher's Eye",
   baseType: 'Prismatic Jewel',
@@ -40,34 +40,45 @@ const ITEM = {
 const league = (await fetchLeagues())[0].id;
 const { index, chaosPerDivine } = await buildPriceIndex(league);
 const statIndex = await loadStatIndex();
-
 const entry = index[normalizeName(ITEM.name)];
 const fmt = (c) =>
   c >= chaosPerDivine ? `${(c / chaosPerDivine).toFixed(1)} div` : `${Math.round(c)} c`;
 
+const mods = rolledMods(statIndex, ITEM, 3, entry.rollPool);
 console.log(`League: ${league}`);
-console.log(`poe.ninja floor price: ${fmt(entry.chaos)}  (floor=${entry.floor})`);
-console.log(`Roll pool size: ${entry.rollPool?.length ?? 0} modifiers\n`);
+console.log(`poe.ninja floor: ${fmt(entry.chaos)}   roll pool: ${entry.rollPool?.length ?? 0} mods`);
+console.log(`values in filters: ${wantsValues(ITEM)}\n`);
+console.log('Rolled mods used:');
+for (const m of mods) console.log(`  ${m.text}`);
 
-// Which of the item's mods count as rolled rather than always-present
-const picked = rolledMods(statIndex, ITEM, 3, entry.rollPool);
-console.log('Mods chosen for the search:');
-for (const m of picked) console.log(`  ${m.text}`);
-const ignored = ITEM.explicitMods.filter((m) => !picked.some((p) => p.text === m));
-console.log('Ignored (every copy has them):');
-for (const m of ignored) console.log(`  ${m}`);
+const started = Date.now();
+let queries = 0;
 
-// How restrictive can we be and still find a market? Demanding all three rolled
-// mods at once describes an almost unique item, so we step down.
-console.log(`\npoe.ninja floor: ${fmt(entry.chaos)}\n`);
-for (const n of [3, 2, 1]) {
-  const body = buildVariantQuery(ITEM, statIndex, { rolledMods }, entry.rollPool, n);
-  if (!body) { console.log(`  ${n} mod(s): no query`); continue; }
-  const { id, result, total } = await runQuery(body, league);
-  const prices = total ? await fetchPrices(id, result, chaosPerDivine) : [];
-  const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
-  console.log(
-    `  ${n} mod(s): ${String(total).padStart(4)} listings   median ${(median ? fmt(median) : '—').padStart(9)}` +
-    `   https://www.pathofexile.com/trade/search/${encodeURIComponent(league)}/${id}`,
-  );
+for (let size = mods.length; size >= 1; size--) {
+  console.log(`\n--- ${size} mod(s) at a time`);
+  const hits = [];
+  for (const combo of combinations(mods, size)) {
+    const query = buildComboQuery(ITEM, combo, { byName: true, withValues: wantsValues(ITEM) });
+    queries++;
+    const r = await runQuery(query, league);
+    const label = combo.map((m) => m.text.slice(0, 34)).join('  +  ');
+    console.log(`   ${String(r.total).padStart(4)} listings   ${label}`);
+    if (r.total > 0) hits.push({ ...r, combo });
+  }
+  if (!hits.length) continue;
+
+  let best = null;
+  for (const hit of hits) {
+    const prices = await fetchPrices(hit.id, hit.result, chaosPerDivine);
+    const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
+    if (median != null && (!best || median > best.median)) best = { ...hit, median };
+  }
+  if (best) {
+    console.log(`\n=> ${fmt(best.median)}   (dearest of ${hits.length} combination(s) at this level)`);
+    console.log(`   poe.ninja floor was ${fmt(entry.chaos)}`);
+    console.log(`   ${webUrl(league, best.id)}`);
+    break;
+  }
 }
+
+console.log(`\n${queries} searches, ${((Date.now() - started) / 1000).toFixed(1)} s`);

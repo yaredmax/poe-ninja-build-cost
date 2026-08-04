@@ -1,7 +1,10 @@
 import { buildPriceIndex, fetchLeagues } from './lib/economy.js';
 import {
   buildRareQuery,
+  buildComboQuery,
   buildOwnModsQuery,
+  combinations,
+  wantsValues,
   fetchPrices,
   RELIABLE,
   isBetter,
@@ -90,11 +93,59 @@ async function resolveLeague(slug, id) {
 /** Priority mods added on top of the pseudo ones in the fallback query. */
 const FALLBACK_MODS = 1;
 
-/** Mod counts tried for a unique's variant search, most specific first. */
-const VARIANT_MOD_STEPS = [3, 2, 1];
-
 /** Same idea for rare gear, but two steps: the third search is the fallback. */
 const GEAR_MOD_STEPS = [3, 2];
+
+/** Most modifiers considered for a permutation search. Bounds the combinatorics. */
+const MAX_COMBO_MODS = 3;
+
+/** Hard ceiling on searches for one item, whatever the maths says. */
+const MAX_COMBO_QUERIES = 8;
+
+/**
+ * Prices an item by trying its modifiers, then every combination of one fewer,
+ * and so on until the market has something.
+ *
+ * Taking the **most expensive** hit at a level is the point. The item carries
+ * all of the modifiers, so it is worth at least as much as the priciest subset
+ * that someone is actually selling. Any single subset is a lower bound; the
+ * highest of them is the tightest one we can get.
+ *
+ * This replaces guessing which mods matter. There is no list of "valuable"
+ * modifiers anywhere — Awakened PoE Trade doesn't have one either, it shows the
+ * user checkboxes and lets them decide — so instead of guessing we measure.
+ *
+ * Most items resolve on the first or second query; the combinatorial tail only
+ * runs for the awkward ones.
+ */
+async function priceByCombinations({ item, mods, byName, league, chaosPerDivine }) {
+  const withValues = wantsValues(item);
+  let budget = MAX_COMBO_QUERIES;
+  let widest = mods.length;
+
+  for (let size = mods.length; size >= 1; size--) {
+    const hits = [];
+    for (const combo of combinations(mods, size)) {
+      if (budget <= 0) break;
+      const query = buildComboQuery(item, combo, { byName, withValues });
+      if (!query) continue;
+      budget--;
+      const attempt = await runQuery(query, league);
+      if (attempt.total > 0) hits.push({ ...attempt, query, size });
+    }
+    if (!hits.length) continue;
+
+    // Price each hit and keep the dearest.
+    let best = null;
+    for (const hit of hits) {
+      const prices = await fetchPrices(hit.id, hit.result, chaosPerDivine);
+      const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
+      if (median != null && (!best || median > best.chaos)) best = { ...hit, chaos: median };
+    }
+    if (best) return { ...best, mods: size, rolled: widest, queriesUsed: MAX_COMBO_QUERIES - budget };
+  }
+  return null;
+}
 
 const handlers = {
   async ping() {
@@ -129,48 +180,34 @@ const handlers = {
 
     // Both are searched by their own mods. The unique also pins its name.
     if (isUnique || isJewel) {
-      // Asking for every rolled mod at once describes a nearly unique item: the
-      // test build's Watcher's Eye had zero listings on three mods and zero on
-      // two, but ten on one — at 2 div against poe.ninja's 30 c floor. So we
-      // step down until the market has something, and say when we had to.
-      let best = null;
-      let width = -1;
-      for (const n of VARIANT_MOD_STEPS) {
-        const query = buildOwnModsQuery(item, index, { rolledMods }, {
-          rollPool,
-          maxMods: n,
-          byName: isUnique,
-        });
-        if (!query) continue;
-        const filters = query.query.stats[0].filters.length;
-        if (filters === width) continue; // fewer mods requested, same query
-        width = filters;
-        const attempt = await runQuery(query, resolved);
-        best = { ...attempt, variant: query, mods: filters };
-        if (attempt.total > 0) break;
-      }
-      if (!best) return { skipped: 'none of its mods could be translated' };
+      const mods = rolledMods(index, item, MAX_COMBO_MODS, rollPool);
+      if (!mods.length) return { skipped: 'none of its mods could be translated' };
 
-      const rolled = rolledMods(index, item, 99, rollPool).length;
-      const prices = best.total
-        ? await fetchPrices(best.id, best.result, chaosPerDivine)
-        : [];
+      const best = await priceByCombinations({
+        item,
+        mods,
+        byName: isUnique,
+        league: resolved,
+        chaosPerDivine,
+      });
+      if (!best) return { skipped: 'no listing found with any subset of its mods' };
+
       return {
         url: webUrl(resolved, best.id),
         total: best.total,
-        chaos: prices.length ? prices[Math.floor(prices.length / 2)] : null,
-        reliability: best.total ? 'variant' : 'none',
-        // Unlike the "similar rares" search this query is precise by
-        // construction — same unique, same mods — so even two listings mean
-        // something. The reliability gate for lookalikes doesn't apply.
-        reliable: best.total > 0,
+        chaos: best.chaos,
+        reliability: 'variant',
+        // This query is precise by construction — same item, same mods — so even
+        // a single listing is a real answer. The lookalike gate doesn't apply.
+        reliable: true,
         variant: true,
-        // We priced it on fewer mods than it actually has, so its real value is
-        // at least this much.
-        partial: best.mods < rolled,
+        // Priced on a subset of its modifiers, so the real value is at least
+        // this much.
+        partial: best.mods < best.rolled,
         mods: best.mods,
-        rolled,
-        filters: best.variant.query.stats[0].filters.map((f) => f.id),
+        rolled: best.rolled,
+        queries: best.queriesUsed,
+        filters: best.query.query.stats[0].filters.map((f) => f.id),
       };
     }
 

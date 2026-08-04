@@ -705,6 +705,30 @@ async function appraiseRares() {
   running = false;
 }
 
+/**
+ * Makes a badge open the very search that produced its number.
+ *
+ * GGG's search ids are durable, so the link shows exactly the listings the
+ * price came from — no re-running the query, and no way for it to disagree with
+ * what we displayed.
+ *
+ * Corner badges are `pointer-events: none` so they don't cover poe.ninja's item
+ * tooltip; a clickable one has to opt back in, which costs the tooltip on that
+ * small corner. Worth it for being able to check the number.
+ */
+function linkToSearch(badge, url) {
+  if (!url) return;
+  badge.classList.add('pnc-badge--link');
+  badge.title += ' Click to open this search on the trade site.';
+  badge.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    // Straight from the click, with no await in between, or Chrome treats it as
+    // a popup and blocks it.
+    window.open(url, '_blank', 'noopener');
+  });
+}
+
 /** Swaps the "no price" badge for the estimate, or for why there isn't one. */
 function updateRareBadge(match, chaosPerDivine) {
   const badge = match.badge;
@@ -743,6 +767,7 @@ function updateRareBadge(match, chaosPerDivine) {
   badge.textContent = `${a.partial ? '≥' : '≈'} ${formatChaos(a.chaos, chaosPerDivine)}`;
   badge.classList.remove('pnc-badge--warn');
   badge.classList.add('pnc-badge--similar');
+  linkToSearch(badge, a.url);
   badge.title = a.variant
     ? `${a.total} listing(s) of this unique matching ${a.mods} of its ${a.rolled} rolled ` +
       `modifier(s), cheapest median. Replaces poe.ninja's floor price.` +

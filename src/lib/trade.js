@@ -86,15 +86,29 @@ export function buildVariantQuery(item, statIndex, helpers, rollPool, maxMods = 
  *    and no equipment category. A jewel *is* its three modifiers, so searching
  *    for exactly those is what a person would do.
  */
-export function buildOwnModsQuery(item, statIndex, helpers, opts = {}) {
-  const { rollPool, maxMods = MAX_VARIANT_MODS, byName = false, fields, useCategory = false } = opts;
-  const mods = helpers.rolledMods(statIndex, item, maxMods, rollPool, fields);
+/**
+ * Uniques where the number on the modifier is the whole point.
+ *
+ * For most uniques the roll range is narrow enough that requiring a minimum
+ * only costs us listings. Timeless and Time-Lost jewels are the exception: the
+ * number *is* the item. If you know of others, this is where they go.
+ */
+const VALUE_SENSITIVE =
+  /^(time-lost|elegant hubris|militant faith|brutal restraint|glorious vanity|lethal pride|that which was taken)/i;
+
+export function wantsValues(item) {
+  return VALUE_SENSITIVE.test(item.name || '');
+}
+
+/** Query for one specific set of modifiers. */
+export function buildComboQuery(item, mods, opts = {}) {
+  const { byName = false, useCategory = false, withValues = false } = opts;
   if (!mods.length) return null;
 
   const filters = mods.map((mod) => {
     const filter = { id: mod.id };
     const value = mod.values[0];
-    if (typeof value === 'number') {
+    if (withValues && typeof value === 'number') {
       filter.value = { min: Math.floor(Math.abs(value) * SLACK) * Math.sign(value || 1) };
     }
     return filter;
@@ -121,6 +135,26 @@ export function buildOwnModsQuery(item, statIndex, helpers, opts = {}) {
   if (byName && item.name) query.name = item.name;
 
   return { query, sort: { price: 'asc' } };
+}
+
+/** Every combination of `k` items, in order. */
+export function* combinations(list, k) {
+  if (k === 0) { yield []; return; }
+  for (let i = 0; i <= list.length - k; i++) {
+    for (const rest of combinations(list.slice(i + 1), k - 1)) {
+      yield [list[i], ...rest];
+    }
+  }
+}
+
+/**
+ * Wrapper kept for the gear path, which wants "the first N mods" rather than
+ * the exhaustive search below.
+ */
+export function buildOwnModsQuery(item, statIndex, helpers, opts = {}) {
+  const { rollPool, maxMods = MAX_VARIANT_MODS, fields } = opts;
+  const mods = helpers.rolledMods(statIndex, item, maxMods, rollPool, fields);
+  return buildComboQuery(item, mods, { ...opts, withValues: true });
 }
 
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';

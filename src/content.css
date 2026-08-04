@@ -221,6 +221,19 @@
   font-weight: 400;
 }
 
+/* Badge that opens the search behind its number. Corner badges are click-through
+   by default, so this one opts back in. */
+.pnc-badge--link {
+  pointer-events: auto;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+
+.pnc-badge--link:hover {
+  filter: brightness(1.35);
+}
+
 /* Rare appraised from similar items on trade. */
 .pnc-badge--similar {
   background: hsl(190 45% 18%);

@@ -137,17 +137,38 @@ listed — energy shield, life, mana — which every copy has, and land right ba
 the floor price.
 
 Asking for all rolled mods at once describes a nearly unique item, so the search
-steps down 3 → 2 → 1 until the market has something. When it prices on fewer mods
-than the item has, the badge shows `≥`: the item is worth *at least* that.
+steps down: all of them, then **every combination** of one fewer, then of two
+fewer, stopping at the first level where the market has anything.
+
+At that level every combination that returned listings is priced, and the
+**dearest** one wins. That is the point of the exhaustive search: the item
+carries all of the modifiers, so it is worth at least as much as the priciest
+subset somebody is actually selling. Any one subset is a lower bound; the
+highest of them is the tightest one available. The badge shows `≥` to say so.
+
+With three modifiers that is 1 + 3 + 3 = 7 searches worst case, capped at 8.
+Most items stop at the first or second.
+
+Numeric values are left out of the filters. For most uniques the roll range is
+narrow enough that a minimum only costs listings. Timeless and Time-Lost jewels
+are the exception — there the number *is* the item — and they're listed in
+`VALUE_SENSITIVE`.
 
 Measured on the test build's Watcher's Eye:
 
 ```
 poe.ninja floor:  30 c
-3 mods:  0 listings
-2 mods:  0 listings
-1 mod:  10 listings   median 2.0 div      ← 12x the floor
+3 mods           0 listings
+2 mods (3 pairs) 0,  0,  0
+1 mod  (3 alone) 32, 52, 40   -> priced all three, dearest wins
+
+=> 2.0 div        12x the floor, in 7 searches
 ```
+
+The number happens to match what the old "first single mod" descent found. What
+changed is that it is now justified: we know every pair has no market, so no
+tighter bound exists. On an item where a different pair or single is the
+valuable one, the old approach would have missed it.
 
 ## Rare appraisal
 
@@ -247,6 +268,16 @@ it didn't cause.
 Cluster jewels are the only thing left out: they're worth the notables they
 grant, and those aren't modifiers we can filter on. Ordinary rare jewels are
 priced like uniques, by their own mods — see below.
+
+## Clicking a price
+
+Every appraised badge remembers the id of the search that produced its number
+and opens exactly that search on the trade site. GGG's search ids are durable,
+so you see the very listings the median came from — not a fresh query that might
+disagree with what's on screen.
+
+Corner badges are `pointer-events: none` so they don't cover poe.ninja's item
+tooltip; a clickable one opts back in, which costs the tooltip on that corner.
 
 ## Where the price is painted
 
