@@ -1,0 +1,216 @@
+#pnc-panel {
+  position: fixed;
+  top: 84px;
+  right: 16px;
+  z-index: 2147483000;
+  width: 300px;
+  max-height: 70vh;
+  overflow: auto;
+  background: hsl(204 24% 8% / 0.97);
+  border: 1px solid hsl(204 20% 22%);
+  border-radius: 8px;
+  color: hsl(204 12% 88%);
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  box-shadow: 0 10px 30px hsl(0 0% 0% / 0.5);
+}
+
+#pnc-panel .pnc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid hsl(204 20% 18%);
+}
+
+#pnc-panel .pnc-close {
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+#pnc-panel .pnc-body {
+  padding: 12px;
+}
+
+#pnc-panel .pnc-run {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid hsl(43 60% 45%);
+  border-radius: 6px;
+  background: hsl(43 55% 22%);
+  color: hsl(43 70% 82%);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#pnc-panel .pnc-run:hover {
+  background: hsl(43 55% 28%);
+}
+
+#pnc-panel .pnc-status {
+  margin-top: 8px;
+  font-size: 12px;
+  color: hsl(204 10% 62%);
+}
+
+#pnc-panel .pnc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#pnc-panel .pnc-cat {
+  margin-top: 12px;
+}
+
+#pnc-panel .pnc-cat-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid hsl(204 20% 26%);
+  color: hsl(43 55% 72%);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+#pnc-panel .pnc-cat-head em {
+  color: hsl(204 10% 50%);
+  font-style: normal;
+  font-weight: 400;
+}
+
+#pnc-panel .pnc-cat-head strong {
+  color: hsl(204 12% 88%);
+  font-variant-numeric: tabular-nums;
+}
+
+#pnc-panel .pnc-table td {
+  padding: 3px 0;
+  border-bottom: 1px solid hsl(204 20% 14%);
+  vertical-align: top;
+}
+
+#pnc-panel .pnc-x {
+  color: hsl(204 10% 52%);
+  font-style: normal;
+  font-size: 11px;
+}
+
+#pnc-panel .pnc-num {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+#pnc-panel .pnc-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid hsl(204 20% 22%);
+  font-size: 14px;
+}
+
+/* El total va arriba del todo: es lo que se viene a mirar. */
+#pnc-panel .pnc-total--cabecera {
+  margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid hsl(43 50% 38%);
+  border-radius: 6px;
+  background: hsl(43 40% 14%);
+  font-size: 15px;
+}
+
+#pnc-panel .pnc-total--cabecera strong {
+  color: hsl(43 75% 78%);
+  font-variant-numeric: tabular-nums;
+}
+
+#pnc-panel .pnc-note {
+  margin-top: 8px;
+  font-size: 11px;
+  color: hsl(204 10% 55%);
+}
+
+#pnc-panel .pnc-warn,
+.pnc-warn {
+  color: hsl(38 85% 65%);
+}
+
+.pnc-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: hsl(43 55% 20%);
+  border: 1px solid hsl(43 50% 38%);
+  color: hsl(43 75% 80%);
+  font: 600 11px/1.5 system-ui, sans-serif;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.pnc-badge--sinprecio {
+  background: hsl(204 12% 18%);
+  border-color: hsl(204 12% 32%);
+  color: hsl(204 10% 62%);
+  font-weight: 400;
+}
+
+.pnc-badge--similar {
+  background: hsl(190 45% 18%);
+  border-color: hsl(190 45% 38%);
+  color: hsl(190 60% 78%);
+}
+
+#pnc-panel .pnc-rares {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid hsl(190 40% 38%);
+  border-radius: 6px;
+  background: hsl(190 40% 20%);
+  color: hsl(190 55% 82%);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#pnc-panel .pnc-rares:hover:not(:disabled) {
+  background: hsl(190 40% 26%);
+}
+
+#pnc-panel .pnc-rares:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/*
+ * Badge superpuesto en la esquina del icono.
+ *
+ * `pointer-events: none` a propósito: si el badge capturase el ratón taparía
+ * el tooltip del ítem de poe.ninja, que es más útil que el nuestro.
+ */
+.pnc-badge--esquina {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  margin: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: hsl(43 55% 16% / 0.94);
+  box-shadow: 0 1px 4px hsl(0 0% 0% / 0.6);
+}
+
+.pnc-badge--warn {
+  background: hsl(20 55% 20%);
+  border-color: hsl(20 55% 40%);
+  color: hsl(30 80% 78%);
+}

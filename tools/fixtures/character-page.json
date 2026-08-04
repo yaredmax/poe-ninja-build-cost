@@ -1,0 +1,77 @@
+{
+  "_comment": "Textos e iconos reales extraídos de https://poe.ninja/poe1/builds/allflame/character/pathofky-0288/Ky_BladeBUSTIN (2026-08-04). Incluye a propósito los nombres de vendors del diálogo de cookies: son la principal fuente de falsos positivos.",
+  "textos": [
+    "poe.ninja", "Economy", "Builds", "Atlas Trees", "Back to search", "Time Machine",
+    "Latest snapshot", "Allflame League", "Ky_BladeBUSTIN",
+    "Level 98 Assassin (Farrul Bloodline)", "Profile", "View Profile", "Account",
+    "Last fetched", "39 minutes ago", "Import Code for Path of Building",
+    "Equipment", "Trade", "Copy",
+
+    "Cluster Jewels",
+    "Brood Splinter Large Cluster Jewel", "Foe Ruin Large Cluster Jewel",
+    "Eagle Heart Medium Cluster Jewel", "Eagle Sliver Medium Cluster Jewel",
+    "Loath Ruin Medium Cluster Jewel", "Luminous Star Medium Cluster Jewel",
+
+    "Base Jewels",
+    "Forbidden Flame Crimson Jewel", "Forbidden Flesh Cobalt Jewel",
+    "The Light of Meaning Prismatic Jewel", "Watcher's Eye Prismatic Jewel",
+    "Eagle Desire Crimson Jewel", "Oblivion Joy Viridian Jewel",
+    "Sol Shard Crimson Jewel",
+
+    "Animated Guardian:", "Dying Breath", "Tempest Cowl", "Gruthkul's Pelt",
+    "Grim Claw", "Windscream", "5 items",
+
+    "Stats", "Character", "Attributes", "Movement Speed", "Item Rarity", "Bandits",
+    "Alira", "Pantheon Major", "The Brine King", "Pantheon Minor", "Abberath",
+    "Charges", "Endurance charges", "Frenzy charges", "Power charges",
+    "Defensive", "Life", "Energy shield", "Mana", "Armour", "Damage Reduction",
+    "Evasion rating", "Evade chance", "Block", "Spell Supression",
+    "Physical taken as", "Resistances", "Simulated", "Effective Health Pool",
+    "Max Hit", "Skill DPS Estimation", "Blade Blast", "Bladefall",
+    "Lancing Steel of Spraying", "Passive tree",
+
+    "Ascendancy & Keystones", "Eldritch Battery", "Keystone", "Ghost Dance",
+    "Mind Over Matter", "Deathmarked", "Ascendancy", "Mistwalker",
+    "Mystical Infusion", "Unstable Infusion", "Masteries", "Critical Mastery",
+    "Charge Mastery", "Energy Shield Mastery", "Mana Mastery", "Mark Mastery",
+    "Runegrafts", "Runegraft of Time", "Runegraft of Treachery",
+    "Tattoos", "Tattoo of the Tasalio Warrior",
+
+    "Skills",
+    "Greater Spell Cascade Support", "3 / 20", "Cast On Critical Strike Support",
+    "(trigger)", "20 / 20", "Empower Support", "21 / 20", "Raise Spectre",
+    "Meat Shield Support", "Minion Life Support", "Animate Guardian",
+    "Flesh and Stone", "Enlighten Support", "4 / 20", "Grace", "Herald of Ash",
+    "Vitality", "Arrogance Support", "20 / 8", "Precision",
+    "Ice Nova of Frostbolts", "Shield Charge", "Faster Attacks Support",
+    "Frostblink", "Convocation", "Steelskin", "Automation",
+
+    "Support the site", "About", "Docs & FAQ", "Statistics", "Data dumps",
+    "Resources", "Privacy Policy", "Advertise on this site",
+
+    "Welcome to poe.ninja", "Consent", "Do not consent", "Manage options",
+    "Accept all", "Confirm choices", "Ad partners", "Close",
+    "Magnite", "Criteo SA", "Quantcast", "Epsilon", "Sovrn, Inc.", "Adikteev",
+    "OpenX", "Equativ", "Sirdata", "33Across", "Flashtalking", "Smaato, Inc.",
+    "HUMAN", "Stamp", "Accurat", "VALIUZ", "Nimbus", "Indeed", "Pandora",
+    "Zynga", "Bose", "Vimeo", "Overstock", "eBay", "Forbes", "Netflix",
+    "Walmart", "Cloudflare", "Wish", "Impact", "Signal", "Stream", "Turbo",
+    "Momentum", "Resonate", "Meta", "Reactive", "Adcash", "Kobler", "Viant",
+    "UNICORN", "Foursquare", "Tealium", "Adimo", "Adflare", "Publica LLC",
+    "Sabio, Inc", "MetaAds", "Viomba", "AccuWeather", "Snap Inc.", "Fiverr"
+  ],
+  "iconos": [
+    "SpellCascade.png", "RainOfBlades.png", "CastOnCrit.png", "Empower.png",
+    "BladeBurst.png", "LancingSteel.png", "FasterAttacks.png", "ShieldCharge.png",
+    "FrostblinkSkillGem.png", "BloodMagic.png", "Vitality.png",
+    "AccuracyandCriticalChanceAura.png", "IceNova.png", "ConvocationWhite.png",
+    "QuickGuardGem.png", "AutoCastInstantSkills.png", "DefensiveMinion.png",
+    "RaiseSpectre.png", "MinionLife.png", "AnimateArmour.png", "Enlighten.png",
+    "BloodSandArmourGem.png", "Grace.png", "HeraldofAsh.png", "NewGemBase3.png",
+    "NewGemBase2.png", "PuzzlePieceJewel_CleansingFire.png",
+    "PuzzlePieceJewel_GreatTangle.png", "AfflictionJewel.png", "ElderJewel.png",
+    "basicstr.png", "basicdex.png", "MyriadGraspGrand.png", "Bow2.png",
+    "HalfTonedBoots.png", "HelmetDexInt11.png", "GlovesDexInt3.png",
+    "ShieldDexInt5.png", "Rapier3.png", "TriggerQuiverBase.png"
+  ]
+}

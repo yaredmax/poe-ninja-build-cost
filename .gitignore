@@ -1,0 +1,10 @@
+# Permisos de Claude Code: son de esta máquina, no del proyecto
+.claude/settings.local.json
+
+# Ruido del sistema
+Thumbs.db
+.DS_Store
+
+# Por si algún día entra tooling de node
+node_modules/
+*.log
