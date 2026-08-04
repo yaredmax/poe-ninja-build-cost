@@ -32,10 +32,26 @@ const DESYNC_PAD = 1;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Share of each bucket left untouched, for the user's own trade searches.
+ *
+ * The buckets are per IP, so this extension and the trade site the player has
+ * open are spending the same allowance. Filling it means their manual search
+ * gets the 429 — which is exactly what happened: a build was being priced, the
+ * player searched something themselves, and both got blocked for two minutes.
+ *
+ * Reserving a third costs us about a third of the throughput and guarantees
+ * there is always room for a person who is actually playing.
+ */
+const USER_RESERVE = 1 / 3;
+
 /** One `hits per period` bucket. */
 class Bucket {
   constructor(max, windowSeconds) {
     this.max = max;
+    // Never take the whole bucket. At least one slot stays free even on the
+    // small ones, where a third would round down to nothing.
+    this.usable = Math.max(1, max - Math.max(1, Math.ceil(max * USER_RESERVE)));
     this.windowSeconds = windowSeconds;
     this.windowMs = (windowSeconds + DESYNC_PAD) * 1000;
     this.hits = [];
@@ -53,7 +69,7 @@ class Bucket {
   /** When a slot frees up. `now` if there is room already. */
   freeAt(now) {
     this.prune(now);
-    return this.hits.length < this.max ? now : this.hits[0] + this.windowMs;
+    return this.hits.length < this.usable ? now : this.hits[0] + this.windowMs;
   }
 
   consume(now) {
@@ -157,7 +173,7 @@ export class RateLimiter {
     const now = Date.now();
     const sim = this.buckets.map((b) => {
       b.prune(now);
-      return { max: b.max, windowMs: b.windowMs, hits: [...b.hits] };
+      return { usable: b.usable, windowMs: b.windowMs, hits: [...b.hits] };
     });
 
     let clock = now;
@@ -165,7 +181,7 @@ export class RateLimiter {
       let readyAt = clock;
       for (const b of sim) {
         const live = b.hits.filter((h) => h > clock - b.windowMs);
-        if (live.length >= b.max) readyAt = Math.max(readyAt, live[0] + b.windowMs);
+        if (live.length >= b.usable) readyAt = Math.max(readyAt, live[0] + b.windowMs);
       }
       clock = readyAt;
       for (const b of sim) b.hits.push(clock);

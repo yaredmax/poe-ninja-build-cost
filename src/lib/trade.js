@@ -127,12 +127,27 @@ export function searchUrl(league, body) {
   return `${WEB}/${encodeURIComponent(league)}?q=${encodeURIComponent(JSON.stringify(body))}`;
 }
 
+const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
+
 /** Query for one specific set of modifiers. */
 export function buildComboQuery(item, mods, opts = {}) {
-  const { byName = false, useCategory = false, minRoll = 0 } = opts;
-  if (!mods.length) return null;
+  const { byName = false, useCategory = false, minRoll = 0, resistance = 0 } = opts;
 
-  const filters = mods.map((mod) => {
+  // One pseudo filter instead of two or three individual resistances: it is how
+  // people actually shop, and it frees the scarce filter slots for mods that
+  // distinguish the item.
+  const pseudo = [];
+  if (resistance >= 30) {
+    const filter = { id: PSEUDO_RESISTANCE };
+    // At min roll 0 the filter only asks that the item *has* resistance, the
+    // same as every other filter at that setting. Demanding the full amount
+    // there made 0% stricter than 80%, which is backwards.
+    if (minRoll > 0) filter.value = { min: Math.floor((resistance * minRoll) / 100) };
+    pseudo.push(filter);
+  }
+  if (!mods.length && !pseudo.length) return null;
+
+  const filters = pseudo.concat(mods.map((mod) => {
     const filter = { id: mod.id };
     const value = mod.values[0];
     if (minRoll > 0 && typeof value === 'number') {
@@ -140,7 +155,7 @@ export function buildComboQuery(item, mods, opts = {}) {
       filter.value = { min: floor * Math.sign(value || 1) };
     }
     return filter;
-  });
+  }));
 
   const query = {
     status: status(),
@@ -180,12 +195,15 @@ export function* combinations(list, k) {
  * the exhaustive search below.
  */
 export function buildOwnModsQuery(item, statIndex, helpers, opts = {}) {
-  const { rollPool, maxMods = MAX_VARIANT_MODS, fields } = opts;
+  const { rollPool, maxMods = MAX_VARIANT_MODS, fields, minRoll = DEFAULT_MIN_ROLL } = opts;
   const mods = helpers.rolledMods(statIndex, item, maxMods, rollPool, fields);
-  return buildComboQuery(item, mods, { ...opts, minRoll: DEFAULT_MIN_ROLL });
+  return buildComboQuery(item, mods, {
+    ...opts,
+    minRoll,
+    resistance: helpers.totalElementalResistance?.(item) ?? 0,
+  });
 }
 
-const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
 const PSEUDO_LIFE = 'pseudo.pseudo_total_life';
 
 /**

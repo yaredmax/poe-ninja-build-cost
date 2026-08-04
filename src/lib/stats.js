@@ -79,16 +79,25 @@ export async function loadStatIndex() {
   const data = await fetchStats();
 
   const byType = new Map();
+  const localByType = new Map();
   const pseudo = new Map();
 
   for (const group of data.result || []) {
     for (const e of group.entries || []) {
       const type = e.type || group.id;
       if (type === 'pseudo') pseudo.set(e.id, e);
-      if (!byType.has(type)) byType.set(type, new Map());
-      const map = byType.get(type);
-      // Several keys for the same id: with and without "(Local)", with and
-      // without the sign.
+
+      // Local and global variants share the item's wording exactly: a body
+      // armour and a ring both read "+93 to maximum Energy Shield", and only the
+      // template's "(Local)" suffix tells them apart. Merging them meant always
+      // picking the global one, so a chest was searched for a modifier that only
+      // exists on jewellery. They get separate maps, and the caller says which
+      // it wants based on the slot.
+      const local = /\(local\)$/i.test(e.text.trim());
+      const target = local ? localByType : byType;
+      if (!target.has(type)) target.set(type, new Map());
+      const map = target.get(type);
+
       for (const key of new Set([
         norm(e.text),
         withoutLocal(norm(e.text)),
@@ -102,8 +111,9 @@ export async function loadStatIndex() {
 
   const allIds = new Set();
   for (const map of byType.values()) for (const id of map.values()) allIds.add(id);
+  for (const map of localByType.values()) for (const id of map.values()) allIds.add(id);
 
-  index = { byType, pseudo, allIds };
+  index = { byType, localByType, pseudo, allIds };
   return index;
 }
 
@@ -121,16 +131,38 @@ export function preferExplicit(statIndex, id) {
   return statIndex.allIds?.has(twin) ? twin : id;
 }
 
-/** Finds a modifier's stat id. Returns null when we don't recognise it. */
-export function matchMod(statIndex, text, type) {
-  const map = statIndex.byType.get(type);
+/**
+ * Slots whose base carries its own defences, so a defence modifier on them is
+ * the local one. On a ring or a jewel the identical wording means the global
+ * stat instead.
+ */
+const LOCAL_SLOTS = new Set([
+  'Helm', 'BodyArmour', 'Boots', 'Gloves', 'Offhand', 'Weapon', 'Weapon2',
+]);
+
+export function wantsLocalStats(item) {
+  return LOCAL_SLOTS.has(item?.inventoryId);
+}
+
+function lookup(map, key) {
   if (!map) return null;
-  const key = norm(text);
-  const id =
+  return (
     map.get(key) ??
     map.get(withoutLocal(key)) ??
     map.get(withoutSign(key)) ??
-    map.get(withoutSign(withoutLocal(key)));
+    map.get(withoutSign(withoutLocal(key))) ??
+    null
+  );
+}
+
+/** Finds a modifier's stat id. Returns null when we don't recognise it. */
+export function matchMod(statIndex, text, type, local = false) {
+  const key = norm(text);
+  // On gear the local variant wins when there is one; everywhere else, and for
+  // modifiers with no local form, we fall through to the ordinary map.
+  const id =
+    (local ? lookup(statIndex.localByType?.get(type), key) : null) ??
+    lookup(statIndex.byType.get(type), key);
   if (!id) return null;
   return { id: preferExplicit(statIndex, id), values: valuesOf(text) };
 }
@@ -224,18 +256,35 @@ export const GEAR_FIELDS = [
   ['craftedMods', 'crafted'],
 ];
 
+/**
+ * Elemental resistances are searched as one pseudo total, never individually.
+ *
+ * Nobody shops for "+46% fire and +43% lightning" — they shop for enough
+ * resistance, from wherever. Filtering each one separately also burns two or
+ * three of the handful of filters we can afford on something a pseudo expresses
+ * in one.
+ */
+const IS_RESISTANCE = /^\+-?\d+% to (\w+ )?(and \w+ )?Resistances?$/i;
+
+export function isResistanceMod(text) {
+  return IS_RESISTANCE.test(text.trim()) && /fire|cold|lightning|elemental/i.test(text);
+}
+
 export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIELDS) {
   // Without the pool we'd take the first mods listed, and on a Watcher's Eye
   // those are the three every copy has (energy shield, life, mana). Filtering by
   // them finds every Watcher's Eye in the league — the floor price again. The
   // pool holds the modifiers poe.ninja marks `optional`, i.e. the rolled ones.
   const pool = rollPool?.length ? new Set(rollPool) : null;
+  const local = wantsLocalStats(item);
   const out = [];
   for (const [field, type] of fields) {
     for (const mod of item[field] || []) {
       if (out.length >= limit) return out;
       if (pool && !pool.has(modTemplate(mod))) continue;
-      const hit = matchMod(statIndex, mod, type);
+      // Resistances are covered by the pseudo total the caller adds.
+      if (isResistanceMod(mod)) continue;
+      const hit = matchMod(statIndex, mod, type, local);
       if (!hit || out.some((s) => s.id === hit.id)) continue;
       out.push({ ...hit, text: mod });
     }
