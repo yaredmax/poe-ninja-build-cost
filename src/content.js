@@ -22,6 +22,13 @@ const BADGE_CLASS = 'pnc-badge';
 const DEFAULT_MIN_ROLL = 80;
 let minRollPercent = DEFAULT_MIN_ROLL;
 
+/**
+ * Which listings count. 'In Person (Online)' was hardcoded and is the worst
+ * choice for pricing: those sellers have to be messaged and may never answer.
+ * The default is now the combined instant-buyout-and-in-person mode.
+ */
+let saleMode = 'available';
+
 /** Must stay identical to `normalizeName` in lib/economy.js — both sides match. */
 function normalizeName(raw) {
   return String(raw)
@@ -445,6 +452,13 @@ function ensurePanel() {
         <span>Min roll <b>${DEFAULT_MIN_ROLL}%</b></span>
         <input type="range" min="0" max="100" step="5" value="${DEFAULT_MIN_ROLL}">
       </label>
+      <select class="pnc-mode">
+        <option value="available" selected>Instant Buyout and In Person</option>
+        <option value="securable">Instant Buyout</option>
+        <option value="online">In Person (Online)</option>
+        <option value="onlineleague">In Person (Online in League)</option>
+        <option value="any">Any</option>
+      </select>
       <div class="pnc-status"></div>
       <div class="pnc-summary"></div>
     </div>
@@ -456,6 +470,10 @@ function ensurePanel() {
     panel.remove();
   });
   panel.querySelector('.pnc-run').addEventListener('click', run);
+
+  panel.querySelector('.pnc-mode').addEventListener('change', (ev) => {
+    saleMode = ev.target.value;
+  });
 
   const slider = panel.querySelector('.pnc-roll input');
   slider.addEventListener('input', () => {
@@ -708,6 +726,7 @@ async function tradePass(matches, { league, chaosPerDivine, failed }) {
         league,
         chaosPerDivine,
         minRollPercent,
+        saleMode,
       });
       if (!match.appraisal.cached) live++;
       updateRareBadge(match, chaosPerDivine);
@@ -839,6 +858,7 @@ async function run() {
           items: matches.map((m) => m.item),
           league,
           minRollPercent,
+          saleMode,
         });
         for (const match of matches) {
           const url = urls[match.item?.index];

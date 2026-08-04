@@ -8,6 +8,9 @@ import {
   DEFAULT_MIN_ROLL,
   minRollFor,
   searchUrl,
+  setSaleMode,
+  DEFAULT_SALE_MODE,
+  SALE_MODES,
   fetchPrices,
   RELIABLE,
   isBetter,
@@ -101,7 +104,7 @@ const GEAR_MOD_STEPS = [3, 2];
 const MAX_COMBO_MODS = 3;
 
 /** Hard ceiling on searches for one item, whatever the maths says. */
-const MAX_COMBO_QUERIES = 8;
+const MAX_COMBO_QUERIES = 4;
 
 /**
  * Prices an item by trying its modifiers, then every combination of one fewer,
@@ -156,8 +159,8 @@ async function priceByCombinations({ item, mods, byName, league, chaosPerDivine,
  */
 const APPRAISAL_TTL_MS = 2 * 60 * 60 * 1000;
 
-function cacheKey(item, league, minRoll) {
-  return item.id ? `ap:${league}:${minRoll}:${item.id}` : null;
+function cacheKey(item, league, minRoll, saleMode) {
+  return item.id ? `ap:${league}:${minRoll}:${saleMode}:${item.id}` : null;
 }
 
 async function cachedAppraisal(key) {
@@ -196,7 +199,8 @@ const handlers = {
   },
 
   /** Trade links for every item, so any badge can be clicked. Costs nothing. */
-  async links({ items, league, minRollPercent }) {
+  async links({ items, league, minRollPercent, saleMode }) {
+    setSaleMode(saleMode);
     const resolved = await resolveLeague(null, league);
     const urls = {};
     for (const item of items) {
@@ -204,6 +208,10 @@ const handlers = {
       if (url) urls[item.index] = url;
     }
     return { urls };
+  },
+
+  async saleModes() {
+    return { modes: SALE_MODES, current: DEFAULT_SALE_MODE };
   },
 
   async leagues() {
@@ -221,11 +229,12 @@ const handlers = {
    * Appraises a rare by searching trade for similar items. One search request
    * plus one fetch per item; the spacing is enforced by `runQuery`.
    */
-  async appraise({ item, rollPool, league, chaosPerDivine, minRollPercent }) {
+  async appraise({ item, rollPool, league, chaosPerDivine, minRollPercent, saleMode }) {
+    setSaleMode(saleMode);
     await installUserAgentRule();
     const resolved = await resolveLeague(null, league);
 
-    const key = cacheKey(item, resolved, minRollPercent ?? DEFAULT_MIN_ROLL);
+    const key = cacheKey(item, resolved, minRollPercent ?? DEFAULT_MIN_ROLL, saleMode ?? DEFAULT_SALE_MODE);
     const hit = await cachedAppraisal(key);
     if (hit) return hit;
 

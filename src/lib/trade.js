@@ -28,7 +28,7 @@ export const fetchLimit = new RateLimiter('fetch');
  * tested and bringing the button back is just calling them again.
  */
 export function buildQuery(item) {
-  const query = { status: { option: 'online' }, stats: [{ type: 'and', filters: [] }] };
+  const query = { status: status(), stats: [{ type: 'and', filters: [] }] };
 
   if (item.frameType === 4) {
     query.type = item.baseType;
@@ -117,6 +117,40 @@ export function minRollFor(item, configured = DEFAULT_MIN_ROLL) {
   return VALUE_SENSITIVE.test(item.name || '') ? configured : 0;
 }
 
+/**
+ * Listing modes, straight out of the trade site's own dropdown.
+ *
+ * We used to hardcode `online` — "In Person (Online)" — which is the worst
+ * choice for pricing: those sellers have to be messaged and may not answer, and
+ * the asking prices are softer. `available` is the combined mode most people
+ * price with; `securable` is instant buyout only.
+ */
+export const SALE_MODES = [
+  { id: 'available', label: 'Instant Buyout and In Person' },
+  { id: 'securable', label: 'Instant Buyout' },
+  { id: 'online', label: 'In Person (Online)' },
+  { id: 'onlineleague', label: 'In Person (Online in League)' },
+  { id: 'any', label: 'Any' },
+];
+
+export const DEFAULT_SALE_MODE = 'available';
+
+/**
+ * Which listing mode the queries ask for.
+ *
+ * Module-level because every builder needs it and the service worker handles
+ * one appraisal at a time; threading it through six signatures bought nothing.
+ */
+let saleMode = DEFAULT_SALE_MODE;
+
+export function setSaleMode(mode) {
+  saleMode = SALE_MODES.some((m) => m.id === mode) ? mode : DEFAULT_SALE_MODE;
+}
+
+function status() {
+  return { option: saleMode };
+}
+
 /** Trade page URL carrying the query itself — costs no API request. */
 export function searchUrl(league, body) {
   return `${WEB}/${encodeURIComponent(league)}?q=${encodeURIComponent(JSON.stringify(body))}`;
@@ -138,7 +172,7 @@ export function buildComboQuery(item, mods, opts = {}) {
   });
 
   const query = {
-    status: { option: 'online' },
+    status: status(),
     stats: [{ type: 'and', filters }],
     filters: {
       misc_filters: { filters: { corrupted: { option: String(!!item.corrupted) } } },
@@ -252,7 +286,7 @@ export function buildRareQuery(item, statIndex, helpers, maxMods = MAX_MOD_FILTE
 
   const category = categoryFor(item);
   const query = {
-    status: { option: 'online' },
+    status: status(),
     stats: [{ type: 'and', filters }],
   };
   if (category) {

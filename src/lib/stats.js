@@ -100,8 +100,25 @@ export async function loadStatIndex() {
     }
   }
 
-  index = { byType, pseudo };
+  const allIds = new Set();
+  for (const map of byType.values()) for (const id of map.values()) allIds.add(id);
+
+  index = { byType, pseudo, allIds };
   return index;
+}
+
+/**
+ * Rewrites a fractured or crafted stat id to its plain explicit twin.
+ *
+ * `fractured.stat_3556824919` doesn't mean "has +12% global crit multi" — it
+ * means "has it *and it is fractured*". In the current league that's 7 listings
+ * against 2712 for the explicit id. Same trap for crafted. We care that the item
+ * has the modifier, not how it got there.
+ */
+export function preferExplicit(statIndex, id) {
+  if (id.startsWith('explicit.') || id.startsWith('pseudo.')) return id;
+  const twin = `explicit.${id.replace(/^[a-z]+\./, '')}`;
+  return statIndex.allIds?.has(twin) ? twin : id;
 }
 
 /** Finds a modifier's stat id. Returns null when we don't recognise it. */
@@ -115,7 +132,7 @@ export function matchMod(statIndex, text, type) {
     map.get(withoutSign(key)) ??
     map.get(withoutSign(withoutLocal(key)));
   if (!id) return null;
-  return { id, values: valuesOf(text) };
+  return { id: preferExplicit(statIndex, id), values: valuesOf(text) };
 }
 
 const RESIST_SINGLE = /^\+(-?\d+)% to (Fire|Cold|Lightning) Resistance$/;
