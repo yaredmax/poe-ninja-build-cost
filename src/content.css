@@ -51,15 +51,55 @@
   background: hsl(43 55% 28%);
 }
 
+#pnc-panel .pnc-rares {
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid hsl(190 40% 38%);
+  border-radius: 6px;
+  background: hsl(190 40% 20%);
+  color: hsl(190 55% 82%);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#pnc-panel .pnc-rares:hover:not(:disabled) {
+  background: hsl(190 40% 26%);
+}
+
+#pnc-panel .pnc-rares:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
 #pnc-panel .pnc-status {
   margin-top: 8px;
   font-size: 12px;
   color: hsl(204 10% 62%);
 }
 
-#pnc-panel .pnc-table {
-  width: 100%;
-  border-collapse: collapse;
+/* The total goes at the very top: it's what people open the panel for. */
+#pnc-panel .pnc-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid hsl(204 20% 22%);
+  font-size: 14px;
+}
+
+#pnc-panel .pnc-total--header {
+  margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid hsl(43 50% 38%);
+  border-radius: 6px;
+  background: hsl(43 40% 14%);
+  font-size: 15px;
+}
+
+#pnc-panel .pnc-total--header strong {
+  color: hsl(43 75% 78%);
+  font-variant-numeric: tabular-nums;
 }
 
 #pnc-panel .pnc-cat {
@@ -91,6 +131,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+#pnc-panel .pnc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
 #pnc-panel .pnc-table td {
   padding: 3px 0;
   border-bottom: 1px solid hsl(204 20% 14%);
@@ -107,30 +152,6 @@
   text-align: right;
   white-space: nowrap;
   padding-left: 8px;
-  font-variant-numeric: tabular-nums;
-}
-
-#pnc-panel .pnc-total {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid hsl(204 20% 22%);
-  font-size: 14px;
-}
-
-/* El total va arriba del todo: es lo que se viene a mirar. */
-#pnc-panel .pnc-total--cabecera {
-  margin-top: 12px;
-  padding: 9px 10px;
-  border: 1px solid hsl(43 50% 38%);
-  border-radius: 6px;
-  background: hsl(43 40% 14%);
-  font-size: 15px;
-}
-
-#pnc-panel .pnc-total--cabecera strong {
-  color: hsl(43 75% 78%);
   font-variant-numeric: tabular-nums;
 }
 
@@ -158,47 +179,13 @@
   vertical-align: middle;
 }
 
-.pnc-badge--sinprecio {
-  background: hsl(204 12% 18%);
-  border-color: hsl(204 12% 32%);
-  color: hsl(204 10% 62%);
-  font-weight: 400;
-}
-
-.pnc-badge--similar {
-  background: hsl(190 45% 18%);
-  border-color: hsl(190 45% 38%);
-  color: hsl(190 60% 78%);
-}
-
-#pnc-panel .pnc-rares {
-  width: 100%;
-  margin-top: 8px;
-  padding: 7px 10px;
-  border: 1px solid hsl(190 40% 38%);
-  border-radius: 6px;
-  background: hsl(190 40% 20%);
-  color: hsl(190 55% 82%);
-  cursor: pointer;
-  font-weight: 600;
-}
-
-#pnc-panel .pnc-rares:hover:not(:disabled) {
-  background: hsl(190 40% 26%);
-}
-
-#pnc-panel .pnc-rares:disabled {
-  opacity: 0.7;
-  cursor: default;
-}
-
 /*
- * Badge superpuesto en la esquina del icono.
+ * Badge overlaid on the corner of an item icon.
  *
- * `pointer-events: none` a propósito: si el badge capturase el ratón taparía
- * el tooltip del ítem de poe.ninja, que es más útil que el nuestro.
+ * `pointer-events: none` on purpose: if the badge captured the mouse it would
+ * hide poe.ninja's own item tooltip, which is more useful than ours.
  */
-.pnc-badge--esquina {
+.pnc-badge--corner {
   position: absolute;
   right: 3px;
   bottom: 3px;
@@ -213,4 +200,18 @@
   background: hsl(20 55% 20%);
   border-color: hsl(20 55% 40%);
   color: hsl(30 80% 78%);
+}
+
+.pnc-badge--noprice {
+  background: hsl(204 12% 18%);
+  border-color: hsl(204 12% 32%);
+  color: hsl(204 10% 62%);
+  font-weight: 400;
+}
+
+/* Rare appraised from similar items on trade. */
+.pnc-badge--similar {
+  background: hsl(190 45% 18%);
+  border-color: hsl(190 45% 38%);
+  color: hsl(190 60% 78%);
 }

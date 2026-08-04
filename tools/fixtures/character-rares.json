@@ -1,34 +1,166 @@
 {
-"_comment": "Mods reales de los 7 raros equipados en poe1/builds/allflame/character/pathofky-0288/Ky_BladeBUSTIN (2026-08-04). Sirve para probar el mapeo texto-de-mod -> stat id de la API de trade.",
-"items": [
-{"name":"Hypnotic Horn","baseType":"Torturer's Mask","inventoryId":"Helm","ilvl":85,
- "implicitMods":["7% of Physical Damage from Hits taken as Cold Damage","34% increased Spell Critical Strike Chance"],
- "explicitMods":["+524 to Accuracy Rating","100% increased Evasion and Energy Shield","+138 to maximum Life","+43% to Fire Resistance","+45% to Cold Resistance"],
- "craftedMods":["+45 to maximum Energy Shield"],"fracturedMods":[],"enchantMods":[]},
-{"name":"Foe Trail","baseType":"Fugitive Boots","inventoryId":"Boots","ilvl":85,
- "implicitMods":["+17% to Chaos Resistance"],
- "explicitMods":["+14% chance to Suppress Spell Damage","+110 to maximum Life","30% increased Movement Speed","15% chance to gain Onslaught for 4 seconds on Kill","19% increased Cooldown Recovery Rate","13% increased Effect of Tailwind on you","You have Tailwind if you have dealt a Critical Strike Recently"],
- "craftedMods":["74% increased Evasion and Energy Shield"],"fracturedMods":[],"enchantMods":[]},
-{"name":"Torment Scratch","baseType":"Battered Foil","inventoryId":"Weapon","ilvl":78,
- "implicitMods":["+25% to Global Critical Strike Multiplier"],
- "explicitMods":["87% increased Spell Damage","Adds 12 to 26 Cold Damage","24% increased Attack Speed","+37% to Global Critical Strike Multiplier"],
- "craftedMods":["Hits can't be Evaded"],"fracturedMods":["36% increased Critical Strike Chance"],
- "enchantMods":["Quality does not increase Physical Damage","1% increased Critical Strike Chance per 4% Quality"]},
-{"name":"Rage Loop","baseType":"Amethyst Ring","inventoryId":"Ring","ilvl":81,
- "implicitMods":["+23% to Chaos Resistance"],
- "explicitMods":["+24% to Global Critical Strike Multiplier","+46 to maximum Energy Shield","+111 to maximum Life","+42% to Cold Resistance"],
- "craftedMods":["+16% to Fire and Lightning Resistances"],"fracturedMods":["0.4% of Chaos Damage Leeched as Life"],"enchantMods":[]},
-{"name":"Plague Claw","baseType":"Phantom Mitts","inventoryId":"Gloves","ilvl":84,
- "implicitMods":["9% increased Effect of your Marks","20% chance to Unnerve Enemies for 4 seconds on Hit"],
- "explicitMods":["99% increased Evasion and Energy Shield","+47% to Fire Resistance","+44% to Cold Resistance","+45% to Lightning Resistance"],
- "craftedMods":["43% increased Damage while Leeching"],"fracturedMods":["+120 to maximum Life"],"enchantMods":[]},
-{"name":"Kraken Noose","baseType":"Focused Amulet","inventoryId":"Amulet","ilvl":86,
- "implicitMods":["-1 Prefix Modifier allowed","-2 Suffix Modifiers allowed","Implicit Modifiers Cannot Be Changed","100% increased Explicit Modifier magnitudes"],
- "explicitMods":["+2 to Level of all Skill Gems","+2 to Level of all Physical Skill Gems"],
- "craftedMods":["+2 to Minimum Endurance Charges"],"fracturedMods":[],"enchantMods":["Allocates Force of Darkness"]},
-{"name":"Wrath Emblem","baseType":"Supreme Spiked Shield","inventoryId":"Offhand","ilvl":86,
- "implicitMods":["+5% chance to Suppress Spell Damage"],
- "explicitMods":["+199 to Evasion Rating","103% increased Evasion and Energy Shield","+55 to maximum Energy Shield","+159 to maximum Life","+46% to Lightning Resistance"],
- "craftedMods":["+20% to Fire and Lightning Resistances"],"fracturedMods":["+22% chance to Suppress Spell Damage"],"enchantMods":[]}
-]
+ "_comment": "Real mods of the 7 rares equipped on poe1/builds/allflame/character/pathofky-0288/Ky_BladeBUSTIN (2026-08-04). Used to test mod-text -> trade stat id mapping.",
+ "items": [
+  {
+   "name": "Hypnotic Horn",
+   "baseType": "Torturer's Mask",
+   "inventoryId": "Helm",
+   "ilvl": 85,
+   "implicitMods": [
+    "7% of Physical Damage from Hits taken as Cold Damage",
+    "34% increased Spell Critical Strike Chance"
+   ],
+   "explicitMods": [
+    "+524 to Accuracy Rating",
+    "100% increased Evasion and Energy Shield",
+    "+138 to maximum Life",
+    "+43% to Fire Resistance",
+    "+45% to Cold Resistance"
+   ],
+   "craftedMods": [
+    "+45 to maximum Energy Shield"
+   ],
+   "fracturedMods": [],
+   "enchantMods": []
+  },
+  {
+   "name": "Foe Trail",
+   "baseType": "Fugitive Boots",
+   "inventoryId": "Boots",
+   "ilvl": 85,
+   "implicitMods": [
+    "+17% to Chaos Resistance"
+   ],
+   "explicitMods": [
+    "+14% chance to Suppress Spell Damage",
+    "+110 to maximum Life",
+    "30% increased Movement Speed",
+    "15% chance to gain Onslaught for 4 seconds on Kill",
+    "19% increased Cooldown Recovery Rate",
+    "13% increased Effect of Tailwind on you",
+    "You have Tailwind if you have dealt a Critical Strike Recently"
+   ],
+   "craftedMods": [
+    "74% increased Evasion and Energy Shield"
+   ],
+   "fracturedMods": [],
+   "enchantMods": []
+  },
+  {
+   "name": "Torment Scratch",
+   "baseType": "Battered Foil",
+   "inventoryId": "Weapon",
+   "ilvl": 78,
+   "implicitMods": [
+    "+25% to Global Critical Strike Multiplier"
+   ],
+   "explicitMods": [
+    "87% increased Spell Damage",
+    "Adds 12 to 26 Cold Damage",
+    "24% increased Attack Speed",
+    "+37% to Global Critical Strike Multiplier"
+   ],
+   "craftedMods": [
+    "Hits can't be Evaded"
+   ],
+   "fracturedMods": [
+    "36% increased Critical Strike Chance"
+   ],
+   "enchantMods": [
+    "Quality does not increase Physical Damage",
+    "1% increased Critical Strike Chance per 4% Quality"
+   ]
+  },
+  {
+   "name": "Rage Loop",
+   "baseType": "Amethyst Ring",
+   "inventoryId": "Ring",
+   "ilvl": 81,
+   "implicitMods": [
+    "+23% to Chaos Resistance"
+   ],
+   "explicitMods": [
+    "+24% to Global Critical Strike Multiplier",
+    "+46 to maximum Energy Shield",
+    "+111 to maximum Life",
+    "+42% to Cold Resistance"
+   ],
+   "craftedMods": [
+    "+16% to Fire and Lightning Resistances"
+   ],
+   "fracturedMods": [
+    "0.4% of Chaos Damage Leeched as Life"
+   ],
+   "enchantMods": []
+  },
+  {
+   "name": "Plague Claw",
+   "baseType": "Phantom Mitts",
+   "inventoryId": "Gloves",
+   "ilvl": 84,
+   "implicitMods": [
+    "9% increased Effect of your Marks",
+    "20% chance to Unnerve Enemies for 4 seconds on Hit"
+   ],
+   "explicitMods": [
+    "99% increased Evasion and Energy Shield",
+    "+47% to Fire Resistance",
+    "+44% to Cold Resistance",
+    "+45% to Lightning Resistance"
+   ],
+   "craftedMods": [
+    "43% increased Damage while Leeching"
+   ],
+   "fracturedMods": [
+    "+120 to maximum Life"
+   ],
+   "enchantMods": []
+  },
+  {
+   "name": "Kraken Noose",
+   "baseType": "Focused Amulet",
+   "inventoryId": "Amulet",
+   "ilvl": 86,
+   "implicitMods": [
+    "-1 Prefix Modifier allowed",
+    "-2 Suffix Modifiers allowed",
+    "Implicit Modifiers Cannot Be Changed",
+    "100% increased Explicit Modifier magnitudes"
+   ],
+   "explicitMods": [
+    "+2 to Level of all Skill Gems",
+    "+2 to Level of all Physical Skill Gems"
+   ],
+   "craftedMods": [
+    "+2 to Minimum Endurance Charges"
+   ],
+   "fracturedMods": [],
+   "enchantMods": [
+    "Allocates Force of Darkness"
+   ]
+  },
+  {
+   "name": "Wrath Emblem",
+   "baseType": "Supreme Spiked Shield",
+   "inventoryId": "Offhand",
+   "ilvl": 86,
+   "implicitMods": [
+    "+5% chance to Suppress Spell Damage"
+   ],
+   "explicitMods": [
+    "+199 to Evasion Rating",
+    "103% increased Evasion and Energy Shield",
+    "+55 to maximum Energy Shield",
+    "+159 to maximum Life",
+    "+46% to Lightning Resistance"
+   ],
+   "craftedMods": [
+    "+20% to Fire and Lightning Resistances"
+   ],
+   "fracturedMods": [
+    "+22% chance to Suppress Spell Damage"
+   ],
+   "enchantMods": []
+  }
+ ]
 }

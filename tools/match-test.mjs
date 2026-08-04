@@ -1,5 +1,5 @@
-// Prueba el matching contra los textos e iconos reales extraídos de una página
-// de personaje de poe.ninja (tools/fixtures/character-page.json).
+// Exercises the fallback DOM matching against the real texts and icons scraped
+// from a poe.ninja character page (tools/fixtures/character-page.json).
 //
 //   node tools/match-test.mjs
 
@@ -25,7 +25,7 @@ const page = JSON.parse(readFileSync(join(here, 'fixtures', 'character-page.json
 const league = (await fetchLeagues())[0].id;
 const { index, icons, chaosPerDivine } = await buildPriceIndex(league);
 
-// misma lógica que src/content.js
+// same logic as src/content.js
 const BASE_SUFFIXES = /\b(jewel|flask|tincture|relic)$/i;
 function lookupText(text) {
   const direct = index[normalizeName(text)];
@@ -39,37 +39,38 @@ function lookupText(text) {
   return null;
 }
 
-const fmt = (c) => (c >= chaosPerDivine ? `${(c / chaosPerDivine).toFixed(1)} div` : `${Math.round(c)} c`);
+const fmt = (c) =>
+  c >= chaosPerDivine ? `${(c / chaosPerDivine).toFixed(1)} div` : `${Math.round(c)} c`;
 
-console.log(`Liga: ${league}   1 div ≈ ${Math.round(chaosPerDivine)} c\n`);
+console.log(`League: ${league}   1 div ~ ${Math.round(chaosPerDivine)} c\n`);
 
-// Los nombres de vendors del diálogo de cookies NO deben casar: en la extensión
-// el escaneo se acota al <article> del personaje, aquí lo comprobamos a mano.
-const VENDORS = new Set(page.textos.slice(page.textos.indexOf('Ad partners')));
-const falsosPositivos = [...VENDORS].filter((t) => lookupText(t));
+// Ad vendor names from the cookie dialog must NOT match. The extension scopes
+// its scan to the <article>; here we assert the collision directly.
+const VENDORS = new Set(page.texts.slice(page.texts.indexOf('Ad partners')));
+const falsePositives = [...VENDORS].filter((t) => lookupText(t));
 console.log(
-  falsosPositivos.length
-    ? `⚠ FALSOS POSITIVOS entre vendors: ${falsosPositivos.join(', ')}\n`
-    : '✓ ningún nombre de vendor casa con un ítem\n',
+  falsePositives.length
+    ? `FALSE POSITIVES among ad vendors: ${falsePositives.join(', ')}\n`
+    : 'OK: no ad vendor name matches an item\n',
 );
 
-console.log('--- POR TEXTO ---');
+console.log('--- BY TEXT ---');
 let total = 0;
-for (const text of page.textos) {
+for (const text of page.texts) {
   const hit = lookupText(text);
   if (!hit) continue;
-  const marca = hit.floor ? '≥' : hit.variantCount > 1 ? '±' : ' ';
+  const mark = hit.floor ? '>=' : hit.variantCount > 1 ? '+-' : '  ';
   total += hit.chaos || 0;
-  console.log(`  ${marca} ${text.padEnd(38)} -> ${hit.name.padEnd(28)} ${fmt(hit.chaos).padStart(9)}`);
+  console.log(`  ${mark} ${text.padEnd(38)} -> ${hit.name.padEnd(28)} ${fmt(hit.chaos).padStart(9)}`);
 }
 
-console.log('\n--- POR ICONO ---');
-for (const art of page.iconos) {
+console.log('\n--- BY ICON ---');
+for (const art of page.icons) {
   const key = icons[art];
   if (!key) continue;
   const hit = index[key];
-  const marca = hit.floor ? '≥' : hit.variantCount > 1 ? '±' : ' ';
-  console.log(`  ${marca} ${art.padEnd(38)} -> ${hit.name.padEnd(28)} ${fmt(hit.chaos).padStart(9)}`);
+  const mark = hit.floor ? '>=' : hit.variantCount > 1 ? '+-' : '  ';
+  console.log(`  ${mark} ${art.padEnd(38)} -> ${hit.name.padEnd(28)} ${fmt(hit.chaos).padStart(9)}`);
 }
 
-console.log(`\nTotal por texto: ${fmt(total)}`);
+console.log(`\nTotal by text: ${fmt(total)}`);

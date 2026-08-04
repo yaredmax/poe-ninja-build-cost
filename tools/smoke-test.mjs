@@ -1,5 +1,5 @@
-// Prueba el módulo de economía fuera de Chrome: stub mínimo de chrome.storage
-// y llamada real a la API documentada de poe.ninja.
+// Exercises the economy module outside Chrome: a minimal chrome.storage stub
+// and a real call to poe.ninja's documented API.
 //
 //   node tools/smoke-test.mjs
 
@@ -20,47 +20,45 @@ globalThis.chrome = {
 const { buildPriceIndex, fetchLeagues, normalizeName } = await import('../src/lib/economy.js');
 
 const leagues = await fetchLeagues();
-console.log('Ligas:', leagues.map((l) => l.id).join(', '));
+console.log('Leagues:', leagues.map((l) => l.id).join(', '));
 
 const league = leagues[0].id;
 console.time('buildPriceIndex');
 const { index, failed, chaosPerDivine } = await buildPriceIndex(league);
 console.timeEnd('buildPriceIndex');
 
-console.log(`Liga: ${league}`);
-console.log(`Nombres indexados: ${Object.keys(index).length}`);
-console.log(`1 div ≈ ${Math.round(chaosPerDivine)} c`);
-if (failed.length) console.log('Categorías fallidas:', failed);
+console.log(`League: ${league}`);
+console.log(`Names indexed: ${Object.keys(index).length}`);
+console.log(`1 div ~ ${Math.round(chaosPerDivine)} c`);
+if (failed.length) console.log('Failed categories:', failed);
 
-const muestra = [
-  // precio fiable: mods fijos
+const sample = [
+  // reliable: fixed mods
   'Headhunter',
   'Tabula Rasa',
   "Kaom's Heart",
-  // precio-suelo: depende de la tirada
+  // floor priced: depends on the roll
   "Watcher's Eye",
   'Sublime Vision',
   'Impossible Escape',
-  // varias variantes publicadas
+  // several published variants
   'Greater Multistrike Support',
   'Mageblood',
-  // no debe existir: comprueba que no inventamos precios
+  // must not exist: proves we don't invent prices
   'Squire',
 ];
 
-for (const nombre of muestra) {
-  const hit = index[normalizeName(nombre)];
-  const marca = hit ? (hit.floor ? '≥' : hit.variantCount > 1 ? '±' : ' ') : ' ';
+for (const name of sample) {
+  const hit = index[normalizeName(name)];
+  const mark = hit ? (hit.floor ? '>=' : hit.variantCount > 1 ? '+-' : '  ') : '  ';
   console.log(
     hit
-      ? `  ${marca} ${nombre.padEnd(30)} ${String(Math.round(hit.chaos)).padStart(7)} c` +
-          `  variantes=${hit.variantCount} listings=${hit.listings}`
-      : `    ${nombre.padEnd(30)} (sin precio)`,
+      ? `  ${mark} ${name.padEnd(30)} ${String(Math.round(hit.chaos)).padStart(7)} c` +
+          `  variants=${hit.variantCount} listings=${hit.listings}`
+      : `     ${name.padEnd(30)} (no price)`,
   );
 }
 
-const suelo = Object.values(index).filter((v) => v.floor).length;
-console.log(`Entradas marcadas como precio-suelo: ${suelo}`);
-
-const total = Object.values(index).reduce((n, v) => n + (v.chaos > 0 ? 1 : 0), 0);
-console.log(`Entradas con precio > 0: ${total}`);
+const floors = Object.values(index).filter((v) => v.floor).length;
+console.log(`Entries flagged as floor-priced: ${floors}`);
+console.log(`Entries with a price > 0: ${Object.values(index).filter((v) => v.chaos > 0).length}`);

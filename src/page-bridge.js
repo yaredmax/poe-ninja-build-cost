@@ -1,21 +1,20 @@
-// Puente al "mundo MAIN" de la página.
+// Bridge into the page's MAIN world.
 //
-// poe.ninja guarda en la memoria de React el JSON completo de cada ítem, con el
-// mismo esquema que la API oficial de GGG: explicitMods, craftedMods, sockets,
-// ilvl, corrupted, properties... Eso es infinitamente mejor que adivinar
-// nombres leyendo texto del DOM.
+// poe.ninja keeps the full JSON of every item in React's memory, using the same
+// schema as GGG's official API: explicitMods, craftedMods, sockets, ilvl,
+// corrupted, properties… That beats guessing item names from DOM text by a mile.
 //
-// Hace falta este fichero aparte porque un content script normal vive en un
-// realm aislado y NO ve las propiedades que React cuelga de los nodos
-// (`__reactFiber$…`). Sólo un script en el mundo de la página las alcanza.
+// This has to be a separate file because a normal content script lives in an
+// isolated realm and cannot see the properties React hangs off DOM nodes
+// (`__reactFiber$…`). Only a script running in the page's own world reaches them.
 //
-// Sigue sin haber ni una petición extra contra poe.ninja: esto es exactamente
-// lo mismo que la página ya se ha descargado y está pintando.
+// Still zero extra requests to poe.ninja: this is exactly what the page has
+// already downloaded and is busy painting.
 
 (() => {
   const ATTR = 'data-pnc-item';
 
-  /** ¿Este objeto tiene pinta de ítem de GGG? */
+  /** Does this object look like a GGG item? */
   function isItem(value) {
     return (
       value &&
@@ -32,7 +31,7 @@
     return key ? el[key] : null;
   }
 
-  /** Primer elemento DOM real por debajo de un fiber, para anclar el badge. */
+  /** First real DOM element below a fiber, used to anchor the badge. */
   function hostElement(fiber) {
     for (let node = fiber, guard = 0; node && guard < 40; guard++) {
       if (node.stateNode instanceof Element) return node.stateNode;
@@ -42,13 +41,13 @@
   }
 
   /**
-   * Recorre el árbol de fibers buscando ítems en las props. Los `socketedItems`
-   * (gemas engarzadas) se aplanan aparte porque cuelgan del ítem contenedor y
-   * no tienen fiber propio.
+   * Walks the fiber tree looking for items in props. `socketedItems` (the gems
+   * inside gear) are flattened separately because they hang off the containing
+   * item and have no fiber of their own.
    */
   function harvest(root) {
     const found = [];
-    const vistos = new Set();
+    const seen = new Set();
     const stack = [fiberOf(root)].filter(Boolean);
     let guard = 0;
 
@@ -64,46 +63,48 @@
       for (const value of Object.values(props)) {
         if (!isItem(value)) continue;
         const id = value.id || `${value.baseType}:${value.x},${value.y}`;
-        if (vistos.has(id)) continue;
-        vistos.add(id);
+        if (seen.has(id)) continue;
+        seen.add(id);
 
         const el = hostElement(fiber);
         if (el) el.setAttribute(ATTR, String(found.length));
         found.push(slim(value, found.length, el ? found.length : null));
 
-        for (const gema of value.socketedItems || []) {
-          const gid = gema.id || `${id}:${gema.socket}`;
-          if (vistos.has(gid)) continue;
-          vistos.add(gid);
-          found.push(slim(gema, found.length, null));
+        for (const gem of value.socketedItems || []) {
+          const gemId = gem.id || `${id}:${gem.socket}`;
+          if (seen.has(gemId)) continue;
+          seen.add(gemId);
+          found.push(slim(gem, found.length, null));
         }
       }
     }
     return found;
   }
 
-  /** Nos quedamos sólo con lo que hace falta para tasar y para enlazar a trade. */
-  function slim(item, indice, ancla) {
+  /** Keep only what pricing and trade queries actually need. */
+  function slim(item, index, anchor) {
     const props = {};
     for (const p of item.properties || []) {
       props[p.name] = p.values?.[0]?.[0] ?? null;
     }
-    const grupos = {};
-    for (const s of item.sockets || []) grupos[s.group] = (grupos[s.group] || 0) + 1;
+    const socketGroups = {};
+    for (const s of item.sockets || []) {
+      socketGroups[s.group] = (socketGroups[s.group] || 0) + 1;
+    }
 
     return {
-      indice,
-      ancla,
+      index,
+      anchor,
       id: item.id || null,
       name: item.name || '',
       typeLine: item.typeLine || '',
       baseType: item.baseType || '',
-      frameType: item.frameType, // 0 normal, 1 magic, 2 rare, 3 unique, 4 gema
+      frameType: item.frameType, // 0 normal, 1 magic, 2 rare, 3 unique, 4 gem, 10 foil
       ilvl: item.ilvl ?? null,
       corrupted: !!item.corrupted,
       identified: item.identified !== false,
       inventoryId: item.inventoryId || null,
-      links: Math.max(0, ...Object.values(grupos), 0),
+      links: Math.max(0, ...Object.values(socketGroups), 0),
       sockets: (item.sockets || []).length,
       gemLevel: parseInt(props.Level, 10) || null,
       gemQuality: parseInt(String(props.Quality || '').replace('+', ''), 10) || 0,
@@ -115,7 +116,7 @@
     };
   }
 
-  function publicar() {
+  function publish() {
     const root = document.querySelector('article');
     if (!root) return;
     let items = [];
@@ -128,9 +129,9 @@
     window.postMessage({ source: 'pnc-bridge', items }, '*');
   }
 
-  // El content script pide la cosecha cuando el usuario pulsa el botón: así no
-  // recorremos el árbol de React en cada carga de página.
+  // The content script asks for the harvest when the user clicks the button, so
+  // we don't walk React's tree on every page load.
   window.addEventListener('message', (ev) => {
-    if (ev.source === window && ev.data?.source === 'pnc-request') publicar();
+    if (ev.source === window && ev.data?.source === 'pnc-request') publish();
   });
 })();

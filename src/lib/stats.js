@@ -1,15 +1,15 @@
-// Traduce el texto de un modificador ("+138 to maximum Life") al identificador
-// que entiende la API de trade ("explicit.stat_3299347043").
+// Translates a modifier's text ("+138 to maximum Life") into the identifier the
+// trade API understands ("explicit.stat_3299347043").
 //
-// GGG publica las plantillas en /api/trade/data/stats con `#` donde va el
-// número. Normalizamos ambos lados y comparamos.
+// GGG publishes the templates at /api/trade/data/stats with `#` where the number
+// goes. We normalise both sides and compare.
 
 const STATS_URL = 'https://www.pathofexile.com/api/trade/data/stats';
 
-/** Los stat id sólo cambian con los parches, así que la caché puede ser larga. */
+/** Stat ids only change with patches, so the cache can be long. */
 const TTL_MS = 24 * 60 * 60 * 1000;
 
-/** Campo del ítem -> tipo de stat en la API de trade. */
+/** Item field -> stat type in the trade API. */
 export const MOD_FIELDS = [
   ['enchantMods', 'enchant'],
   ['implicitMods', 'implicit'],
@@ -27,17 +27,17 @@ function norm(text) {
 }
 
 /**
- * El signo puede estar dentro del hueco o fuera según la plantilla: el ítem
- * dice "-1 Prefix Modifier allowed" y GGG lo llama "+# Prefix Modifier
- * allowed". Indexamos y buscamos también sin signo.
+ * The sign may live inside or outside the placeholder depending on the
+ * template: the item says "-1 Prefix Modifier allowed" while GGG calls it
+ * "+# Prefix Modifier allowed". So we index and look up without the sign too.
  */
-function sinSigno(clave) {
-  return clave.replace(/[+-]#/g, '#');
+function withoutSign(key) {
+  return key.replace(/[+-]#/g, '#');
 }
 
-/** Las plantillas de defensas llevan "(Local)"; el texto del ítem no. */
-function sinLocal(clave) {
-  return clave.replace(/\s*\(local\)$/, '');
+/** Defence templates carry a "(Local)" suffix; the item text doesn't. */
+function withoutLocal(key) {
+  return key.replace(/\s*\(local\)$/, '');
 }
 
 export function valuesOf(text) {
@@ -50,75 +50,76 @@ async function fetchStats() {
   if (entry && Date.now() - entry.at < TTL_MS) return entry.data;
 
   const res = await fetch(STATS_URL);
-  if (!res.ok) throw new Error(`Trade stats devolvió ${res.status}`);
+  if (!res.ok) throw new Error(`Trade stats returned ${res.status}`);
   const data = await res.json();
   await chrome.storage.local.set({ tradeStats: { at: Date.now(), data } });
   return data;
 }
 
-let indice = null;
+let index = null;
 
-/** Mapa `tipo -> clave normalizada -> stat id`, más el grupo `pseudo` aparte. */
+/** Map of `type -> normalised template -> stat id`, plus the pseudo group. */
 export async function loadStatIndex() {
-  if (indice) return indice;
+  if (index) return index;
   const data = await fetchStats();
 
-  const porTipo = new Map();
+  const byType = new Map();
   const pseudo = new Map();
 
-  for (const grupo of data.result || []) {
-    for (const e of grupo.entries || []) {
-      const tipo = e.type || grupo.id;
-      if (tipo === 'pseudo') pseudo.set(e.id, e);
-      if (!porTipo.has(tipo)) porTipo.set(tipo, new Map());
-      const mapa = porTipo.get(tipo);
-      // Varias claves para el mismo id: con y sin "(Local)", con y sin signo.
-      for (const clave of new Set([
+  for (const group of data.result || []) {
+    for (const e of group.entries || []) {
+      const type = e.type || group.id;
+      if (type === 'pseudo') pseudo.set(e.id, e);
+      if (!byType.has(type)) byType.set(type, new Map());
+      const map = byType.get(type);
+      // Several keys for the same id: with and without "(Local)", with and
+      // without the sign.
+      for (const key of new Set([
         norm(e.text),
-        sinLocal(norm(e.text)),
-        sinSigno(norm(e.text)),
-        sinSigno(sinLocal(norm(e.text))),
+        withoutLocal(norm(e.text)),
+        withoutSign(norm(e.text)),
+        withoutSign(withoutLocal(norm(e.text))),
       ])) {
-        if (!mapa.has(clave)) mapa.set(clave, e.id);
+        if (!map.has(key)) map.set(key, e.id);
       }
     }
   }
 
-  indice = { porTipo, pseudo };
-  return indice;
+  index = { byType, pseudo };
+  return index;
 }
 
-/** Busca el stat id de un modificador. Devuelve null si no lo reconocemos. */
-export function matchMod(index, text, tipo) {
-  const mapa = index.porTipo.get(tipo);
-  if (!mapa) return null;
-  const clave = norm(text);
+/** Finds a modifier's stat id. Returns null when we don't recognise it. */
+export function matchMod(statIndex, text, type) {
+  const map = statIndex.byType.get(type);
+  if (!map) return null;
+  const key = norm(text);
   const id =
-    mapa.get(clave) ??
-    mapa.get(sinLocal(clave)) ??
-    mapa.get(sinSigno(clave)) ??
-    mapa.get(sinSigno(sinLocal(clave)));
+    map.get(key) ??
+    map.get(withoutLocal(key)) ??
+    map.get(withoutSign(key)) ??
+    map.get(withoutSign(withoutLocal(key)));
   if (!id) return null;
   return { id, values: valuesOf(text) };
 }
 
-const RES_ELEMENTAL = /^\+(-?\d+)% to (Fire|Cold|Lightning) Resistance$/;
-const RES_DOBLE = /^\+(-?\d+)% to (\w+) and (\w+) Resistances$/;
-const RES_TODAS = /^\+(-?\d+)% to all Elemental Resistances$/;
+const RESIST_SINGLE = /^\+(-?\d+)% to (Fire|Cold|Lightning) Resistance$/;
+const RESIST_DOUBLE = /^\+(-?\d+)% to (\w+) and (\w+) Resistances$/;
+const RESIST_ALL = /^\+(-?\d+)% to all Elemental Resistances$/;
 
 /**
- * Resistencia elemental total del ítem, sumando las combinadas y las de "todas".
- * Es el pseudo-mod que de verdad usa la gente al buscar equipo.
+ * The item's total elemental resistance, adding up the combined ones and the
+ * "all" ones. This is the pseudo-mod people actually search gear with.
  */
 export function totalElementalResistance(item) {
   let total = 0;
-  for (const [campo] of MOD_FIELDS) {
-    for (const mod of item[campo] || []) {
-      let m = RES_ELEMENTAL.exec(mod);
+  for (const [field] of MOD_FIELDS) {
+    for (const mod of item[field] || []) {
+      let m = RESIST_SINGLE.exec(mod);
       if (m) { total += Number(m[1]); continue; }
-      m = RES_TODAS.exec(mod);
+      m = RESIST_ALL.exec(mod);
       if (m) { total += Number(m[1]) * 3; continue; }
-      m = RES_DOBLE.exec(mod);
+      m = RESIST_DOUBLE.exec(mod);
       if (m && /fire|cold|lightning/i.test(m[2]) && /fire|cold|lightning/i.test(m[3])) {
         total += Number(m[1]) * 2;
       }
@@ -127,13 +128,13 @@ export function totalElementalResistance(item) {
   return total;
 }
 
-const VIDA_PLANA = /^\+(-?\d+) to maximum Life$/;
+const FLAT_LIFE = /^\+(-?\d+) to maximum Life$/;
 
 export function totalLife(item) {
   let total = 0;
-  for (const [campo] of MOD_FIELDS) {
-    for (const mod of item[campo] || []) {
-      const m = VIDA_PLANA.exec(mod);
+  for (const [field] of MOD_FIELDS) {
+    for (const mod of item[field] || []) {
+      const m = FLAT_LIFE.exec(mod);
       if (m) total += Number(m[1]);
     }
   }
@@ -141,10 +142,10 @@ export function totalLife(item) {
 }
 
 /**
- * Modificadores que de verdad mueven el precio, en orden. Todo lo demás se
- * ignora: meter los seis mods de un raro en la query devuelve cero resultados.
+ * Modifiers that actually move the price, in order. Everything else is ignored:
+ * putting all six mods of a rare into the query returns zero results.
  */
-const PRIORIDAD = [
+const PRIORITY = [
   /chance to Suppress Spell Damage/i,
   /to Level of all .*Skill Gems/i,
   /increased Movement Speed/i,
@@ -159,25 +160,27 @@ const PRIORIDAD = [
   /to Accuracy Rating/i,
 ];
 
-/** Elige los mods significativos del ítem, ya traducidos a stat id. */
-export function significantMods(index, item, limite) {
-  const salida = [];
-  for (const patron of PRIORIDAD) {
-    if (salida.length >= limite) break;
-    for (const [campo, tipo] of MOD_FIELDS) {
-      if (salida.length >= limite) break;
-      for (const mod of item[campo] || []) {
-        if (!patron.test(mod)) continue;
-        const hit = matchMod(index, mod, tipo);
-        // Dedupe por el número del stat, no por el id completo: el mismo mod
-        // fracturado y explícito son `fractured.stat_123` y `explicit.stat_123`,
-        // y meter los dos gasta un hueco de filtro sin acotar nada.
-        const numero = (id) => id.replace(/^[a-z]+\./, '');
-        if (!hit || salida.some((s) => numero(s.id) === numero(hit.id))) continue;
-        salida.push({ ...hit, text: mod });
+/** Strips the type prefix: `fractured.stat_123` and `explicit.stat_123` match. */
+const statNumber = (id) => id.replace(/^[a-z]+\./, '');
+
+/** Picks the item's significant mods, already translated to stat ids. */
+export function significantMods(statIndex, item, limit) {
+  const out = [];
+  for (const pattern of PRIORITY) {
+    if (out.length >= limit) break;
+    for (const [field, type] of MOD_FIELDS) {
+      if (out.length >= limit) break;
+      for (const mod of item[field] || []) {
+        if (!pattern.test(mod)) continue;
+        const hit = matchMod(statIndex, mod, type);
+        // Dedupe by stat number, not by full id: the same mod fractured and
+        // explicit are two ids for one thing, and taking both burns a filter
+        // slot without narrowing anything.
+        if (!hit || out.some((s) => statNumber(s.id) === statNumber(hit.id))) continue;
+        out.push({ ...hit, text: mod });
         break;
       }
     }
   }
-  return salida;
+  return out;
 }

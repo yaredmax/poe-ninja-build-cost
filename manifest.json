@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "PoE Ninja Checker",
-  "version": "0.2.0",
-  "description": "Estima el coste de una build de poe.ninja usando la API de economía publica de poe.ninja.",
+  "name": "PoE Ninja Build Cost",
+  "version": "0.3.0",
+  "description": "Estimates what a poe.ninja build costs, using poe.ninja's public economy API.",
   "permissions": ["storage", "declarativeNetRequest"],
   "host_permissions": ["https://poe.ninja/*", "https://www.pathofexile.com/*"],
   "background": {
@@ -24,6 +24,6 @@
     }
   ],
   "action": {
-    "default_title": "PoE Ninja Checker"
+    "default_title": "PoE Ninja Build Cost"
   }
 }

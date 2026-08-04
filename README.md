@@ -1,246 +1,228 @@
-# PoE Ninja Checker
+# poe-ninja-build-cost
 
-Extensión de Chrome (Manifest V3) que, en una página de personaje de
-[poe.ninja](https://poe.ninja/poe1/builds), pone el precio al lado de cada ítem
-reconocido y calcula un coste mínimo de la build.
+A Chrome extension (Manifest V3) that puts a price next to every item on a
+[poe.ninja](https://poe.ninja/poe1/builds) character page and works out what the
+build would cost.
 
-## Instalación
+## Install
 
-1. `chrome://extensions` → activa **Modo de desarrollador**.
-2. **Cargar descomprimida** → selecciona esta carpeta.
-3. Abre cualquier build: `https://poe.ninja/poe1/builds/.../character/...`
-4. Panel arriba a la derecha → **Calcular precio**.
+1. `chrome://extensions` → turn on **Developer mode**.
+2. **Load unpacked** → pick this folder.
+3. Open any build: `https://poe.ninja/poe1/builds/.../character/...`
+4. Panel on the top right → **Calculate cost**.
 
-## Cómo obtiene los datos
+## Where the data comes from
 
-**Ítems del personaje: leyendo el DOM ya renderizado.** No se llama a la API de
-builds de poe.ninja. Su [documentación](https://poe.ninja/docs/api) es explícita:
+**The character's items: by reading what's already in the page.** poe.ninja's
+builds API is never called. Their [documentation](https://poe.ninja/docs/api) is
+explicit:
 
 > The builds / profiles API, and every other non-economy endpoint (character,
 > Path of Building, authentication), are internal. They are undocumented,
 > unsupported, and not available for third-party use.
 
-Leer lo que la página ya ha pintado no genera ni una petición extra contra esos
-endpoints, y respeta a quien oculta su perfil: si la web no lo muestra, la
-extensión tampoco lo ve.
+Reading what the page has already painted adds zero requests to those endpoints,
+and it respects players who hide their profile: if the site doesn't show it, the
+extension doesn't see it either.
 
-**Precios: la API de economía documentada**, que sí es de uso público:
+**Prices: the documented economy API**, which *is* public:
 
 ```
 GET https://poe.ninja/poe1/api/economy/leagues
-GET https://poe.ninja/poe1/api/economy/stash/current/item/overview?league={liga}&type={tipo}
+GET https://poe.ninja/poe1/api/economy/stash/current/item/overview?league={league}&type={type}
 ```
 
-Se piden 13 categorías (únicos, gemas, cluster jewels…), con concurrencia
-máxima de 3 y caché local de 10 minutos — los datos de PoE1 se refrescan cada
-~15 min, así que pedir más a menudo no aporta nada. El `User-Agent` descriptivo
-que pide la doc se inyecta con `declarativeNetRequest`, limitado a las
-peticiones del service worker (`tabIds: [-1]`) para no tocar las de la web.
+Thirteen categories are fetched (uniques, gems, cluster jewels…) at a maximum
+concurrency of 3, cached locally for 10 minutes — PoE1 data refreshes about every
+15 minutes, so asking more often gains nothing. The descriptive User-Agent the
+docs ask for is injected with `declarativeNetRequest`, scoped to the service
+worker's own requests (`tabIds: [-1]`) so the site's own traffic is untouched.
 
-## Qué NO puede hacer
+The header must be **ASCII**: with accented characters both poe.ninja and
+Cloudflare answer 403.
 
-Esto es una estimación con un suelo, no una tasación:
+## Primary path: `src/page-bridge.js`
 
-- **Los raros crafteados quedan fuera.** No existe "el precio" de unas botas con
-  vida y resistencias: ese ítem concreto no está a la venta en ningún sitio.
-- **Ítems marcados `≥`** (Watcher's Eye, Sublime Vision, Impossible Escape,
-  jewels temporales…): poe.ninja publica un solo precio para todos, que es el
-  del más barato. El real puede ser 100 veces mayor. Se detectan contando
-  modificadores `optional` (un único normal tiene 0; un Watcher's Eye, 87), más
-  una lista manual para los que varían por algo que no es un mod.
-- **Ítems marcados `±`**: poe.ninja publica varias variantes (nivel/calidad de
-  gema, links, corrupción) y desde el DOM no sabemos cuál lleva el personaje.
-  Se muestra la más vendida.
+poe.ninja keeps the full JSON of every item in React's memory, with the same
+schema as GGG's official API: `explicitMods`, `craftedMods`, `sockets`, `ilvl`,
+`corrupted`, `properties`. The test build yields 61 items, each with its slot
+(`inventoryId`) and a DOM element to anchor a badge to.
 
-Por eso el total se etiqueta **Mínimo**.
+This replaces DOM scanning, which is a hack by comparison: on that same build the
+icon-based scan missed a Headhunter, a Skin of the Lords and a Ming's Heart —
+most of the value. With the bridge the total went from **44.7 div to 135.9 div**.
 
-## Cómo reconoce los ítems
+It has to be a separate file because a normal content script lives in an isolated
+realm and can't see `__reactFiber$…`. Still no extra requests to poe.ninja: this
+is what the page already has loaded.
 
-No se usan selectores CSS de poe.ninja: son clases generadas por Astro
-(`_text_11d3e_1`) que cambian en cada despliegue. Se usan dos vías:
+It is fragile by definition (minified React internals), so the text/icon scan
+stays as an automatic fallback: if the bridge returns nothing, `content.js` drops
+back to the old path and says so in the panel.
 
-1. **Por texto**, contra los ~2.400 nombres del índice de precios. Las joyas
-   aparecen como nombre + base ("Watcher's Eye Prismatic Jewel"), así que se
-   prueba también quitando el sufijo de base.
-2. **Por icono**, para el equipo: no lleva nombre en el DOM, sólo un `<img>` de
-   poecdn, y la API de economía devuelve esa misma URL. Se compara el nombre del
-   fichero de arte. Joyas y gemas quedan fuera de esta vía porque su arte es el
-   de la *base*: un cluster jewel raro y el único "The Light of Meaning"
-   comparten `AfflictionJewel.png`.
+## How items are recognised (fallback path)
 
-Las gemas se afinan por nivel/calidad leyendo el "3 / 20" que la página pone
-junto al nombre, así que se cotiza la línea correcta y no la más vendida.
+No poe.ninja CSS selectors are used: they're Astro-generated classes
+(`_text_11d3e_1`) that change on every deploy. Two routes instead:
 
-Tres detalles que costaron sangre y están cubiertos por los tests:
+1. **By text**, against the ~2,400 names in the price index. Jewels appear as
+   name + base ("Watcher's Eye Prismatic Jewel"), so the base suffix is stripped
+   and retried.
+2. **By icon**, for equipment: it carries no name in the DOM, only a poecdn
+   `<img>`, and the economy API returns that same URL. Jewels and gems are
+   excluded from this route because their art is the *base* art: a rare cluster
+   jewel and the unique "The Light of Meaning" share `AfflictionJewel.png`.
 
-- El escaneo se acota al `<article>`. El pie de página lleva el diálogo de
-  cookies con cientos de vendors, y algunos ("Impact", "Momentum", "Signal")
-  coinciden con nombres reales de ítems.
-- Los jewels Forbidden se publican con el nombre del *pasivo* que otorgan, así
-  que indexarlos por nombre hacía que la lista de ascendencia del personaje
-  ("Deathmarked", "Mistwalker") cotizara como si fuera un jewel.
-- El bloque de DPS repite los nombres de las skills ("Blade Blast 2.2/s"), lo
-  que duplicaba cada gema y además leía "2" como nivel.
+Three details that cost blood and are covered by tests:
 
-## Estado
+- The scan is scoped to the `<article>`. The footer carries the cookie dialog
+  with hundreds of ad vendors, and some ("Impact", "Momentum", "Signal") collide
+  with real item names.
+- Forbidden jewels are published under the name of the *passive* they grant, so
+  indexing them by name made the character's ascendancy list ("Deathmarked",
+  "Mistwalker") get priced as if it were a jewel.
+- The DPS block repeats skill names ("Blade Blast 2.2/s"), which double-counted
+  every gem and read "2" as a gem level.
 
-Verificado de punta a punta contra
-`poe1/builds/allflame/character/pathofky-0288/Ky_BladeBUSTIN`: 40 ítems
-reconocidos, mínimo 44,7 div. El equipo de esa build es todo raro, así que lo
-que se cotiza son joyas y gemas — Empower 4 (13 div) y Enlighten 4 (18 div) son
-el grueso.
+## What it can't do
 
-```bash
-node tools/smoke-test.mjs   # capa de precios contra la API real
-```
+This is an estimate with a floor, not a valuation:
 
-```bash
-node tools/match-test.mjs   # matching contra textos e iconos reales de una build
-```
+- **Crafted rares are excluded from the base pass.** There is no "the price" of
+  a pair of boots with life and resistances — that exact item is not for sale
+  anywhere. See the appraisal section below.
+- **Items marked `≥`** (Watcher's Eye, Sublime Vision, Impossible Escape,
+  timeless jewels…): poe.ninja publishes a single price for all of them, and it's
+  the cheapest one. The real one can be a hundred times higher. They're detected
+  by counting `optional` modifiers (a normal unique has 0; a Watcher's Eye has
+  87), plus a hand-written list for the ones that vary by something that isn't a
+  mod.
+- **Items marked `±`**: poe.ninja publishes several variants (gem level/quality,
+  links, corruption) and the fallback path can't tell which one the character
+  has. The best-selling one is shown.
+- **Uniques marked "unpriced"**: poe.ninja doesn't publish them at all, usually
+  because their value depends on something the economy doesn't break down. Skin
+  of the Lords is the example: only "Skin of the Loyal" is listed, because the
+  Lords version exists only corrupted and is worth whatever keystone it rolled.
 
-Si algún día deja de reconocer nada, en la consola de la página:
+That's why the total is labelled **Minimum**.
 
-```js
-pncDiagnostico()
-```
+## Rare appraisal
 
-vuelca los textos e iconos candidatos para ver qué ha cambiado.
+A rare has no market price: that exact item isn't for sale. What we *can* do is
+search for **similar items** and see what they go for. Hence the `≈` mark and the
+wording in the panel.
 
-## Vía principal: `src/page-bridge.js`
+How the search is built:
 
-poe.ninja guarda en la memoria de React el JSON completo de cada ítem, con el
-mismo esquema que la API oficial de GGG: `explicitMods`, `craftedMods`,
-`sockets`, `ilvl`, `corrupted`, `properties`. En la build de prueba salen 61
-ítems, todos con su slot (`inventoryId`) y un elemento DOM donde anclar.
+1. Each mod text is translated to its `stat id` via `/api/trade/data/stats`
+   (`src/lib/stats.js`). Measured coverage: **56 of 57** mods on the test build.
+2. The pseudo-mods people actually use are aggregated: total life and total
+   elemental resistance, summing the combined and "all" variants.
+3. Up to two more mods are added from a priority list (suppression, movement
+   speed, crit multi, gem levels…). With five filters, all seven rares returned
+   zero results.
+4. The search is by **category**, not exact base: there is one "Focused Amulet"
+   listed in the entire league, so any extra filter returns nothing.
+5. The median of the cheapest listings is taken. The single cheapest listing on a
+   wide search is always 1 c of junk.
 
-Eso sustituye al escaneo por texto e icono, que es un apaño comparado: en esa
-misma build el escaneo por icono se perdió un Headhunter, un Skin of the Lords
-y un Ming's Heart, o sea la mayor parte del valor.
+### Reliability, and why half of it gets thrown away
 
-Hace falta un fichero aparte porque un content script normal vive en un realm
-aislado y no ve las propiedades `__reactFiber$…`. Sigue sin haber ninguna
-petición extra contra poe.ninja: es lo que la página ya tiene cargado.
+The result count tells you how much to trust it. Two hundred helmets "with life
+and resistances" at 1 c is not the helmet's price — it means the filters narrowed
+nothing. One result is no better; it can be a made-up price.
 
-Es frágil por definición (internals de React minificado), así que el escaneo por
-texto/icono se queda como respaldo automático: si el puente no devuelve nada,
-`content.js` cae a la vía antigua y lo dice en el panel.
+| results | reliability | counts toward the total? |
+| --- | --- | --- |
+| 0 | none | no |
+| 1–2 | thin | no |
+| 3–40 | high | yes |
+| 41–120 | medium | yes |
+| >120 | low | no |
 
-Con el puente, la build de prueba pasó de **44,7 div a 135,9 div** — el escaneo
-por icono se perdía el Headhunter (60 div) y el Wine of the Prophet (32 div).
+If the first attempt lands at zero or above a hundred and twenty, it retries with
+one filter fewer or one more, up to twice, and only keeps the retry if it
+improves.
 
-```bash
-node tools/price-test.mjs   # precios de los 61 ítems reales de una build
-```
+**On the test build, 3 of 7 come out reliable.** That's low, and it's the honest
+answer: the other four are shown with their estimate in amber, outside the total.
+A confident wrong number would be worse than no number.
 
-## Botones de trade (retirados)
+### Request cost
 
-Hubo un botón ⇗ por ítem que abría la búsqueda en la web de trade. Se quitó de
-la interfaz porque se comportaba de forma rara.
+One search plus one fetch per item, plus up to two tuning searches. Spacing is
+5 s (`MIN_GAP_MS`), leaving 12 searches per minute against GGG's limit of 15.
+Jewels are not appraised: a cluster jewel is worth whatever notables it grants,
+and that isn't expressible with the mods we read.
 
-`buildQuery()` y `search()` siguen en `src/lib/trade.js`, marcadas como no
-conectadas: están probadas y volver a enchufarlas es sólo volver a llamarlas.
-El flujo era `POST /api/trade/search/{liga}` → `id` → abrir
-`pathofexile.com/trade/search/{liga}/{id}` con `chrome.tabs.create` desde el
-service worker (desde el content script, el `await` rompe la cadena del gesto
-del usuario y Chrome lo bloquea como popup).
-
-## Dónde se pinta el precio
-
-En equipo, joyas y flasks el badge va superpuesto en la esquina inferior derecha
-del icono, con `pointer-events: none` para no tapar el tooltip del ítem de
-poe.ninja. Las gemas son una lista de texto, así que ahí va al lado del nombre.
-Lo decide `colocarBadge()` en función de la categoría y de si encuentra un
-contenedor con tamaño de icono.
-
-## Límites reales de la API de trade
-
-Medidos contra `POST /api/trade/search/Allflame` (devuelve `id`, y con él se
-abre `pathofexile.com/trade/search/{liga}/{id}`):
+Limits measured against `POST /api/trade/search/{league}`:
 
 ```
 X-Rate-Limit-Ip: 5:10:60, 15:60:300, 30:300:1800, 600:21600:3600
 ```
 
-5 peticiones por 10 s (baneo 60 s), 15 por minuto (baneo 5 min), 30 cada 5 min
-(baneo 30 min), 600 cada 6 h. Cualquier cosa que tase raros automáticamente
-tiene que ir por cola con ~4 s entre ítems y cachear resultados.
+5 requests per 10 s (60 s ban), 15 per minute (5 min ban), 30 per 5 min (30 min
+ban), 600 per 6 h.
 
-Los botones de Trade sólo hacen falta donde poe.ninja no pone el suyo: la web ya
-lo trae en las joyas, pero no en gemas ni en el resto del equipo.
+## Where the price is painted
 
-## Tasación de raros
+On equipment, jewels and flasks the badge is overlaid on the bottom right corner
+of the icon, with `pointer-events: none` so it never covers poe.ninja's own item
+tooltip. Gems are a text list, so there it sits next to the name. `placeBadge()`
+decides based on the category and whether it finds an icon-sized container.
 
-Un raro no tiene precio de mercado: ese ítem concreto no está en venta en ningún
-sitio. Lo que se puede hacer es buscar **ítems parecidos** y quedarse con lo que
-piden por ellos. Por eso salen marcados `≈` y el aviso dice lo que dice.
+## Trade buttons (removed)
 
-Cómo se construye la búsqueda:
+There used to be a ⇗ button per item that opened the search on the trade site. It
+was pulled from the UI because it misbehaved.
 
-1. Cada texto de mod se traduce a su `stat id` con `/api/trade/data/stats`
-   (`src/lib/stats.js`). Cobertura medida: **56 de 57** mods de la build de
-   prueba.
-2. Se agregan los pseudo-mods que de verdad usa la gente: vida total y
-   resistencia elemental total, sumando las combinadas y las de "todas".
-3. Se añaden hasta dos mods más de una lista de prioridad (supresión, movimiento,
-   multi de crítico, niveles de gema…). Con cinco filtros los siete raros daban
-   cero resultados.
-4. Se busca por **categoría**, no por base exacta: de "Focused Amulet" hay un
-   listado en toda la liga, así que cualquier filtro extra da cero.
-5. Se lee la mediana de las ofertas más baratas. El listado más barato de una
-   búsqueda ancha es siempre basura de 1 c.
+`buildQuery()` and `search()` are still in `src/lib/trade.js`, marked as not
+wired: both are tested and putting the button back is just calling them again.
+The flow was `POST /api/trade/search/{league}` → `id` → open
+`pathofexile.com/trade/search/{league}/{id}` via `chrome.tabs.create` from the
+service worker (from the content script the `await` breaks the user-gesture chain
+and Chrome blocks it as a popup).
 
-### Fiabilidad, y por qué se descarta la mitad
+## Tests
 
-El número de resultados dice cuánto fiarse. Doscientos cascos "con vida y
-resistencias" a 1 c no es el precio del casco: es que los filtros no acotaron
-nada. Uno solo tampoco vale, puede ser un precio inventado.
-
-| resultados | fiabilidad | ¿suma al total? |
-| --- | --- | --- |
-| 0 | ninguna | no |
-| 1–2 | escasa | no |
-| 3–40 | alta | sí |
-| 41–120 | media | sí |
-| >120 | baja | no |
-
-Si el primer intento se queda a cero o se pasa de ciento veinte, se reintenta
-con un filtro menos o uno más, hasta dos veces, y sólo se acepta si mejora.
-
-**En la build de prueba salen fiables 3 de 7.** Es poco, y es el resultado
-honesto: los otros cuatro se muestran con su estimación en ámbar, fuera del
-total, y con el enlace a la búsqueda para mirarlo a mano. Una cifra segura de sí
-misma y equivocada sería peor que no dar ninguna.
+They hit the real APIs — there are no mocks, on purpose: every bug worth finding
+here came from real data.
 
 ```bash
-node tools/rare-test.mjs   # tasa los 7 raros reales contra la API de trade
+node tools/smoke-test.mjs   # pricing layer against the real API
 ```
 
-### Coste en peticiones
+```bash
+node tools/match-test.mjs   # fallback matching against a real build's DOM
+```
 
-Una búsqueda más un fetch por ítem, más hasta dos búsquedas de ajuste. El
-espaciado es de 5 s (`MIN_GAP_MS`), que deja 12 búsquedas por minuto contra el
-límite de 15. Las joyas no se tasan: una cluster jewel vale por sus notables, y
-eso no se filtra con los mods que leemos.
+```bash
+node tools/price-test.mjs   # prices for the 61 real items of a build
+```
 
-## Siguiente paso posible
+```bash
+node tools/rare-test.mjs    # appraises 7 real rares against the trade API
+```
 
-API de trade oficial (`https://www.pathofexile.com/api/trade`) para los casos
-que la economía no cubre. Funciona sin autenticación, pero tiene límites de
-petición agresivos (cabeceras `X-Rate-Limit-*`) cuyo incumplimiento acarrea
-bloqueo temporal de IP, así que necesita cola y backoff propios.
+If it ever stops recognising anything, from the page console:
 
-## Ficheros
+```js
+pncDiagnose()
+```
 
-| Fichero | Qué hace |
+dumps the candidate texts and icons so you can see what changed.
+
+## Files
+
+| File | What it does |
 | --- | --- |
-| `manifest.json` | MV3: permisos, content script, service worker |
-| `src/background.js` | Service worker: mensajes, User-Agent, caché |
-| `src/lib/economy.js` | API de economía, índice de precios, detección de precio-suelo |
-| `src/lib/trade.js` | Queries de trade, tasación de raros, fiabilidad |
-| `src/lib/stats.js` | Texto de mod → `stat id`, pseudo-mods |
-| `src/page-bridge.js` | Extrae el JSON de los ítems del mundo MAIN |
-| `src/content.js` | Panel, escaneo del DOM, badges, resumen |
-| `src/content.css` | Estilos del panel y los badges |
-| `tools/smoke-test.mjs` | Prueba la capa de precios fuera de Chrome |
-| `tools/match-test.mjs` | Prueba el matching contra una build real capturada |
-| `tools/fixtures/` | Textos e iconos reales de una página de personaje |
+| `manifest.json` | MV3: permissions, content scripts, service worker |
+| `src/background.js` | Service worker: messages, User-Agent, cache, appraisal |
+| `src/content.js` | Panel, DOM scanning, badges, summary |
+| `src/content.css` | Panel and badge styles |
+| `src/page-bridge.js` | Pulls the item JSON out of the MAIN world |
+| `src/lib/economy.js` | Economy API, price index, floor-price detection |
+| `src/lib/trade.js` | Trade queries, rare appraisal, reliability |
+| `src/lib/stats.js` | Mod text → `stat id`, pseudo-mods |
+| `tools/fixtures/` | Real texts, icons, items and mods from a character page |

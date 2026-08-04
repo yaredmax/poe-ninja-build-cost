@@ -1,22 +1,21 @@
-// Content script: detecta los ítems ya renderizados en la página de personaje
-// y les pega el precio al lado.
+// Content script: finds the items poe.ninja has already rendered and puts a
+// price next to each one.
 //
-// IMPORTANTE — por qué esto no llama a la API de builds de poe.ninja:
-// la documentación (https://poe.ninja/docs/api) dice explícitamente que los
-// endpoints de builds / profiles / character son internos y NO están permitidos
-// para terceros. Así que no los tocamos. Leemos lo que la propia página ya ha
-// pintado en el DOM, lo cual no genera ni una sola petición extra contra
-// poe.ninja, y respeta a los jugadores que ocultan su perfil: si la web no lo
-// muestra, nosotros tampoco lo vemos.
+// IMPORTANT — why this never calls poe.ninja's builds API:
+// their documentation (https://poe.ninja/docs/api) states plainly that the
+// builds / profiles / character endpoints are internal and NOT available for
+// third-party use. So we don't touch them. We read what the page has already
+// painted, which adds zero requests to poe.ninja and respects players who hide
+// their profile: if the site doesn't show it, we don't see it either.
 
 const PANEL_ID = 'pnc-panel';
 const BADGE_CLASS = 'pnc-badge';
 
-/** Igual que `normalizeName` en lib/economy.js: los dos lados deben coincidir. */
+/** Must stay identical to `normalizeName` in lib/economy.js — both sides match. */
 function normalizeName(raw) {
   return String(raw)
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[̀-ͯ]/g, '') // combining diacritics
     .replace(/[’'`]/g, "'")
     .replace(/\s+/g, ' ')
     .trim()
@@ -24,19 +23,19 @@ function normalizeName(raw) {
 }
 
 /**
- * La misma build se puede abrir por tres rutas distintas:
- *   /poe1/builds/streamers/character/{cuenta}/{personaje}
- *   /poe1/builds/{liga}/character/{cuenta}/{personaje}
- *   /poe1/profile/{cuenta}/{liga}/character/{personaje}
- * Lo único común es el segmento `/character/`, así que es lo que miramos.
+ * The same build is reachable through three different routes:
+ *   /poe1/builds/streamers/character/{account}/{character}
+ *   /poe1/builds/{league}/character/{account}/{character}
+ *   /poe1/profile/{account}/{league}/character/{character}
+ * The only thing they share is the `/character/` segment, so that's what we test.
  */
 function isCharacterPage() {
   return /^\/poe1\/(builds|profile)\/.*\/character\//.test(location.pathname);
 }
 
 /**
- * Slug de liga sacado de la URL, cuando está. En las rutas de streamers no
- * aparece, y entonces dejamos que el service worker use la liga por defecto.
+ * League slug from the URL when it's there. Streamer routes don't carry one,
+ * and then we let the service worker fall back to the current league.
  */
 function leagueSlugFromUrl() {
   const path = location.pathname;
@@ -57,15 +56,122 @@ function send(type, payload = {}) {
   });
 }
 
-// ---------------------------------------------------------------- escaneo DOM
+// --------------------------------------------------------------- item classes
+
+const isUnique = (item) => item.frameType === 3 || item.frameType === 10;
+const isGem = (item) => item.frameType === 4;
+
+const EQUIPMENT_SLOTS = new Set([
+  'Helm', 'BodyArmour', 'Boots', 'Gloves', 'Weapon', 'Weapon2',
+  'Offhand', 'Ring', 'Ring2', 'Amulet', 'Belt',
+]);
 
 /**
- * Textos candidatos a ser nombre de ítem, con el elemento donde anclar el badge.
+ * Category for the summary breakdown.
  *
- * No usamos selectores CSS de poe.ninja a propósito: son clases generadas por
- * el build de Astro y cambian en cada despliegue. En vez de eso comparamos el
- * texto contra los nombres que ya conocemos del índice de precios, que es
- * estable aunque el maquetado cambie entero.
+ * With the bridge, the equipment slot is enough. The fallback path has no item
+ * data — only the name of the price line — so we guess from the base type and
+ * anything that doesn't fit lands in "Other".
+ */
+function categoryOf(match) {
+  const item = match.item;
+  if (item) {
+    if (isGem(item)) return 'Gems';
+    if (item.inventoryId === 'Flask') return 'Flasks';
+    if (item.inventoryId === 'PassiveJewels') return 'Jewels';
+    if (EQUIPMENT_SLOTS.has(item.inventoryId)) return 'Equipment';
+    return 'Other';
+  }
+  if (match.price?.gems) return 'Gems';
+  const base = match.price?.baseType || '';
+  if (/\bjewel\b/i.test(base)) return 'Jewels';
+  if (/\bflask\b/i.test(base)) return 'Flasks';
+  return base ? 'Equipment' : 'Other';
+}
+
+// --------------------------------------------------- primary path: page bridge
+
+/** Asks the MAIN-world script for the real item JSON held by the page. */
+function askBridge(timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      window.removeEventListener('message', onMessage);
+      resolve(null);
+    }, timeoutMs);
+
+    function onMessage(ev) {
+      if (ev.source !== window || ev.data?.source !== 'pnc-bridge') return;
+      clearTimeout(timer);
+      window.removeEventListener('message', onMessage);
+      resolve(ev.data.items || null);
+    }
+
+    window.addEventListener('message', onMessage);
+    window.postMessage({ source: 'pnc-request' }, '*');
+  });
+}
+
+/** Picks the price line matching this specific item. */
+function priceForItem(item, index) {
+  const entry = index[normalizeName(isGem(item) ? item.baseType : item.name)];
+  if (!entry) return null;
+
+  if (isGem(item) && entry.gems?.length) {
+    const { gemLevel: level, gemQuality: quality } = item;
+    const exact = entry.gems.find(
+      ([l, q, c]) => l === level && q === quality && c === (item.corrupted ? 1 : 0),
+    );
+    const sameLevel = entry.gems.filter(([l]) => l === level);
+    const hit = exact || sameLevel[0];
+    if (hit) return { ...entry, chaos: hit[3], variantCount: 0, detail: `${level}/${quality}` };
+    return entry;
+  }
+
+  if (isUnique(item) && entry.uniq?.length) {
+    const corrupted = item.corrupted ? 1 : 0;
+    const exact = entry.uniq.find(([l, c]) => l === item.links && c === corrupted);
+    const sameLinks = entry.uniq.filter(([l]) => l === item.links);
+    const hit = exact || sameLinks[0];
+    if (hit) {
+      return {
+        ...entry,
+        chaos: hit[2],
+        variantCount: 0,
+        detail: item.links >= 5 ? `${item.links}L` : null,
+      };
+    }
+  }
+
+  return entry;
+}
+
+function scanFromBridge(items, index) {
+  const found = [];
+  for (const item of items) {
+    if (item.anchor == null) continue;
+    const el = document.querySelector(`[data-pnc-item="${item.anchor}"]`);
+    if (!el) continue;
+
+    const price = priceForItem(item, index);
+    // An unpriced unique is not the same as a rare. The rare *cannot* have a
+    // price (random mods); the unique simply isn't in poe.ninja's economy — like
+    // Skin of the Lords, which only exists corrupted and is worth whatever
+    // keystone it rolled.
+    const reason = price ? null : isUnique(item) ? 'unpriced' : 'random';
+    found.push({ el, item, price, reason });
+  }
+  return found;
+}
+
+// ------------------------------------------------- fallback path: DOM scanning
+
+/**
+ * Texts that could be an item name, with the element to anchor the badge to.
+ *
+ * We deliberately avoid poe.ninja's CSS selectors: they're classes generated by
+ * their Astro build and change on every deploy. Instead we compare the text
+ * against the names we already know from the price index, which stays stable
+ * even if the markup changes completely.
  */
 function* textCandidates(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
@@ -78,10 +184,10 @@ function* textCandidates(root) {
 }
 
 /**
- * En las listas de joyas poe.ninja escribe "nombre + baseType"
- * ("Watcher's Eye Prismatic Jewel"). Probamos el texto entero y luego le vamos
- * quitando palabras por el final, pero sólo cuando acaba en un tipo de base
- * conocido: si no, un nombre de raro aleatorio podría colar por casualidad.
+ * In jewel lists poe.ninja writes "name + baseType" ("Watcher's Eye Prismatic
+ * Jewel"). We try the whole text and then drop trailing words, but only when it
+ * ends in a known base type: otherwise a randomly generated rare name could
+ * match by pure chance.
  */
 const BASE_SUFFIXES = /\b(jewel|flask|tincture|relic)$/i;
 
@@ -106,9 +212,9 @@ function artFilename(src) {
 }
 
 /**
- * Nivel y calidad de una gema. En el DOM el nombre está en su propio <span> y
- * el "4 / 20" cuelga de un ancestro, así que subimos un par de niveles y
- * leemos el texto que sigue al nombre.
+ * Level and quality of a gem. In the DOM the name sits in its own <span> and
+ * the "4 / 20" hangs off an ancestor, so we walk up a couple of levels and read
+ * whatever follows the name.
  */
 function gemLevelQuality(el, name) {
   for (let node = el.parentElement, depth = 0; node && depth < 3; node = node.parentElement, depth++) {
@@ -118,9 +224,9 @@ function gemLevelQuality(el, name) {
     // "Cast On Critical Strike Support (trigger) 20 / 20"
     const rest = text.slice(name.length).trim().replace(/^\([^)]*\)\s*/, '');
 
-    // Anclado al final a propósito. El bloque de DPS repite el nombre de la
-    // skill seguido de otras cifras ("Blade Blast 2.2/s · 900% crit"), y sin
-    // anclar leeríamos "2" como nivel de gema.
+    // Anchored to the end on purpose. The DPS block repeats each skill name
+    // followed by other figures ("Blade Blast 2.2/s · 900% crit"), and without
+    // the anchor we would read "2" as the gem level.
     const m = rest.match(/^(\d+)(?:\s*\/\s*(\d+))?$/);
     if (m) return { level: Number(m[1]), quality: m[2] ? Number(m[2]) : 0 };
   }
@@ -128,11 +234,11 @@ function gemLevelQuality(el, name) {
 }
 
 /**
- * Ajusta el precio de una gema al nivel/calidad que muestra la página.
+ * Adjusts a gem's price to the level/quality shown on the page.
  *
- * Devuelve `null` si es una gema y no hay nivel legible: eso significa que no
- * estamos en la lista de skills sino en el bloque de DPS, que repite los mismos
- * nombres. Sin esto, cada gema del setup principal se contaría dos veces.
+ * Returns `null` when it is a gem and no level is readable: that means we're
+ * not in the skills list but in the DPS block, which repeats the same names.
+ * Without this, every gem in the main setup would be counted twice.
  */
 function refineGem(entry, el) {
   if (!entry.gems?.length) return entry;
@@ -144,130 +250,27 @@ function refineGem(entry, el) {
   const hit = exact || sameLevel[0];
   if (!hit) return entry;
 
-  return { ...entry, chaos: hit[3], variantCount: 0, gem: `${lq.level}/${lq.quality}` };
+  return { ...entry, chaos: hit[3], variantCount: 0, detail: `${lq.level}/${lq.quality}` };
 }
 
-// ------------------------------------------------- vía principal: page-bridge
-
-/** Pide al script del mundo MAIN el JSON real de los ítems de la página. */
-function askBridge(timeoutMs = 3000) {
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      window.removeEventListener('message', onMessage);
-      resolve(null);
-    }, timeoutMs);
-
-    function onMessage(ev) {
-      if (ev.source !== window || ev.data?.source !== 'pnc-bridge') return;
-      clearTimeout(timer);
-      window.removeEventListener('message', onMessage);
-      resolve(ev.data.items || null);
-    }
-
-    window.addEventListener('message', onMessage);
-    window.postMessage({ source: 'pnc-request' }, '*');
-  });
-}
-
-const ES_UNICO = (item) => item.frameType === 3 || item.frameType === 10;
-const ES_GEMA = (item) => item.frameType === 4;
-
-/** Elige la línea de precio que corresponde al ítem concreto. */
-function priceForItem(item, index) {
-  const clave = normalizeName(ES_GEMA(item) ? item.baseType : item.name);
-  const entry = index[clave];
-  if (!entry) return null;
-
-  if (ES_GEMA(item) && entry.gems?.length) {
-    const nivel = item.gemLevel;
-    const calidad = item.gemQuality;
-    const exacta = entry.gems.find(
-      ([l, q, c]) => l === nivel && q === calidad && c === (item.corrupted ? 1 : 0),
-    );
-    const porNivel = entry.gems.filter(([l]) => l === nivel);
-    const hit = exacta || porNivel[0];
-    if (hit) return { ...entry, chaos: hit[3], variantCount: 0, detalle: `${nivel}/${calidad}` };
-    return entry;
-  }
-
-  if (ES_UNICO(item) && entry.uniq?.length) {
-    const corrupto = item.corrupted ? 1 : 0;
-    const exacta = entry.uniq.find(([l, c]) => l === item.links && c === corrupto);
-    const porLinks = entry.uniq.filter(([l]) => l === item.links);
-    const hit = exacta || porLinks[0];
-    if (hit) {
-      const detalle = item.links >= 5 ? `${item.links}L` : null;
-      return { ...entry, chaos: hit[2], variantCount: 0, detalle };
-    }
-  }
-
-  return entry;
-}
-
-const HUECOS_EQUIPO = new Set([
-  'Helm', 'BodyArmour', 'Boots', 'Gloves', 'Weapon', 'Weapon2',
-  'Offhand', 'Ring', 'Ring2', 'Amulet', 'Belt',
-]);
-
-/**
- * Categoría para el desglose del resumen.
- *
- * Con el puente basta mirar el hueco donde va equipado. Por la vía de respaldo
- * no hay datos del ítem, sólo el nombre de la línea de precio, así que se
- * deduce del baseType y lo que no encaje cae en "Otros".
- */
-function categoriaDe(match) {
-  const item = match.item;
-  if (item) {
-    if (ES_GEMA(item)) return 'Gemas';
-    if (item.inventoryId === 'Flask') return 'Flasks';
-    if (item.inventoryId === 'PassiveJewels') return 'Joyas';
-    if (HUECOS_EQUIPO.has(item.inventoryId)) return 'Equipamiento';
-    return 'Otros';
-  }
-  if (match.price?.gems) return 'Gemas';
-  const base = match.price?.baseType || '';
-  if (/\bjewel\b/i.test(base)) return 'Joyas';
-  if (/\bflask\b/i.test(base)) return 'Flasks';
-  return base ? 'Equipamiento' : 'Otros';
-}
-
-function scanFromBridge(items, index) {
-  const found = [];
-  for (const item of items) {
-    if (item.ancla == null) continue;
-    const el = document.querySelector(`[data-pnc-item="${item.ancla}"]`);
-    if (!el) continue;
-
-    const price = priceForItem(item, index);
-    // Un único sin precio no es lo mismo que un raro: el raro no puede tenerlo
-    // (mods aleatorios), el único simplemente no está en la economía de
-    // poe.ninja — como Skin of the Lords, que sólo existe corrupto y vale según
-    // el keystone que otorgue. En ese caso el botón de trade sí sirve.
-    const motivo = price ? null : ES_UNICO(item) ? 'no-cotizado' : 'aleatorio';
-    found.push({ el, item, price, motivo });
-  }
-  return found;
-}
-
-/** Descarta anclas solapadas: si ya marcamos un padre o un hijo, no repetimos. */
+/** Drops overlapping anchors: if a parent or child is already marked, skip. */
 function overlaps(accepted, el) {
   return accepted.some((m) => m.el === el || m.el.contains(el) || el.contains(m.el));
 }
 
 /**
- * Raíz del escaneo: el `<article>` con la ficha del personaje.
+ * Scan root: the `<article>` holding the character sheet.
  *
- * Es imprescindible acotar. El pie de página lleva el diálogo de consentimiento
- * con cientos de nombres de vendors publicitarios, y algunos ("Impact",
- * "Momentum", "Signal") coinciden con nombres reales de ítems de PoE. Escanear
- * `document.body` entero mete precios inventados en el resumen.
+ * Scoping is essential. The footer carries the cookie consent dialog with
+ * hundreds of ad vendor names, and some of them ("Impact", "Momentum",
+ * "Signal") collide with real PoE item names. Scanning the whole `document.body`
+ * puts invented prices in the summary.
  */
 function scanRoot() {
   return document.querySelector('article') || document.body;
 }
 
-/** ¿Ya hay una coincidencia del mismo ítem en la misma tarjeta que `el`? */
+/** Is the same item already matched inside the same card as `el`? */
 function alreadyInCard(found, el, name) {
   let node = el;
   for (let depth = 0; node && depth < 4; node = node.parentElement, depth++) {
@@ -280,7 +283,7 @@ function scanItems(index, icons) {
   const found = [];
   const root = scanRoot();
 
-  // 1) por texto: joyas, gemas y todo lo que poe.ninja escribe con letras
+  // 1) by text: jewels, gems and everything poe.ninja spells out in words
   for (const { el, text } of textCandidates(root)) {
     const entry = lookupText(index, text);
     if (!entry) continue;
@@ -290,15 +293,15 @@ function scanItems(index, icons) {
     found.push({ el, price });
   }
 
-  // 2) por icono: el equipo se pinta sólo con imágenes, sin nombre en el DOM
+  // 2) by icon: equipment is drawn as images only, with no name in the DOM
   for (const img of root.querySelectorAll('img[src*="poecdn"]')) {
     if (img.closest(`#${PANEL_ID}`)) continue;
     const key = icons[artFilename(img.getAttribute('src'))];
     const entry = key && index[key];
     if (!entry) continue;
     if (overlaps(found, img)) continue;
-    // El icono y el nombre de una gema viven en elementos hermanos, así que
-    // `overlaps` no los ve como el mismo ítem: haría falta contarlo dos veces.
+    // A gem's icon and its name live in sibling elements, so `overlaps` doesn't
+    // see them as the same item and we would count it twice.
     if (alreadyInCard(found, img, entry.name)) continue;
     found.push({ el: img, price: entry, viaIcon: true });
   }
@@ -306,7 +309,7 @@ function scanItems(index, icons) {
   return found;
 }
 
-// ------------------------------------------------------------------- pintado
+// -------------------------------------------------------------------- painting
 
 function formatChaos(chaos, chaosPerDivine) {
   if (chaos == null) return '—';
@@ -316,7 +319,7 @@ function formatChaos(chaos, chaosPerDivine) {
   return `${chaos < 10 ? chaos.toFixed(1) : Math.round(chaos)} c`;
 }
 
-/** Los nombres vienen de poe.ninja, pero acaban en innerHTML: los escapamos. */
+/** Names come from poe.ninja but end up in innerHTML, so they get escaped. */
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
@@ -328,12 +331,12 @@ function clearBadges() {
 }
 
 /**
- * Contenedor donde encajar un badge en esquina: la celda del icono.
+ * Container to pin a corner badge to: the icon cell.
  *
- * Subimos desde el ancla hasta encontrar algo con tamaño de icono. Si no lo
- * hay (una lista de texto, por ejemplo), devolvemos null y el badge va en línea.
+ * We walk up from the anchor looking for something icon-sized. If there isn't
+ * one (a text list, say) we return null and the badge goes inline instead.
  */
-function contenedorIcono(el) {
+function iconContainer(el) {
   let node = el.tagName === 'IMG' ? el.parentElement : el;
   for (let i = 0; i < 4 && node; i++, node = node.parentElement) {
     const r = node.getBoundingClientRect();
@@ -343,21 +346,22 @@ function contenedorIcono(el) {
 }
 
 /**
- * Coloca el badge. En equipo, joyas y flasks va superpuesto en la esquina
- * inferior derecha del icono, que es donde no tapa nada. Las gemas se listan
- * como texto, así que ahí va al lado del nombre.
+ * Places the badge. Equipment, jewels and flasks get it overlaid on the bottom
+ * right corner of the icon, where it covers nothing. Gems are rendered as a
+ * text list, so there it goes next to the name.
  */
-function colocarBadge(match, badge) {
-  const enEsquina = categoriaDe(match) !== 'Gemas' && contenedorIcono(match.el);
-  if (!enEsquina) {
+function placeBadge(match, badge) {
+  const corner = categoryOf(match) !== 'Gems' && iconContainer(match.el);
+  if (!corner) {
     match.el.insertAdjacentElement('afterend', badge);
-    return;
+  } else {
+    if (getComputedStyle(corner).position === 'static') corner.style.position = 'relative';
+    badge.classList.add('pnc-badge--corner');
+    corner.appendChild(badge);
   }
-  if (getComputedStyle(enEsquina).position === 'static') {
-    enEsquina.style.position = 'relative';
-  }
-  badge.classList.add('pnc-badge--esquina');
-  enEsquina.appendChild(badge);
+  // Keep the reference: corner badges are not siblings of the anchor, so the
+  // rare appraisal could not find them again to update the price.
+  match.badge = badge;
 }
 
 function paintBadges(matches, chaosPerDivine) {
@@ -365,46 +369,45 @@ function paintBadges(matches, chaosPerDivine) {
     const { price, item } = match;
 
     if (!price) {
-      const etiqueta = item?.name || item?.typeLine || 'Ítem';
-      const marca = document.createElement('span');
-      marca.className = `${BADGE_CLASS} pnc-badge--sinprecio`;
-      marca.textContent = match.motivo === 'no-cotizado' ? 'sin cotizar' : 'sin precio';
-      marca.title =
-        match.motivo === 'no-cotizado'
-          ? `${etiqueta}: poe.ninja no publica precio de este único.`
-          : `${etiqueta}: tiene mods aleatorios, así que no existe "su" precio de mercado.`;
-      colocarBadge(match, marca);
+      const label = item?.name || item?.typeLine || 'Item';
+      const badge = document.createElement('span');
+      badge.className = `${BADGE_CLASS} pnc-badge--noprice`;
+      badge.textContent = match.reason === 'unpriced' ? 'unpriced' : 'no price';
+      badge.title =
+        match.reason === 'unpriced'
+          ? `${label}: poe.ninja publishes no price for this unique.`
+          : `${label}: random mods, so no market price for this exact item exists.`;
+      placeBadge(match, badge);
       continue;
     }
-    const incierto = price.floor || price.variantCount > 1;
 
+    const uncertain = price.floor || price.variantCount > 1;
     const badge = document.createElement('span');
     badge.className = BADGE_CLASS;
     badge.textContent = (price.floor ? '≥ ' : '') + formatChaos(price.chaos, chaosPerDivine);
 
     if (price.floor) {
       badge.title =
-        `${price.name}: el precio depende de la tirada del ítem. ` +
-        `poe.ninja sólo publica el precio del más barato, así que esto es un suelo, no su valor.`;
+        `${price.name}: the price depends on the item's roll. poe.ninja only ` +
+        `publishes the cheapest one, so this is a floor, not its value.`;
     } else if (price.variantCount > 1) {
       const [min, max] = price.spread || [];
       badge.title =
-        `${price.name}: ${price.variantCount} variantes` +
-        (min ? ` (${Math.round(min)}c – ${Math.round(max)}c según la variante)` : '') +
-        `. Se muestra la más vendida, que no tiene por qué ser ésta.`;
+        `${price.name}: ${price.variantCount} variants` +
+        (min ? ` (${Math.round(min)}c – ${Math.round(max)}c depending on which)` : '') +
+        `. Showing the best-selling one, which need not be this one.`;
     } else {
-      badge.title = `${price.name} — ${price.listings} listings en poe.ninja`;
+      badge.title = `${price.name} — ${price.listings} listings on poe.ninja`;
     }
 
-    if (price.detalle) badge.textContent += ` (${price.detalle})`;
-    if (incierto) badge.classList.add('pnc-badge--warn');
+    if (price.detail) badge.textContent += ` (${price.detail})`;
+    if (uncertain) badge.classList.add('pnc-badge--warn');
 
-    colocarBadge(match, badge);
+    placeBadge(match, badge);
   }
 }
 
-
-// --------------------------------------------------------------------- panel
+// ----------------------------------------------------------------------- panel
 
 function ensurePanel() {
   let panel = document.getElementById(PANEL_ID);
@@ -414,11 +417,11 @@ function ensurePanel() {
   panel.id = PANEL_ID;
   panel.innerHTML = `
     <div class="pnc-head">
-      <strong>Precio de la build</strong>
-      <button class="pnc-close" title="Cerrar">×</button>
+      <strong>Build cost</strong>
+      <button class="pnc-close" title="Close">×</button>
     </div>
     <div class="pnc-body">
-      <button class="pnc-run">Calcular precio</button>
+      <button class="pnc-run">Calculate cost</button>
       <button class="pnc-rares" hidden></button>
       <div class="pnc-status"></div>
       <div class="pnc-summary"></div>
@@ -443,95 +446,102 @@ function setStatus(text, kind = '') {
   }
 }
 
+/** Merges identical rows: nine identical Raise Spectre need one line, not nine. */
+function mergeDuplicates(rows) {
+  const merged = new Map();
+  for (const row of rows) {
+    const key = `${row.category}|${row.name}|${row.mark}|${row.chaos}`;
+    const prev = merged.get(key);
+    if (prev) {
+      prev.count++;
+      prev.chaos += row.chaos; // the row shows the group's total, not the unit
+    } else {
+      merged.set(key, { ...row, count: 1 });
+    }
+  }
+  return [...merged.values()];
+}
+
 function renderSummary(matches, chaosPerDivine, failed) {
   const box = document.querySelector(`#${PANEL_ID} .pnc-summary`);
   if (!box) return;
 
   const priced = matches.filter((m) => typeof m.price?.chaos === 'number');
-  const aleatorios = matches.filter((m) => !m.price && m.motivo !== 'no-cotizado');
-  const noCotizados = matches.filter((m) => m.motivo === 'no-cotizado');
-  // Sólo entran al total las tasaciones de raros en las que confiamos.
-  const tasados = matches.filter((m) => m.tasacion?.fiable && m.tasacion.chaos);
-  const dudosos = matches.filter((m) => m.tasacion && !m.tasacion.fiable && m.tasacion.chaos);
+  const random = matches.filter((m) => !m.price && m.reason !== 'unpriced');
+  const unpriced = matches.filter((m) => m.reason === 'unpriced');
+  // Only appraisals we trust make it into the total.
+  const appraised = matches.filter((m) => m.appraisal?.reliable && m.appraisal.chaos);
+  const unreliable = matches.filter((m) => m.appraisal && !m.appraisal.reliable && m.appraisal.chaos);
+  const uncertain = priced.filter((m) => m.price.floor || m.price.variantCount > 1);
+
   const total =
     priced.reduce((sum, m) => sum + m.price.chaos, 0) +
-    tasados.reduce((sum, m) => sum + m.tasacion.chaos, 0);
-  const inciertos = priced.filter((m) => m.price.floor || m.price.variantCount > 1);
+    appraised.reduce((sum, m) => sum + m.appraisal.chaos, 0);
 
-  const filas = [
+  const rows = [
     ...priced.map((m) => ({
-      nombre: m.price.name,
+      name: m.price.name,
       chaos: m.price.chaos,
-      marca: m.price.floor ? '≥' : m.price.variantCount > 1 ? '±' : '',
-      categoria: categoriaDe(m),
+      mark: m.price.floor ? '≥' : m.price.variantCount > 1 ? '±' : '',
+      category: categoryOf(m),
     })),
-    ...tasados.map((m) => ({
-      nombre: m.item.name || m.item.baseType,
-      chaos: m.tasacion.chaos,
-      marca: '≈',
-      categoria: categoriaDe(m),
+    ...appraised.map((m) => ({
+      name: m.item.name || m.item.baseType,
+      chaos: m.appraisal.chaos,
+      mark: '≈',
+      category: categoryOf(m),
     })),
   ];
 
-  // Los ítems repetidos van juntos: una build con nueve Raise Spectre iguales
-  // no necesita nueve líneas idénticas. El importe de la fila es el del grupo.
-  const repetidos = new Map();
-  for (const fila of filas) {
-    const clave = `${fila.categoria}|${fila.nombre}|${fila.marca}|${fila.chaos}`;
-    const previo = repetidos.get(clave);
-    if (previo) {
-      previo.cantidad++;
-      previo.chaos += fila.chaos;
-    } else {
-      repetidos.set(clave, { ...fila, cantidad: 1 });
-    }
+  // Group and order by subtotal: put the money first.
+  const groups = new Map();
+  for (const row of mergeDuplicates(rows)) {
+    if (!groups.has(row.category)) groups.set(row.category, []);
+    groups.get(row.category).push(row);
   }
-
-  // Agrupamos y ordenamos por subtotal: primero donde está el dinero.
-  const grupos = new Map();
-  for (const fila of repetidos.values()) {
-    if (!grupos.has(fila.categoria)) grupos.set(fila.categoria, []);
-    grupos.get(fila.categoria).push(fila);
-  }
-  const secciones = [...grupos.entries()]
-    .map(([nombre, items]) => ({
-      nombre,
+  const sections = [...groups.entries()]
+    .map(([name, items]) => ({
+      name,
       items: items.sort((a, b) => b.chaos - a.chaos),
-      unidades: items.reduce((s, f) => s + f.cantidad, 0),
+      units: items.reduce((s, f) => s + f.count, 0),
       subtotal: items.reduce((s, f) => s + f.chaos, 0),
     }))
     .sort((a, b) => b.subtotal - a.subtotal);
 
-  // Los únicos que poe.ninja no cotiza van en su propia sección al final: si
-  // sólo salieran en una nota, parecería que la extensión se los ha comido.
-  if (noCotizados.length) {
-    secciones.push({
-      nombre: 'Sin cotizar',
-      unidades: noCotizados.length,
+  // Uniques poe.ninja doesn't price get their own section at the end: shown
+  // only as a footnote, they would look like something the extension ate.
+  if (unpriced.length) {
+    sections.push({
+      name: 'Unpriced',
+      units: unpriced.length,
       subtotal: null,
-      items: noCotizados.map((m) => ({
-        nombre: m.item?.name || m.price?.name || 'Único',
+      items: unpriced.map((m) => ({
+        name: m.item?.name || m.price?.name || 'Unique',
         chaos: null,
-        marca: '',
-        cantidad: 1,
+        mark: '',
+        count: 1,
       })),
     });
   }
 
-  const bloques = secciones
+  const blocks = sections
     .map(
       (s) => `
       <div class="pnc-cat">
         <div class="pnc-cat-head">
-          <span>${escapeHtml(s.nombre)} <em>(${s.unidades})</em></span>
+          <span>${escapeHtml(s.name)} <em>(${s.units})</em></span>
           <strong>${s.subtotal === null ? '—' : formatChaos(s.subtotal, chaosPerDivine)}</strong>
         </div>
         <table class="pnc-table">${s.items
           .map(
             (f) => `
           <tr>
-            <td>${escapeHtml(f.nombre)}${f.cantidad > 1 ? ` <em class="pnc-x">×${f.cantidad}</em>` : ''}</td>
-            <td class="pnc-num">${f.marca ? `<span class="pnc-warn">${f.marca}</span> ` : ''}${f.chaos === null ? '<span class="pnc-warn">—</span>' : formatChaos(f.chaos, chaosPerDivine)}</td>
+            <td>${escapeHtml(f.name)}${f.count > 1 ? ` <em class="pnc-x">×${f.count}</em>` : ''}</td>
+            <td class="pnc-num">${f.mark ? `<span class="pnc-warn">${f.mark}</span> ` : ''}${
+              f.chaos === null
+                ? '<span class="pnc-warn">—</span>'
+                : formatChaos(f.chaos, chaosPerDivine)
+            }</td>
           </tr>`,
           )
           .join('')}</table>
@@ -539,188 +549,187 @@ function renderSummary(matches, chaosPerDivine, failed) {
     )
     .join('');
 
+  const note = (text, warn = false) =>
+    `<div class="pnc-note${warn ? ' pnc-warn' : ''}">${text}</div>`;
+
+  const pendingRares = random.length - appraised.length - unreliable.length;
+
   box.innerHTML = `
-    <div class="pnc-total pnc-total--cabecera">
-      <span>Mínimo (${filas.length} ítems)</span>
+    <div class="pnc-total pnc-total--header">
+      <span>Minimum (${rows.length} items)</span>
       <strong>${formatChaos(total, chaosPerDivine)}</strong>
     </div>
-    ${bloques}
+    ${blocks}
+    ${chaosPerDivine ? note(`1 div ≈ ${Math.round(chaosPerDivine)} c`) : ''}
     ${
-      chaosPerDivine
-        ? `<div class="pnc-note">1 div ≈ ${Math.round(chaosPerDivine)} c</div>`
+      uncertain.length
+        ? note(
+            `${uncertain.length} item(s) marked ≥ or ±: their price depends on the roll or the
+             variant and can be far higher.`,
+            true,
+          )
         : ''
     }
     ${
-      inciertos.length
-        ? `<div class="pnc-note pnc-warn">${inciertos.length} ítem(s) marcados ≥ o ±: su precio depende de la tirada o de la variante y puede ser muchísimo mayor.</div>`
+      appraised.length
+        ? note(
+            `${appraised.length} rare(s) marked ≈ are the price of <em>similar</em> items on
+             trade, not of these ones: a specific rare has no market price.`,
+          )
         : ''
     }
     ${
-      tasados.length
-        ? `<div class="pnc-note">${tasados.length} raro(s) marcados ≈ son el precio de
-             ítems <em>parecidos</em> en trade, no de éstos: no existe el precio de un raro concreto.</div>`
+      unreliable.length
+        ? note(
+            `${unreliable.length} rare(s) appraised but left out of the total: the search
+             returned too many or too few similar items to trust.`,
+            true,
+          )
         : ''
     }
     ${
-      dudosos.length
-        ? `<div class="pnc-note pnc-warn">${dudosos.length} raro(s) tasados pero fuera del total:
-             la búsqueda devolvió demasiados o muy pocos similares como para fiarse.</div>`
+      pendingRares > 0
+        ? note(`${pendingRares} rare/magic item(s) not appraised yet. Use the button above.`)
         : ''
     }
     ${
-      aleatorios.length - tasados.length - dudosos.length > 0
-        ? `<div class="pnc-note">${aleatorios.length - tasados.length - dudosos.length} raro(s)/mágico(s)
-             sin tasar. Usa el botón de tasación para buscarlos en trade.</div>`
+      unpriced.length
+        ? note(
+            `"Unpriced" are uniques poe.ninja doesn't publish, usually because their value
+             depends on something the economy doesn't break down. They can be worth a lot and
+             do not count towards the total.`,
+            true,
+          )
         : ''
     }
-    ${
-      noCotizados.length
-        ? `<div class="pnc-note pnc-warn">Los "sin cotizar" son únicos que poe.ninja no publica
-             en su economía, normalmente porque su valor depende de algo que la economía no
-             desglosa. Pueden valer mucho y no cuentan para el total.</div>`
-        : ''
-    }
-    <div class="pnc-note">
-      Es un <strong>mínimo</strong>, no el coste real: sólo se valora lo que poe.ninja
-      publica en su economía (únicos, gemas, cluster jewels…).
-    </div>
-    ${
-      failed?.length
-        ? `<div class="pnc-note pnc-warn">No se pudo cargar: ${failed.map((f) => f.type).join(', ')}</div>`
-        : ''
-    }
+    ${note(
+      `This is a <strong>minimum</strong>, not the real cost: only what poe.ninja publishes in
+       its economy is valued (uniques, gems, cluster jewels…).`,
+    )}
+    ${failed?.length ? note(`Failed to load: ${failed.map((f) => f.type).join(', ')}`, true) : ''}
   `;
 }
 
-// -------------------------------------------------------------------- acción
+// ---------------------------------------------------------------------- action
 
 let running = false;
 
-/** Estado del último cálculo, para que la tasación de raros pueda reusarlo. */
-let ultimo = null;
+/** State of the last run, so the rare appraisal can reuse it. */
+let lastRun = null;
 
 /**
- * Qué raros merece la pena mandar a trade.
+ * Which rares are worth sending to trade.
  *
- * Las joyas quedan fuera: una cluster jewel vale por los notables que otorga,
- * y eso no se filtra con los mods que leemos, así que gastaríamos peticiones
- * para devolver un precio inventado.
+ * Jewels are excluded: a cluster jewel is worth whatever notables it grants,
+ * and that isn't expressible with the mods we read, so we'd spend requests to
+ * return an invented price.
  */
-function esTasable(item) {
+function isAppraisable(item) {
   return !!item?.inventoryId && item.inventoryId !== 'PassiveJewels';
 }
 
 /**
- * Tasa los raros uno a uno contra trade.
+ * Appraises rares one at a time against trade.
  *
- * Va en serie y con espaciado (el service worker impone 4 s entre búsquedas)
- * porque GGG limita a 15 búsquedas por minuto y castiga pasarse con baneos de
- * hasta media hora. Cada ítem son una o dos búsquedas más un fetch.
+ * Serial and spaced out (the service worker enforces 5 s between searches)
+ * because GGG allows 15 searches per minute and punishes overruns with bans of
+ * up to half an hour. Each item costs one or two searches plus a fetch.
  */
 async function appraiseRares() {
-  if (!ultimo || running) return;
+  if (!lastRun || running) return;
   running = true;
 
-  const boton = document.querySelector(`#${PANEL_ID} .pnc-rares`);
-  const pendientes = ultimo.matches.filter((m) => m.motivo === 'aleatorio' && esTasable(m.item));
-  let hechos = 0;
+  const button = document.querySelector(`#${PANEL_ID} .pnc-rares`);
+  const pending = lastRun.matches.filter((m) => m.reason === 'random' && isAppraisable(m.item));
+  let done = 0;
 
-  for (const match of pendientes) {
-    hechos++;
-    if (boton) boton.textContent = `Tasando raros… ${hechos}/${pendientes.length}`;
-    setStatus(`Buscando similares a ${match.item.name || match.item.baseType}…`);
+  for (const match of pending) {
+    done++;
+    if (button) button.textContent = `Appraising rares… ${done}/${pending.length}`;
+    setStatus(`Searching for items similar to ${match.item.name || match.item.baseType}…`);
 
     try {
-      const res = await send('appraise', {
+      match.appraisal = await send('appraise', {
         item: match.item,
-        league: ultimo.league,
-        chaosPerDivine: ultimo.chaosPerDivine,
+        league: lastRun.league,
+        chaosPerDivine: lastRun.chaosPerDivine,
       });
-      match.tasacion = res;
-      updateRareBadge(match, ultimo.chaosPerDivine);
+      updateRareBadge(match, lastRun.chaosPerDivine);
     } catch (err) {
-      setStatus(`Tasación detenida: ${err.message}`, 'pnc-warn');
+      setStatus(`Appraisal stopped: ${err.message}`, 'pnc-warn');
       break;
     }
   }
 
-  if (boton) {
-    boton.textContent = `Volver a tasar raros (${pendientes.length})`;
-    boton.disabled = false;
+  if (button) {
+    button.textContent = `Appraise rares again (${pending.length})`;
+    button.disabled = false;
   }
-  renderSummary(ultimo.matches, ultimo.chaosPerDivine, ultimo.failed);
-  setStatus(`Tasación terminada: ${hechos} de ${pendientes.length}.`);
+  renderSummary(lastRun.matches, lastRun.chaosPerDivine, lastRun.failed);
+  setStatus(`Appraisal finished: ${done} of ${pending.length}.`);
   running = false;
 }
 
-/** Reemplaza el "sin precio" por la estimación (o por el motivo de no darla). */
+/** Swaps the "no price" badge for the estimate, or for why there isn't one. */
 function updateRareBadge(match, chaosPerDivine) {
-  const badge = match.el.nextElementSibling;
-  if (!badge?.classList.contains(BADGE_CLASS)) return;
-  const t = match.tasacion;
+  const badge = match.badge;
+  if (!badge) return;
+  const a = match.appraisal;
 
-  if (t.omitido || !t.chaos) {
-    badge.textContent = 'sin datos';
-    badge.title = t.omitido || 'La búsqueda no devolvió ofertas.';
+  if (a.skipped || !a.chaos) {
+    badge.textContent = 'no data';
+    badge.title = a.skipped || 'The search returned no listings.';
     return;
   }
 
-  badge.textContent = `≈ ${formatChaos(t.chaos, chaosPerDivine)}`;
-  badge.classList.remove('pnc-badge--sinprecio');
-  badge.classList.add(t.fiable ? 'pnc-badge--similar' : 'pnc-badge--warn');
+  badge.textContent = `≈ ${formatChaos(a.chaos, chaosPerDivine)}`;
+  badge.classList.remove('pnc-badge--noprice');
+  badge.classList.add(a.reliable ? 'pnc-badge--similar' : 'pnc-badge--warn');
   badge.title =
-    `Mediana de las ofertas más baratas entre ${t.total} similares. ` +
-    `Fiabilidad: ${t.fiabilidad}.` +
-    (t.relajada ? ' Búsqueda relajada: sólo vida y resistencias.' : '') +
-    (t.fiable ? '' : ' Demasiados o muy pocos resultados: no cuenta para el total.');
+    `Median of the cheapest listings among ${a.total} similar items. ` +
+    `Reliability: ${a.reliability}.` +
+    (a.adjusted ? ' Filter count was adjusted to find a usable result.' : '') +
+    (a.reliable ? '' : ' Too many or too few results: excluded from the total.');
 }
 
 async function run() {
   if (running) return;
   running = true;
   clearBadges();
-  setStatus('Cargando economía de poe.ninja…');
+  setStatus('Loading poe.ninja economy…');
 
   try {
     const { index, icons, chaosPerDivine, failed, league } = await send('prices', {
       leagueSlug: leagueSlugFromUrl(),
     });
-    setStatus(`Liga: ${league}. Leyendo los ítems de la página…`);
+    setStatus(`League: ${league}. Reading the page's items…`);
 
-    // Vía principal: el JSON real que la página tiene en memoria. Si el puente
-    // falla (poe.ninja cambia sus internals), caemos al escaneo por texto.
+    // Primary path: the real JSON the page holds in memory. If the bridge fails
+    // (poe.ninja changed its internals) we fall back to scanning the DOM.
     const items = await askBridge();
-    let matches;
-    let via;
-    if (items?.length) {
-      matches = scanFromBridge(items, index);
-      via = 'datos de la página';
-    } else {
-      matches = scanItems(index, icons);
-      via = 'texto e iconos (respaldo)';
-    }
+    const usingBridge = Boolean(items?.length);
+    const matches = usingBridge ? scanFromBridge(items, index) : scanItems(index, icons);
+    const source = usingBridge ? 'page data' : 'text and icons (fallback)';
 
     if (!matches.length) {
-      setStatus(
-        'No se reconoció ningún ítem. Abre la consola y ejecuta pncDiagnostico().',
-        'pnc-warn',
-      );
+      setStatus('No items recognised. Open the console and run pncDiagnose().', 'pnc-warn');
       return;
     }
 
     paintBadges(matches, chaosPerDivine);
     renderSummary(matches, chaosPerDivine, failed);
-    ultimo = { matches, chaosPerDivine, league, failed };
+    lastRun = { matches, chaosPerDivine, league, failed };
 
-    const raros = matches.filter((m) => m.motivo === 'aleatorio' && esTasable(m.item));
-    const boton = document.querySelector(`#${PANEL_ID} .pnc-rares`);
-    if (boton) {
-      boton.hidden = !raros.length;
-      boton.textContent = `Tasar ${raros.length} raro(s) en trade (~${Math.ceil((raros.length * 4.5) / 5) * 5} s)`;
+    const rares = matches.filter((m) => m.reason === 'random' && isAppraisable(m.item));
+    const button = document.querySelector(`#${PANEL_ID} .pnc-rares`);
+    if (button) {
+      button.hidden = !rares.length;
+      const seconds = Math.ceil((rares.length * 5.5) / 5) * 5;
+      button.textContent = `Appraise ${rares.length} rare(s) on trade (~${seconds} s)`;
     }
 
-    const conPrecio = matches.filter((m) => m.price).length;
-    setStatus(`${conPrecio} de ${matches.length} ítems con precio — vía ${via}.`);
+    const withPrice = matches.filter((m) => m.price).length;
+    setStatus(`${withPrice} of ${matches.length} items priced — via ${source}.`);
   } catch (err) {
     setStatus(`Error: ${err.message}`, 'pnc-warn');
   } finally {
@@ -729,24 +738,24 @@ async function run() {
 }
 
 /**
- * Ayuda para calibrar el escaneo cuando poe.ninja cambia el maquetado:
- * vuelca en consola los textos cortos de la página para ver si los nombres de
- * ítem están realmente en el DOM y con qué forma.
+ * Calibration helper for when poe.ninja changes its markup: dumps the page's
+ * short texts and icon filenames so we can see whether item names are actually
+ * in the DOM and in what shape.
  */
-window.pncDiagnostico = function pncDiagnostico() {
-  const textos = new Set();
-  for (const { text } of textCandidates(document.body)) textos.add(text);
-  const artes = new Set();
+window.pncDiagnose = function pncDiagnose() {
+  const texts = new Set();
+  for (const { text } of textCandidates(document.body)) texts.add(text);
+  const icons = new Set();
   for (const img of document.querySelectorAll('img[src*="poecdn"]')) {
     const art = artFilename(img.getAttribute('src'));
-    if (art) artes.add(art);
+    if (art) icons.add(art);
   }
-  const salida = { textos: [...textos], iconos: [...artes] };
-  console.log('[PoENinjaChecker]', salida);
-  return salida;
+  const output = { texts: [...texts], icons: [...icons] };
+  console.log('[poe-ninja-build-cost]', output);
+  return output;
 };
 
-// ------------------------------------------------------------- ciclo de vida
+// ------------------------------------------------------------------- lifecycle
 
 function sync() {
   if (isCharacterPage()) {
@@ -757,11 +766,11 @@ function sync() {
   }
 }
 
-// poe.ninja es una SPA: la URL cambia sin recargar y hay que reaccionar a mano.
+// poe.ninja is a SPA: the URL changes without a reload, so we react by hand.
 //
-// Nada de parchear `history.pushState`: un content script vive en un realm
-// aislado, así que el parche sólo afectaría a nuestra copia y las llamadas de
-// la página pasarían de largo. Vigilar la URL es feo pero sí funciona.
+// No patching of `history.pushState`: a content script lives in an isolated
+// realm, so the patch would only affect our own copy and the page's calls would
+// sail right past. Polling the URL is ugly but it actually works.
 let lastUrl = location.href;
 setInterval(() => {
   if (location.href === lastUrl) return;

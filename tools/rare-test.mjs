@@ -1,6 +1,6 @@
-// Tasa los raros reales de una build contra la API de trade de verdad.
-// Hace 2 peticiones por ítem (search + fetch) espaciadas 4 s: con 7 raros son
-// ~30 s, muy por debajo de los límites de GGG.
+// Appraises a build's real rares against the actual trade API.
+// Up to three requests per item (search, optional retries, fetch) spaced 5 s
+// apart: with 7 rares that's under two minutes, well inside GGG's limits.
 //
 //   node tools/rare-test.mjs
 
@@ -14,88 +14,89 @@ globalThis.chrome = { storage: { local: {
   async get(k) { return store.has(k) ? { [k]: store.get(k) } : {}; },
   async set(o) { for (const [k, v] of Object.entries(o)) store.set(k, v); } } } };
 
-// En la extensión el User-Agent lo pone la regla de declarativeNetRequest.
-// Aquí hay que ponerlo a mano: sin él, Cloudflare devuelve 403.
-const UA = 'PoENinjaChecker/0.3 (personal build pricing extension)';
-const fetchOriginal = globalThis.fetch;
+// In the extension the User-Agent is set by the declarativeNetRequest rule.
+// Here we set it by hand: without it Cloudflare answers 403. ASCII only.
+const UA = 'poe-ninja-build-cost/0.3 (personal build pricing extension)';
+const realFetch = globalThis.fetch;
 globalThis.fetch = (url, init = {}) =>
-  fetchOriginal(url, { ...init, headers: { ...(init.headers || {}), 'User-Agent': UA } });
+  realFetch(url, { ...init, headers: { ...(init.headers || {}), 'User-Agent': UA } });
 
 const { loadStatIndex, significantMods, totalElementalResistance, totalLife, matchMod, MOD_FIELDS } =
   await import('../src/lib/stats.js');
-const { buildRareQuery, runQuery, fetchPrices, reliability, FIABLE, isBetter, attemptPlan } =
+const { buildRareQuery, runQuery, fetchPrices, reliability, RELIABLE, isBetter, attemptPlan } =
   await import('../src/lib/trade.js');
 const { fetchLeagues } = await import('../src/lib/economy.js');
 
-const MODS_INICIALES = 2;
+const INITIAL_MODS = 2;
 const rares = JSON.parse(readFileSync(join(here, 'fixtures', 'character-rares.json'), 'utf8')).items;
 const league = (await fetchLeagues())[0].id;
-const CHAOS_POR_DIV = 187;
+const CHAOS_PER_DIV = 187;
 
 const index = await loadStatIndex();
 
-// 1) cobertura del mapeo texto -> stat id
+// 1) coverage of the mod-text -> stat id mapping
 let ok = 0, fail = 0;
-const noReconocidos = [];
+const unmatched = [];
 for (const item of rares) {
-  for (const [campo, tipo] of MOD_FIELDS) {
-    for (const mod of item[campo] || []) {
-      if (matchMod(index, mod, tipo)) ok++;
-      else { fail++; noReconocidos.push(`${tipo}: ${mod}`); }
+  for (const [field, type] of MOD_FIELDS) {
+    for (const mod of item[field] || []) {
+      if (matchMod(index, mod, type)) ok++;
+      else { fail++; unmatched.push(`${type}: ${mod}`); }
     }
   }
 }
-console.log(`Mapeo de mods: ${ok}/${ok + fail}`);
-if (noReconocidos.length) {
-  console.log('  sin reconocer:');
-  for (const n of noReconocidos) console.log(`    ${n}`);
+console.log(`Mod mapping: ${ok}/${ok + fail}`);
+if (unmatched.length) {
+  console.log('  unmatched:');
+  for (const u of unmatched) console.log(`    ${u}`);
 }
 
-// 2) tasación real
-console.log(`\nLiga: ${league}\n`);
-const fmt = (c) => (c >= CHAOS_POR_DIV ? `${(c / CHAOS_POR_DIV).toFixed(1)} div` : `${Math.round(c)} c`);
-let suma = 0;
-let tasados = 0;
+// 2) the real appraisal
+console.log(`\nLeague: ${league}\n`);
+const fmt = (c) =>
+  c >= CHAOS_PER_DIV ? `${(c / CHAOS_PER_DIV).toFixed(1)} div` : `${Math.round(c)} c`;
+let sum = 0;
+let counted = 0;
 
 for (const item of rares) {
   const helpers = { significantMods, totalElementalResistance, totalLife };
-  let body = buildRareQuery(item, index, helpers, MODS_INICIALES);
-  const cabecera = `${item.name} [${item.baseType}]`;
-  if (!body) { console.log(`  ${cabecera}: sin mods filtrables`); continue; }
+  let body = buildRareQuery(item, index, helpers, INITIAL_MODS);
+  const header = `${item.name} [${item.baseType}]`;
+  if (!body) { console.log(`  ${header}: no filterable mods`); continue; }
 
   try {
     let { id, result, total } = await runQuery(body, league);
-    let relajada = false;
-    let anchura = body.query.stats[0].filters.length;
-    for (const n of attemptPlan(total, MODS_INICIALES)) {
-      if (FIABLE.has(reliability(total))) break;
-      const otro = buildRareQuery(item, index, helpers, n);
-      if (!otro || otro.query.stats[0].filters.length === anchura) continue;
-      anchura = otro.query.stats[0].filters.length;
-      const intento = await runQuery(otro, league);
-      if (isBetter(intento.total, total)) {
-        relajada = true;
-        body = otro;
-        ({ id, result, total } = intento);
+    let adjusted = false;
+    let width = body.query.stats[0].filters.length;
+    for (const n of attemptPlan(total, INITIAL_MODS)) {
+      if (RELIABLE.has(reliability(total))) break;
+      const other = buildRareQuery(item, index, helpers, n);
+      if (!other || other.query.stats[0].filters.length === width) continue;
+      width = other.query.stats[0].filters.length;
+      const attempt = await runQuery(other, league);
+      if (isBetter(attempt.total, total)) {
+        adjusted = true;
+        body = other;
+        ({ id, result, total } = attempt);
       }
     }
-    const usado = body;
-    const precios = total ? await fetchPrices(id, result, CHAOS_POR_DIV) : [];
-    const mediana = precios.length ? precios[Math.floor(precios.length / 2)] : null;
-    const fiabilidad = reliability(total);
-    const cuenta = FIABLE.has(fiabilidad) && mediana;
-    if (cuenta) { suma += mediana; tasados++; }
+
+    const prices = total ? await fetchPrices(id, result, CHAOS_PER_DIV) : [];
+    const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
+    const rating = reliability(total);
+    const counts = RELIABLE.has(rating) && median;
+    if (counts) { sum += median; counted++; }
 
     console.log(
-      `  ${cabecera.padEnd(42)} ${String(total).padStart(5)} res` +
-      `  ≈ ${(mediana ? fmt(mediana) : '—').padStart(9)}` +
-      `  fiab=${fiabilidad.padEnd(8)}${cuenta ? 'CUENTA' : 'descartado'}` +
-      `${relajada ? ' (relajada)' : ''}`,
+      `  ${header.padEnd(42)} ${String(total).padStart(5)} res` +
+      `  ~ ${(median ? fmt(median) : '—').padStart(9)}` +
+      `  reliability=${rating.padEnd(7)}${counts ? 'COUNTED' : 'discarded'}` +
+      `${adjusted ? ' (adjusted)' : ''}`,
     );
-    console.log(`      filtros: ${usado.query.stats[0].filters.map((f) => f.id).join(', ')}`);
+    console.log(`      filters: ${body.query.stats[0].filters.map((f) => f.id).join(', ')}`);
   } catch (err) {
-    console.log(`  ${cabecera}: ERROR ${err.message}`);
+    console.log(`  ${header}: ERROR ${err.message}`);
   }
 }
 
-console.log(`\nRaros con tasación fiable: ${tasados}/${rares.length}   suman ${fmt(suma)}`);
+console.log(`\nRares with a reliable appraisal: ${counted}/${rares.length}   adding up to ${fmt(sum)}`);

@@ -1,9 +1,9 @@
 import { buildPriceIndex, fetchLeagues } from './lib/economy.js';
 import {
+  attemptPlan,
   buildRareQuery,
   fetchPrices,
-  FIABLE,
-  attemptPlan,
+  RELIABLE,
   isBetter,
   reliability,
   runQuery,
@@ -17,21 +17,21 @@ import {
 } from './lib/stats.js';
 
 /**
- * poe.ninja pide un User-Agent descriptivo que identifique la app y un contacto.
- * `fetch` no deja tocar la cabecera User-Agent, así que la reescribimos con
- * declarativeNetRequest.
+ * poe.ninja asks for a descriptive User-Agent identifying the app and a contact.
+ * `fetch` refuses to set User-Agent, so we rewrite it with declarativeNetRequest.
  *
- * La condición `tabIds: [-1]` limita la regla a peticiones sin pestaña asociada,
- * o sea sólo las que lanza este service worker. Así no tocamos las peticiones
- * que hace la propia web cuando el usuario navega por poe.ninja.
- * `tabIds` sólo existe en reglas de sesión, no en las estáticas del manifiesto.
+ * The `tabIds: [-1]` condition limits the rule to requests with no associated
+ * tab, i.e. only the ones this service worker makes. That way we never touch the
+ * requests the site itself makes while the user browses poe.ninja.
+ * `tabIds` only exists on session rules, not on static manifest ones.
+ *
+ * ASCII only: an HTTP header with accents is invalid and gets rejected —
+ * poe.ninja and Cloudflare both answer 403.
  */
-// Sólo ASCII: una cabecera HTTP con acentos es inválida y el servidor la
-// rechaza (poe.ninja y Cloudflare devuelven 403).
-const UA = `PoENinjaChecker/${chrome.runtime.getManifest().version} (personal build pricing extension; +https://github.com/local/poe-ninja-checker)`;
+const UA = `poe-ninja-build-cost/${chrome.runtime.getManifest().version} (personal build pricing extension; +https://github.com/yaredmax/poe-ninja-build-cost)`;
 const UA_RULE_IDS = [1, 2];
 
-// GGG pide lo mismo que poe.ninja: un User-Agent que identifique la app.
+// GGG asks for the same thing poe.ninja does.
 const UA_TARGETS = [
   'https://poe.ninja/poe1/api/economy/',
   'https://www.pathofexile.com/api/trade/',
@@ -59,9 +59,9 @@ chrome.runtime.onInstalled.addListener(installUserAgentRule);
 chrome.runtime.onStartup.addListener(installUserAgentRule);
 
 /**
- * El slug de la URL de poe.ninja ("allflame", "allflamehc") no es el id de liga
- * de la API ("Allflame", "Hardcore Allflame"), así que generamos el slug de
- * cada liga y comparamos.
+ * poe.ninja's URL slug ("allflame", "allflamehc") is not the league id the API
+ * uses ("Allflame", "Hardcore Allflame"), so we generate each league's slug and
+ * compare.
  */
 function slugForLeague(id) {
   const hardcore = /^Hardcore (.+)$/.exec(id);
@@ -70,8 +70,8 @@ function slugForLeague(id) {
 }
 
 /**
- * Liga a usar. Acepta el slug de la URL o un id ya resuelto; si no reconoce
- * ninguno de los dos, cae en la liga temporal actual.
+ * League to use. Accepts either the URL slug or an already-resolved id; if it
+ * recognises neither, falls back to the current temporary league.
  */
 async function resolveLeague(slug, id) {
   const leagues = await fetchLeagues();
@@ -83,6 +83,9 @@ async function resolveLeague(slug, id) {
   return leagues[0]?.id ?? 'Standard';
 }
 
+/** How many mod filters the first appraisal attempt uses. */
+const INITIAL_MODS = 2;
+
 const handlers = {
   async ping() {
     return { ok: true };
@@ -93,15 +96,15 @@ const handlers = {
   },
 
   async prices({ leagueSlug }) {
-    await installUserAgentRule(); // las reglas de sesión se pierden al dormir el SW
-    const resolved = await resolveLeague(leagueSlug);
-    const { index, icons, failed, chaosPerDivine } = await buildPriceIndex(resolved);
-    return { league: resolved, index, icons, failed, chaosPerDivine };
+    await installUserAgentRule(); // session rules are lost when the SW sleeps
+    const league = await resolveLeague(leagueSlug);
+    const { index, icons, failed, chaosPerDivine } = await buildPriceIndex(league);
+    return { league, index, icons, failed, chaosPerDivine };
   },
 
   /**
-   * Tasa un raro buscando ítems parecidos en trade. Una petición de búsqueda y
-   * otra de fetch por ítem; el espaciado lo impone `runQuery`.
+   * Appraises a rare by searching trade for similar items. One search request
+   * plus one fetch per item; the spacing is enforced by `runQuery`.
    */
   async appraise({ item, league, chaosPerDivine }) {
     await installUserAgentRule();
@@ -109,43 +112,42 @@ const handlers = {
     const index = await loadStatIndex();
 
     const helpers = { significantMods, totalElementalResistance, totalLife };
-    const MODS_INICIALES = 2;
-    let body = buildRareQuery(item, index, helpers, MODS_INICIALES);
-    if (!body) return { omitido: 'no reconocimos ningún mod que filtrar' };
+    let body = buildRareQuery(item, index, helpers, INITIAL_MODS);
+    if (!body) return { skipped: 'no filterable mods recognised' };
 
     let { id, result, total } = await runQuery(body, resolved);
 
-    // Ajustamos el número de filtros hasta dar con una búsqueda fiable, con un
-    // tope de dos intentos extra. Sólo nos quedamos con un intento si mejora:
-    // gastar otra petición para empeorar la estimación no tiene sentido.
-    let ajustada = false;
-    let anchura = body.query.stats[0].filters.length;
-    for (const n of attemptPlan(total, MODS_INICIALES)) {
-      if (FIABLE.has(reliability(total))) break;
-      const otro = buildRareQuery(item, index, helpers, n);
-      if (!otro || otro.query.stats[0].filters.length === anchura) continue;
-      anchura = otro.query.stats[0].filters.length;
-      const intento = await runQuery(otro, resolved);
-      if (isBetter(intento.total, total)) {
-        ajustada = true;
-        body = otro;
-        ({ id, result, total } = intento);
+    // Tune the filter count until the search is trustworthy, capped at two extra
+    // attempts. We only keep an attempt if it improves things: spending another
+    // request to make the estimate worse makes no sense.
+    let adjusted = false;
+    let width = body.query.stats[0].filters.length;
+    for (const n of attemptPlan(total, INITIAL_MODS)) {
+      if (RELIABLE.has(reliability(total))) break;
+      const other = buildRareQuery(item, index, helpers, n);
+      if (!other || other.query.stats[0].filters.length === width) continue;
+      width = other.query.stats[0].filters.length;
+      const attempt = await runQuery(other, resolved);
+      if (isBetter(attempt.total, total)) {
+        adjusted = true;
+        body = other;
+        ({ id, result, total } = attempt);
       }
     }
 
     const prices = total ? await fetchPrices(id, result, chaosPerDivine) : [];
-    const fiabilidad = reliability(total);
+    const rating = reliability(total);
 
     return {
       url: webUrl(resolved, id),
       total,
-      // Mediana de los diez más baratos: el más barato de todos casi siempre es
-      // un precio de broma o un ítem mal listado.
+      // Median of the ten cheapest: the single cheapest listing is nearly always
+      // a joke price or a mislisted item.
       chaos: prices.length ? prices[Math.floor(prices.length / 2)] : null,
-      fiabilidad,
-      fiable: FIABLE.has(fiabilidad),
-      ajustada,
-      filtros: body.query.stats[0].filters.map((f) => f.id),
+      reliability: rating,
+      reliable: RELIABLE.has(rating),
+      adjusted,
+      filters: body.query.stats[0].filters.map((f) => f.id),
     };
   },
 
@@ -158,11 +160,11 @@ const handlers = {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const handler = handlers[msg?.type];
   if (!handler) {
-    sendResponse({ error: `Mensaje desconocido: ${msg?.type}` });
+    sendResponse({ error: `Unknown message: ${msg?.type}` });
     return false;
   }
   handler(msg)
     .then((data) => sendResponse(data))
     .catch((err) => sendResponse({ error: String(err?.message || err) }));
-  return true; // respuesta asíncrona
+  return true; // async response
 });

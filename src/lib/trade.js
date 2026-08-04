@@ -1,39 +1,36 @@
-// Búsquedas en la web de trade oficial de GGG.
+// Searches against GGG's official trade site.
 //
-// El flujo es el que usa la propia poe.ninja: POST de la query al API, que
-// devuelve un `id`, y con ese id se abre la web normal de trade. No leemos
-// resultados ni precios de aquí — sólo abrimos la búsqueda para el usuario.
+// The flow is the one poe.ninja itself uses: POST the query to the API, which
+// returns an `id`, then open the regular trade page with that id.
 //
-// Límites medidos en `X-Rate-Limit-Ip` (política `trade-search-request-limit`):
-//   5 por 10 s (baneo 60 s), 15 por 60 s (baneo 300 s),
-//   30 por 300 s (baneo 1800 s), 600 por 21600 s (baneo 3600 s)
-// Como cada búsqueda nace de un click del usuario, aquí basta con no encadenar
-// clicks: `MIN_GAP_MS` los separa y el 429 se informa en vez de reintentar.
+// Limits measured from `X-Rate-Limit-Ip` (policy `trade-search-request-limit`):
+//   5 per 10 s (60 s ban), 15 per 60 s (300 s ban),
+//   30 per 300 s (1800 s ban), 600 per 21600 s (3600 s ban)
 
 const API = 'https://www.pathofexile.com/api/trade/search';
+const FETCH = 'https://www.pathofexile.com/api/trade/fetch';
 const WEB = 'https://www.pathofexile.com/trade/search';
 
 /**
- * Separación mínima entre búsquedas. El límite que muerde al tasar una build
- * entera es 15 por minuto, o sea 4 s por ítem. Es el suelo de toda la cola.
+ * Minimum gap between searches. The limit that bites when appraising a whole
+ * build is 15 per minute; 5 s leaves us at 12/min with room to spare.
  */
 const MIN_GAP_MS = 5000;
 
-let ultimaBusqueda = 0;
+let lastSearch = 0;
 
 /**
- * Traduce un ítem a una query de trade.
- * Devuelve `null` para lo que todavía no sabemos buscar (raros y mágicos:
- * necesitan filtros por stat y pseudo-mods).
+ * Turns an item into a trade query.
+ * Returns `null` for anything we can't search yet (rares and magic items need
+ * stat filters and pseudo-mods — see `buildRareQuery`).
  *
- * NO ESTÁ CONECTADA A NADA ahora mismo: el botón "ir a trade" se quitó de la
- * interfaz porque se comportaba de forma rara. Se conserva junto con `search()`
- * porque está probada y devolverla es sólo volver a llamarlas.
+ * NOT WIRED TO ANYTHING right now: the "open in trade" button was removed from
+ * the UI because it misbehaved. Kept alongside `search()` because both are
+ * tested and bringing the button back is just calling them again.
  */
 export function buildQuery(item) {
   const query = { status: { option: 'online' }, stats: [{ type: 'and', filters: [] }] };
 
-  // gema
   if (item.frameType === 4) {
     query.type = item.baseType;
     const misc = { corrupted: { option: String(!!item.corrupted) } };
@@ -43,7 +40,7 @@ export function buildQuery(item) {
     return { query, sort: { price: 'asc' } };
   }
 
-  // único (3) o foil (10)
+  // unique (3) or foil (10)
   if ((item.frameType === 3 || item.frameType === 10) && item.name) {
     query.name = item.name;
     query.type = item.baseType;
@@ -64,28 +61,28 @@ export function canSearch(item) {
   return buildQuery(item) !== null;
 }
 
-const PSEUDO_RES = 'pseudo.pseudo_total_elemental_resistance';
-const PSEUDO_VIDA = 'pseudo.pseudo_total_life';
+const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
+const PSEUDO_LIFE = 'pseudo.pseudo_total_life';
 
 /**
- * Cuántos filtros de mod metemos además de los pseudo.
+ * How many mod filters to add on top of the pseudo ones.
  *
- * Poco, a propósito. Cada filtro estrecha muchísimo: con cinco, los siete raros
- * de la build de prueba daban cero resultados.
+ * Deliberately few. Each filter narrows enormously: with five, all seven rares
+ * of the test build returned zero results.
  */
-const MAX_FILTROS = 2;
+const MAX_MOD_FILTERS = 2;
 
-/** Margen a la baja sobre las tiradas del ítem, para que haya resultados. */
-const MARGEN = 0.9;
+/** Slack below the item's own rolls, so the search actually finds something. */
+const SLACK = 0.9;
 
 /**
- * Categoría de trade a partir del hueco donde va equipado.
+ * Trade category from the equipment slot.
  *
- * Buscar por base exacta no sirve: de "Focused Amulet" hay UN listado en toda
- * la liga, así que cualquier filtro extra da cero. La gente busca "un amuleto
- * cualquiera con estos mods", y eso es la categoría.
+ * Searching by exact base type is useless: there is ONE "Focused Amulet" listed
+ * in the whole league, so any extra filter returns nothing. People search for
+ * "any amulet with these mods", and that is the category.
  */
-const CATEGORIAS = {
+const CATEGORIES = {
   Helm: 'armour.helmet',
   BodyArmour: 'armour.chest',
   Boots: 'armour.boots',
@@ -101,83 +98,84 @@ const CATEGORIAS = {
 
 function categoryFor(item) {
   if (item.inventoryId === 'Offhand' && /quiver/i.test(item.baseType)) return 'armour.quiver';
-  return CATEGORIAS[item.inventoryId] || null;
+  return CATEGORIES[item.inventoryId] || null;
 }
 
 /**
- * Query para un raro. No busca *este* ítem — eso no existe en venta — sino
- * ítems parecidos: misma base y los mods que mueven el precio, pedidos al 90%
- * de la tirada. El resultado es "uno así cuesta X", no "éste vale X".
+ * Query for a rare. It does not look for *this* item — that isn't for sale
+ * anywhere — but for similar ones: same category and the mods that move the
+ * price, asked for at 90% of the roll. The result means "one like this costs X",
+ * not "this one is worth X".
  */
-export function buildRareQuery(item, statIndex, helpers, maxMods = MAX_FILTROS) {
+export function buildRareQuery(item, statIndex, helpers, maxMods = MAX_MOD_FILTERS) {
   const { significantMods, totalElementalResistance, totalLife } = helpers;
   const filters = [];
 
-  const res = totalElementalResistance(item);
-  if (res >= 30) {
-    filters.push({ id: PSEUDO_RES, value: { min: Math.floor(res * MARGEN) } });
+  const resistance = totalElementalResistance(item);
+  if (resistance >= 30) {
+    filters.push({ id: PSEUDO_RESISTANCE, value: { min: Math.floor(resistance * SLACK) } });
   }
-  const vida = totalLife(item);
-  if (vida >= 40) {
-    filters.push({ id: PSEUDO_VIDA, value: { min: Math.floor(vida * MARGEN) } });
+  const life = totalLife(item);
+  if (life >= 40) {
+    filters.push({ id: PSEUDO_LIFE, value: { min: Math.floor(life * SLACK) } });
   }
 
   for (const mod of maxMods > 0 ? significantMods(statIndex, item, maxMods) : []) {
-    const filtro = { id: mod.id };
-    const valor = mod.values[0];
-    if (typeof valor === 'number') {
-      filtro.value = { min: Math.floor(Math.abs(valor) * MARGEN) * Math.sign(valor || 1) };
+    const filter = { id: mod.id };
+    const value = mod.values[0];
+    if (typeof value === 'number') {
+      filter.value = { min: Math.floor(Math.abs(value) * SLACK) * Math.sign(value || 1) };
     }
-    filters.push(filtro);
+    filters.push(filter);
   }
 
   if (!filters.length) return null;
 
-  const categoria = categoryFor(item);
+  const category = categoryFor(item);
   const query = {
     status: { option: 'online' },
     stats: [{ type: 'and', filters }],
   };
-  if (categoria) {
-    query.filters = { type_filters: { filters: { category: { option: categoria } } } };
+  if (category) {
+    query.filters = { type_filters: { filters: { category: { option: category } } } };
   } else {
-    query.type = item.baseType; // sin categoría conocida, al menos acotamos la base
+    query.type = item.baseType; // no known category: at least pin the base
   }
 
   return { query, sort: { price: 'asc' } };
 }
 
 /**
- * Precios de las primeras ofertas de una búsqueda.
- * `/fetch` acepta hasta 10 ids por petición, así que con una basta.
+ * Prices of the first listings of a search.
+ * `/fetch` accepts up to 10 ids per request, so one call is enough.
  */
 export async function fetchPrices(queryId, resultIds, chaosPerDivine) {
   const ids = resultIds.slice(0, 10);
   if (!ids.length) return [];
 
-  const url = `https://www.pathofexile.com/api/trade/fetch/${ids.join(',')}?query=${encodeURIComponent(queryId)}`;
+  const url = `${FETCH}/${ids.join(',')}?query=${encodeURIComponent(queryId)}`;
   const res = await fetch(url);
-  if (res.status === 429) throw new Error('GGG está limitando las peticiones.');
-  if (!res.ok) throw new Error(`Trade fetch devolvió ${res.status}`);
+  if (res.status === 429) throw new Error('GGG is rate limiting us.');
+  if (!res.ok) throw new Error(`Trade fetch returned ${res.status}`);
 
   const data = await res.json();
   const chaos = [];
-  for (const linea of data.result || []) {
-    const precio = linea?.listing?.price;
-    if (!precio || typeof precio.amount !== 'number') continue;
-    if (precio.currency === 'chaos') chaos.push(precio.amount);
-    else if (precio.currency === 'divine' && chaosPerDivine) {
-      chaos.push(precio.amount * chaosPerDivine);
+  for (const line of data.result || []) {
+    const price = line?.listing?.price;
+    if (!price || typeof price.amount !== 'number') continue;
+    if (price.currency === 'chaos') chaos.push(price.amount);
+    else if (price.currency === 'divine' && chaosPerDivine) {
+      chaos.push(price.amount * chaosPerDivine);
     }
   }
   return chaos.sort((a, b) => a - b);
 }
 
-/** Lanza la búsqueda y devuelve el id y los ids de resultado, sin abrir nada. */
+/** Runs a search and returns its id and result ids, without opening anything. */
 export async function runQuery(body, league) {
-  const espera = MIN_GAP_MS - (Date.now() - ultimaBusqueda);
-  if (espera > 0) await new Promise((r) => setTimeout(r, espera));
-  ultimaBusqueda = Date.now();
+  const wait = MIN_GAP_MS - (Date.now() - lastSearch);
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastSearch = Date.now();
 
   const res = await fetch(`${API}/${encodeURIComponent(league)}`, {
     method: 'POST',
@@ -186,47 +184,56 @@ export async function runQuery(body, league) {
   });
   if (res.status === 429) {
     const retry = res.headers.get('Retry-After');
-    throw new Error(`GGG limitando${retry ? `; reintenta en ${retry} s` : ''}.`);
+    throw new Error(`GGG is rate limiting us${retry ? `; retry in ${retry} s` : ''}.`);
   }
-  if (!res.ok) throw new Error(`Trade devolvió ${res.status}`);
+  if (!res.ok) throw new Error(`Trade returned ${res.status}`);
   const data = await res.json();
   return { id: data.id, result: data.result || [], total: data.total ?? 0 };
 }
 
+/** Runs a search and returns the trade page URL, ready to open. */
+export async function search(item, league) {
+  const body = buildQuery(item);
+  if (!body) throw new Error("We can't build a search for this item yet.");
+  const { id } = await runQuery(body, league);
+  if (!id) throw new Error('Trade returned no search id.');
+  return webUrl(league, id);
+}
+
 /**
- * Cuánto fiarse de una tasación, por el número de resultados.
+ * How much to trust an appraisal, judged by the number of results.
  *
- * Muchos resultados significa que los filtros no acotaron nada: la mediana de
- * los diez más baratos entre 250 cascos "con vida y resistencias" es basura de
- * 1 c, no el precio del ítem. Pocos resultados tampoco valen: uno solo puede
- * ser un precio inventado. Sólo `alta` y `media` deberían sumarse a un total.
+ * Many results means the filters narrowed nothing down: the median of the ten
+ * cheapest among 250 helmets "with life and resistances" is 1 c of junk, not the
+ * item's price. Too few is no good either — a single listing can be a made-up
+ * price. Only `alta` and `media` should ever be summed into a total.
  */
 export function reliability(total) {
-  if (!total) return 'ninguna';
-  if (total > 120) return 'baja';
-  if (total < 3) return 'escasa';
-  if (total > 40) return 'media';
-  return 'alta';
+  if (!total) return 'none';
+  if (total > 120) return 'low';
+  if (total < 3) return 'thin';
+  if (total > 40) return 'medium';
+  return 'high';
 }
 
-export const FIABLE = new Set(['alta', 'media']);
+export const RELIABLE = new Set(['high', 'medium']);
 
-/** Para decidir si un segundo intento mejoró o no. */
-const RANGO = { alta: 4, media: 3, escasa: 2, baja: 1, ninguna: 0 };
+/** Used to decide whether a second attempt actually improved things. */
+const RANK = { high: 4, medium: 3, thin: 2, low: 1, none: 0 };
 
-export function isBetter(totalNuevo, totalViejo) {
-  return RANGO[reliability(totalNuevo)] > RANGO[reliability(totalViejo)];
+export function isBetter(newTotal, oldTotal) {
+  return RANK[reliability(newTotal)] > RANK[reliability(oldTotal)];
 }
 
 /**
- * Qué números de mod probar después del primer intento, en orden.
+ * Which mod counts to try after the first attempt, in order.
  *
- * Se baja o se sube de uno en uno según el problema: sin resultados hay que
- * aflojar, con doscientos hay que apretar. Un solo escalón no basta —hay ítems
- * que sólo aparecen con los pseudo a secas— pero tampoco conviene saltar
- * directamente al fondo, porque de 0 resultados se pasa a 250 de basura.
+ * We step down or up one at a time depending on the problem: no results means
+ * loosen, two hundred results means tighten. One step isn't always enough —
+ * some items only show up with the pseudo-mods alone — but jumping straight to
+ * the bottom overshoots, turning 0 results into 250 of junk.
  *
- * Como mucho dos intentos extra: cada uno es una búsqueda más contra GGG.
+ * At most two extra attempts: each one is another search against GGG.
  */
 export function attemptPlan(total, maxMods) {
   if (total === 0) return [maxMods - 1, maxMods - 2].filter((n) => n >= 0);
@@ -236,32 +243,4 @@ export function attemptPlan(total, maxMods) {
 
 export function webUrl(league, queryId) {
   return `${WEB}/${encodeURIComponent(league)}/${queryId}`;
-}
-
-/** Lanza la búsqueda y devuelve la URL de la web de trade para abrirla. */
-export async function search(item, league) {
-  const body = buildQuery(item);
-  if (!body) throw new Error('Todavía no sabemos construir la búsqueda de este ítem.');
-
-  const espera = MIN_GAP_MS - (Date.now() - ultimaBusqueda);
-  if (espera > 0) await new Promise((r) => setTimeout(r, espera));
-  ultimaBusqueda = Date.now();
-
-  const res = await fetch(`${API}/${encodeURIComponent(league)}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (res.status === 429) {
-    const espera = res.headers.get('Retry-After');
-    throw new Error(
-      `GGG está limitando las peticiones${espera ? `. Reintenta en ${espera} s` : ''}.`,
-    );
-  }
-  if (!res.ok) throw new Error(`Trade devolvió ${res.status}`);
-
-  const data = await res.json();
-  if (!data.id) throw new Error('Trade no devolvió ningún id de búsqueda.');
-  return `${WEB}/${encodeURIComponent(league)}/${data.id}`;
 }

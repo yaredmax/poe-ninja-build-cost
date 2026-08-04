@@ -1,23 +1,23 @@
-// Acceso a la API de economía *documentada* de poe.ninja.
-// Doc: https://poe.ninja/docs/api
+// Access to poe.ninja's *documented* economy API.
+// Docs: https://poe.ninja/docs/api
 //
-// Reglas que la doc pide y que respetamos aquí:
-//  - Los datos de PoE1 se refrescan ~cada 15 min y las respuestas se cachean ~5 min.
-//    No tiene sentido pedir más a menudo, así que cacheamos en chrome.storage.
-//  - User-Agent descriptivo (lo pone background.js con declarativeNetRequest).
-//  - Volumen y concurrencia razonables (ver CONCURRENCY).
+// Rules the docs ask for, honoured here:
+//  - PoE1 data refreshes roughly every 15 min and responses are cached ~5 min,
+//    so asking more often is pointless: we cache in chrome.storage.
+//  - Descriptive User-Agent (set by background.js via declarativeNetRequest).
+//  - Reasonable volume and concurrency (see CONCURRENCY).
 
 const BASE = 'https://poe.ninja/poe1/api/economy';
 
-/** TTL de la caché local. La doc dice que los datos se refrescan ~cada 15 min. */
+/** Local cache TTL. The docs say the data refreshes about every 15 min. */
 const TTL_MS = 10 * 60 * 1000;
 
-/** Peticiones simultáneas máximas contra poe.ninja. */
+/** Maximum simultaneous requests against poe.ninja. */
 const CONCURRENCY = 3;
 
 /**
- * Categorías de `stash/current/item/overview` que pueden aparecer como equipo
- * en una build. El orden importa poco; se piden en paralelo limitado.
+ * Categories of `stash/current/item/overview` that can show up as gear on a
+ * build. Order barely matters; they're fetched with limited parallelism.
  */
 export const GEAR_TYPES = [
   'UniqueWeapon',
@@ -36,13 +36,13 @@ export const GEAR_TYPES = [
 ];
 
 /**
- * Ítems cuyo precio publicado es un SUELO, no un precio real: el valor depende
- * de una tirada que la API de economía no desglosa en líneas separadas.
+ * Items whose published price is a FLOOR, not a price: the value depends on a
+ * roll the economy API doesn't split into separate lines.
  *
- * La mayoría se detectan solos contando modificadores `optional` (ver
- * `isFloorPriced`): un único normal tiene 0, un Watcher's Eye tiene 87. Pero
- * algunos varían por algo que no es un mod — el keystone de un Impossible
- * Escape, el nodo de un jewel temporal — y esos hay que listarlos a mano.
+ * Most are detected automatically by counting `optional` modifiers (see
+ * `isFloorPriced`): a normal unique has 0, a Watcher's Eye has 87. But some vary
+ * by something that isn't a mod — the keystone on an Impossible Escape, the node
+ * on a timeless jewel — and those have to be listed by hand.
  */
 const FLOOR_PRICED = new Set([
   'impossible escape',
@@ -57,7 +57,7 @@ const FLOOR_PRICED = new Set([
   'that which was taken',
 ]);
 
-/** Umbral de mods `optional` a partir del cual el precio es un suelo. */
+/** How many `optional` mods before we treat the price as a floor. */
 const OPTIONAL_MODS_THRESHOLD = 4;
 
 function isFloorPriced(line) {
@@ -66,11 +66,11 @@ function isFloorPriced(line) {
   return optional > OPTIONAL_MODS_THRESHOLD;
 }
 
-/** Normaliza un nombre de ítem para poder comparar texto del DOM con la API. */
+/** Normalises an item name so DOM text and API names can be compared. */
 export function normalizeName(raw) {
   return String(raw)
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // marcas diacríticas combinantes
+    .replace(/[̀-ͯ]/g, '') // combining diacritics
     .replace(/[’'`]/g, "'")
     .replace(/\s+/g, ' ')
     .trim()
@@ -95,35 +95,35 @@ async function getJson(url, cacheKey) {
     if (hit) return hit;
   }
   const res = await fetch(url, { credentials: 'omit' });
-  if (!res.ok) throw new Error(`poe.ninja ${res.status} en ${url}`);
+  if (!res.ok) throw new Error(`poe.ninja ${res.status} at ${url}`);
   const data = await res.json();
   if (cacheKey) await cacheSet(cacheKey, data);
   return data;
 }
 
-/** Lista de ligas de economía. La primera es la liga temporal actual. */
+/** Economy leagues. The first one is the current temporary league. */
 export async function fetchLeagues() {
   return getJson(`${BASE}/leagues`, 'leagues');
 }
 
-/** Overview de una categoría de ítems para una liga. */
+/** Overview of one item category for a league. */
 async function fetchOverview(league, type) {
   const url = `${BASE}/stash/current/item/overview?league=${encodeURIComponent(league)}&type=${encodeURIComponent(type)}`;
   const data = await getJson(url, `ov:${league}:${type}`);
   return data.lines || [];
 }
 
-/** Ejecuta `tasks` con un límite de concurrencia, sin abortar si alguna falla. */
+/** Runs `tasks` with a concurrency limit, without aborting if one fails. */
 async function pooled(tasks, limit) {
   const results = [];
   let cursor = 0;
   const workers = Array.from({ length: Math.min(limit, tasks.length) }, async () => {
     while (cursor < tasks.length) {
-      const index = cursor++;
+      const i = cursor++;
       try {
-        results[index] = { ok: true, value: await tasks[index]() };
+        results[i] = { ok: true, value: await tasks[i]() };
       } catch (err) {
-        results[index] = { ok: false, error: err };
+        results[i] = { ok: false, error: err };
       }
     }
   });
@@ -132,11 +132,11 @@ async function pooled(tasks, limit) {
 }
 
 /**
- * De todas las líneas que comparten nombre, elige la "representativa".
+ * Of all the lines sharing a name, picks the "representative" one.
  *
- * poe.ninja publica una línea por combinación de variante / links / corrupción,
- * y no podemos saber desde el DOM cuál es la del personaje. Usamos la de mayor
- * `listingCount`: es la que más se vende, o sea la versión corriente del ítem.
+ * poe.ninja publishes one line per variant / links / corruption combination and
+ * we can't tell from the DOM which one the character has. We take the highest
+ * `listingCount`: the one that sells most, i.e. the ordinary version.
  */
 function pickRepresentative(lines) {
   return lines.reduce((best, line) =>
@@ -145,9 +145,9 @@ function pickRepresentative(lines) {
 }
 
 /**
- * Construye el índice que se manda al content script: un objeto plano
- * `nombre normalizado -> resumen de precio`. Se queda en unos pocos miles de
- * entradas, mucho más ligero que mandar las líneas completas.
+ * Builds the index sent to the content script: a plain object of
+ * `normalised name -> price summary`. It stays at a few thousand entries, far
+ * lighter than shipping the full lines.
  */
 export async function buildPriceIndex(league) {
   const settled = await pooled(
@@ -170,11 +170,11 @@ export async function buildPriceIndex(league) {
     for (const line of lines) {
       if (!line.name) continue;
 
-      // Los jewels Forbidden se publican con el nombre del *pasivo* que otorgan
-      // ("Ngamahu, Flame's Advance"), y la página del personaje enseña
-      // "Forbidden Flame Crimson Jewel". Los agregamos por su variante y NO los
-      // indexamos por nombre: si no, la lista de ascendencia del personaje
-      // ("Deathmarked", "Mistwalker"...) casaría con el precio de un jewel.
+      // Forbidden jewels are published under the name of the *passive* they
+      // grant ("Ngamahu, Flame's Advance"), while the character page shows
+      // "Forbidden Flame Crimson Jewel". We collect them by variant and do NOT
+      // index them by name: otherwise the character's ascendancy list
+      // ("Deathmarked", "Mistwalker") would be priced as if it were a jewel.
       if (type === 'ForbiddenJewel') {
         if (line.variant) {
           const prev = forbidden.get(line.variant);
@@ -209,16 +209,16 @@ export async function buildPriceIndex(league) {
       floor: lines.some(isFloorPriced),
     };
 
-    // Para gemas guardamos todas las tiradas de nivel/calidad: la página del
-    // personaje muestra "Empower Support 4 / 20", así que sí podemos acertar
-    // la línea exacta en vez de conformarnos con la más vendida.
+    // For gems we keep every level/quality roll: the character page shows
+    // "Empower Support 4 / 20", so we can hit the exact line instead of settling
+    // for the best-selling one.
     if (gemNames.has(key)) {
       entry.gems = lines
         .filter((l) => typeof l.chaosValue === 'number')
         .map((l) => [l.gemLevel ?? 0, l.gemQuality ?? 0, l.corrupted ? 1 : 0, l.chaosValue]);
     } else if (lines.length > 1) {
-      // Únicos: poe.ninja publica línea por links y por corrupción. Con el JSON
-      // real del ítem sabemos ambas cosas, así que podemos coger la que toca.
+      // Uniques: poe.ninja publishes a line per link count and corruption. With
+      // the real item JSON we know both, so we can pick the right one.
       entry.uniq = lines
         .filter((l) => typeof l.chaosValue === 'number')
         .map((l) => [l.links ?? 0, l.corrupted ? 1 : 0, l.chaosValue]);
@@ -226,22 +226,23 @@ export async function buildPriceIndex(league) {
 
     index[key] = entry;
 
-    // La página muestra "Watcher's Eye Prismatic Jewel": nombre + baseType.
+    // The page writes "Watcher's Eye Prismatic Jewel": name + baseType.
     if (pick.baseType) {
       const withBase = normalizeName(`${pick.name} ${pick.baseType}`);
       if (!index[withBase]) index[withBase] = entry;
     }
 
-    // El equipo se pinta sólo con iconos, sin texto. La API de economía trae la
-    // misma URL de poecdn, así que indexamos por el nombre del fichero de arte.
+    // Equipment is drawn with icons only, no text. The economy API returns the
+    // same poecdn URL, so we index by the art filename.
     //
-    // Joyas y gemas quedan fuera a propósito: la página siempre las escribe con
-    // letras, y su arte es el de la *base*. Un Large Cluster Jewel raro y el
-    // único "The Light of Meaning" comparten `AfflictionJewel.png`, así que
-    // casar por icono ahí sólo produce precios inventados.
-    const esJoyaOGema = entry.gems || /\bjewel\b/i.test(entry.baseType || '');
-    const art = esJoyaOGema ? null : artFilename(pick.icon);
+    // Jewels and gems are deliberately excluded: the page always spells them out
+    // in words, and their art is the *base* art. A rare Large Cluster Jewel and
+    // the unique "The Light of Meaning" share `AfflictionJewel.png`, so matching
+    // by icon there only invents prices.
+    const isJewelOrGem = entry.gems || /\bjewel\b/i.test(entry.baseType || '');
+    const art = isJewelOrGem ? null : artFilename(pick.icon);
     if (art) {
+      // Only if unambiguous: if two uniques share art, we don't guess.
       if (art in icons && icons[art] !== key) icons[art] = null;
       else icons[art] = key;
     }
@@ -258,7 +259,7 @@ export async function buildPriceIndex(league) {
       listings: 0,
       variantCount: 0,
       spread: null,
-      floor: true, // el precio real depende del pasivo concreto
+      floor: true, // the real price depends on which passive it grants
     };
   }
 
@@ -276,7 +277,7 @@ export function artFilename(iconUrl) {
   return file && file.endsWith('.png') ? file : null;
 }
 
-/** Rango chaos [min, max] entre todas las variantes de un mismo nombre. */
+/** Chaos range [min, max] across every variant sharing a name. */
 function priceSpread(lines) {
   const values = lines.map((l) => l.chaosValue).filter((v) => typeof v === 'number' && v > 0);
   if (values.length < 2) return null;
@@ -284,8 +285,8 @@ function priceSpread(lines) {
 }
 
 /**
- * Divine en chaos, deducido de las propias líneas (cada una trae chaosValue y
- * divineValue). Mediana de los ratios para no comerse ningún outlier.
+ * Divine price in chaos, derived from the lines themselves (each carries both
+ * chaosValue and divineValue). Median of the ratios so no outlier skews it.
  */
 function estimateChaosPerDivine(byName) {
   const ratios = [];
