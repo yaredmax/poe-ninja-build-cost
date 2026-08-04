@@ -2,15 +2,19 @@ import { buildPriceIndex, fetchLeagues } from './lib/economy.js';
 import {
   attemptPlan,
   buildRareQuery,
+  buildVariantQuery,
   fetchPrices,
   RELIABLE,
   isBetter,
   reliability,
   runQuery,
+  searchLimit,
+  fetchLimit,
   webUrl,
 } from './lib/trade.js';
 import {
   loadStatIndex,
+  rolledMods,
   significantMods,
   totalElementalResistance,
   totalLife,
@@ -86,6 +90,9 @@ async function resolveLeague(slug, id) {
 /** How many mod filters the first appraisal attempt uses. */
 const INITIAL_MODS = 2;
 
+/** Mod counts tried for a unique's variant search, most specific first. */
+const VARIANT_MOD_STEPS = [3, 2, 1];
+
 const handlers = {
   async ping() {
     return { ok: true };
@@ -106,10 +113,54 @@ const handlers = {
    * Appraises a rare by searching trade for similar items. One search request
    * plus one fetch per item; the spacing is enforced by `runQuery`.
    */
-  async appraise({ item, league, chaosPerDivine }) {
+  async appraise({ item, rollPool, league, chaosPerDivine }) {
     await installUserAgentRule();
     const resolved = await resolveLeague(null, league);
     const index = await loadStatIndex();
+
+    // A unique gets a different treatment: we know its name, so we search for
+    // that exact item plus the mods it rolled, instead of hunting for lookalikes.
+    if (item.frameType === 3 || item.frameType === 10) {
+      // Asking for every rolled mod at once describes a nearly unique item: the
+      // test build's Watcher's Eye had zero listings on three mods and zero on
+      // two, but ten on one — at 2 div against poe.ninja's 30 c floor. So we
+      // step down until the market has something, and say when we had to.
+      let best = null;
+      let width = -1;
+      for (const n of VARIANT_MOD_STEPS) {
+        const variant = buildVariantQuery(item, index, { rolledMods }, rollPool, n);
+        if (!variant) continue;
+        const filters = variant.query.stats[0].filters.length;
+        if (filters === width) continue; // fewer mods requested, same query
+        width = filters;
+        const attempt = await runQuery(variant, resolved);
+        best = { ...attempt, variant, mods: filters };
+        if (attempt.total > 0) break;
+      }
+      if (!best) return { skipped: 'none of its mods could be translated' };
+
+      const rolled = rolledMods(index, item, 99, rollPool).length;
+      const prices = best.total
+        ? await fetchPrices(best.id, best.result, chaosPerDivine)
+        : [];
+      return {
+        url: webUrl(resolved, best.id),
+        total: best.total,
+        chaos: prices.length ? prices[Math.floor(prices.length / 2)] : null,
+        reliability: best.total ? 'variant' : 'none',
+        // Unlike the "similar rares" search this query is precise by
+        // construction — same unique, same mods — so even two listings mean
+        // something. The reliability gate for lookalikes doesn't apply.
+        reliable: best.total > 0,
+        variant: true,
+        // We priced it on fewer mods than it actually has, so its real value is
+        // at least this much.
+        partial: best.mods < rolled,
+        mods: best.mods,
+        rolled,
+        filters: best.variant.query.stats[0].filters.map((f) => f.id),
+      };
+    }
 
     const helpers = { significantMods, totalElementalResistance, totalLife };
     let body = buildRareQuery(item, index, helpers, INITIAL_MODS);
@@ -149,6 +200,12 @@ const handlers = {
       adjusted,
       filters: body.query.stats[0].filters.map((f) => f.id),
     };
+  },
+
+  /** Seconds the queue will take, asked of the limiter's own bucket state. */
+  async estimate({ count }) {
+    // One search plus one fetch per item, and the search is the tight one.
+    return { seconds: Math.max(searchLimit.estimate(count), fetchLimit.estimate(count)) };
   },
 
   async clearCache() {

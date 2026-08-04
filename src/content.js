@@ -357,6 +357,11 @@ function placeBadge(match, badge) {
   } else {
     if (getComputedStyle(corner).position === 'static') corner.style.position = 'relative';
     badge.classList.add('pnc-badge--corner');
+    // Corner space is tight and a build has a dozen priceless rares. Spelling
+    // "no price" on every icon shouts louder than the actual prices and spills
+    // out of small icons like cluster jewels, so those get a short mark and
+    // keep the explanation in the tooltip.
+    if (badge.dataset.short) badge.textContent = badge.dataset.short;
     corner.appendChild(badge);
   }
   // Keep the reference: corner badges are not siblings of the anchor, so the
@@ -370,13 +375,16 @@ function paintBadges(matches, chaosPerDivine) {
 
     if (!price) {
       const label = item?.name || item?.typeLine || 'Item';
+      const isUnpricedUnique = match.reason === 'unpriced';
       const badge = document.createElement('span');
-      badge.className = `${BADGE_CLASS} pnc-badge--noprice`;
-      badge.textContent = match.reason === 'unpriced' ? 'unpriced' : 'no price';
-      badge.title =
-        match.reason === 'unpriced'
-          ? `${label}: poe.ninja publishes no price for this unique.`
-          : `${label}: random mods, so no market price for this exact item exists.`;
+      // An unpriced unique stays loud: it can be worth a lot and the user should
+      // go look. A rare with random mods is expected, so it fades into a dash.
+      badge.className = `${BADGE_CLASS} ${isUnpricedUnique ? 'pnc-badge--warn' : 'pnc-badge--noprice'}`;
+      badge.textContent = isUnpricedUnique ? 'unpriced' : 'no price';
+      badge.dataset.short = isUnpricedUnique ? '?' : '–';
+      badge.title = isUnpricedUnique
+        ? `${label}: poe.ninja publishes no price for this unique. It can be worth a lot.`
+        : `${label}: random mods, so no market price for this exact item exists.`;
       placeBadge(match, badge);
       continue;
     }
@@ -466,11 +474,15 @@ function renderSummary(matches, chaosPerDivine, failed) {
   const box = document.querySelector(`#${PANEL_ID} .pnc-summary`);
   if (!box) return;
 
-  const priced = matches.filter((m) => typeof m.price?.chaos === 'number');
+  // Only appraisals we trust make it into the total.
+  const usesAppraisal = (m) => Boolean(m.appraisal?.reliable && m.appraisal.chaos);
+  const appraised = matches.filter(usesAppraisal);
+  // A `≥` unique that trade did price has both an economy number and an
+  // appraisal. The appraisal wins — it's the actual roll — and taking both would
+  // count the item twice.
+  const priced = matches.filter((m) => typeof m.price?.chaos === 'number' && !usesAppraisal(m));
   const random = matches.filter((m) => !m.price && m.reason !== 'unpriced');
   const unpriced = matches.filter((m) => m.reason === 'unpriced');
-  // Only appraisals we trust make it into the total.
-  const appraised = matches.filter((m) => m.appraisal?.reliable && m.appraisal.chaos);
   const unreliable = matches.filter((m) => m.appraisal && !m.appraisal.reliable && m.appraisal.chaos);
   const uncertain = priced.filter((m) => m.price.floor || m.price.variantCount > 1);
 
@@ -486,7 +498,7 @@ function renderSummary(matches, chaosPerDivine, failed) {
       category: categoryOf(m),
     })),
     ...appraised.map((m) => ({
-      name: m.item.name || m.item.baseType,
+      name: m.item?.name || m.price?.name || m.item?.baseType || 'Item',
       chaos: m.appraisal.chaos,
       mark: '≈',
       category: categoryOf(m),
@@ -629,6 +641,23 @@ function isAppraisable(item) {
 }
 
 /**
+ * Which items the trade pass should look up.
+ *
+ * Two different cases, both worth a request:
+ *  - rares and magic gear, which have no market price at all;
+ *  - uniques marked `≥`, whose poe.ninja number is the cheapest roll rather
+ *    than a value. Those are searched by name plus their own mods, so a
+ *    Watcher's Eye stops reading "40 c" when it rolled something expensive.
+ *
+ * Jewels are only included for that second case: a rare cluster jewel is worth
+ * whatever notables it grants, which we can't express with the mods we read.
+ */
+function needsTradeLookup(match) {
+  if (match.price?.floor && match.item && isUnique(match.item)) return true;
+  return match.reason === 'random' && isAppraisable(match.item);
+}
+
+/**
  * Appraises rares one at a time against trade.
  *
  * Serial and spaced out (the service worker enforces 5 s between searches)
@@ -640,33 +669,34 @@ async function appraiseRares() {
   running = true;
 
   const button = document.querySelector(`#${PANEL_ID} .pnc-rares`);
-  const pending = lastRun.matches.filter((m) => m.reason === 'random' && isAppraisable(m.item));
+  const pending = lastRun.matches.filter((m) => needsTradeLookup(m));
   let done = 0;
 
   for (const match of pending) {
     done++;
-    if (button) button.textContent = `Appraising rares… ${done}/${pending.length}`;
+    if (button) button.textContent = `Pricing rares… ${done}/${pending.length}`;
     setStatus(`Searching for items similar to ${match.item.name || match.item.baseType}…`);
 
     try {
       match.appraisal = await send('appraise', {
         item: match.item,
+        rollPool: match.price?.rollPool,
         league: lastRun.league,
         chaosPerDivine: lastRun.chaosPerDivine,
       });
       updateRareBadge(match, lastRun.chaosPerDivine);
     } catch (err) {
-      setStatus(`Appraisal stopped: ${err.message}`, 'pnc-warn');
+      setStatus(`Stopped: ${err.message}`, 'pnc-warn');
       break;
     }
   }
 
   if (button) {
-    button.textContent = `Appraise rares again (${pending.length})`;
+    button.textContent = `Price rares again (${pending.length})`;
     button.disabled = false;
   }
   renderSummary(lastRun.matches, lastRun.chaosPerDivine, lastRun.failed);
-  setStatus(`Appraisal finished: ${done} of ${pending.length}.`);
+  setStatus(`Done: ${done} of ${pending.length}.`);
   running = false;
 }
 
@@ -676,20 +706,45 @@ function updateRareBadge(match, chaosPerDivine) {
   if (!badge) return;
   const a = match.appraisal;
 
+  badge.classList.remove('pnc-badge--noprice');
+
   if (a.skipped || !a.chaos) {
-    badge.textContent = 'no data';
+    // A `≥` unique keeps poe.ninja's floor if trade turned up nothing: a floor
+    // is still more informative than a question mark.
+    if (match.price) {
+      badge.title += ' — no listing with these mods found on trade.';
+      return;
+    }
+    badge.textContent = '?';
+    badge.classList.add('pnc-badge--warn');
     badge.title = a.skipped || 'The search returned no listings.';
     return;
   }
 
-  badge.textContent = `≈ ${formatChaos(a.chaos, chaosPerDivine)}`;
-  badge.classList.remove('pnc-badge--noprice');
-  badge.classList.add(a.reliable ? 'pnc-badge--similar' : 'pnc-badge--warn');
-  badge.title =
-    `Median of the cheapest listings among ${a.total} similar items. ` +
-    `Reliability: ${a.reliability}.` +
-    (a.adjusted ? ' Filter count was adjusted to find a usable result.' : '') +
-    (a.reliable ? '' : ' Too many or too few results: excluded from the total.');
+  // An unreliable number is worse than none. A rare helmet showing "1 c" reads
+  // as a price, when all it means is that 158 helmets matched filters that
+  // narrowed nothing down. The figure stays in the tooltip, not on the icon.
+  if (!a.reliable) {
+    badge.textContent = '?';
+    badge.classList.add('pnc-badge--warn');
+    badge.title =
+      `${a.total} similar items matched — ${a.total > 120 ? 'far too many' : 'too few'} to ` +
+      `estimate from. For reference the cheapest were around ` +
+      `${formatChaos(a.chaos, chaosPerDivine)}, but that is not this item's price and is ` +
+      `excluded from the total.`;
+    return;
+  }
+
+  badge.textContent = `${a.partial ? '≥' : '≈'} ${formatChaos(a.chaos, chaosPerDivine)}`;
+  badge.classList.remove('pnc-badge--warn');
+  badge.classList.add('pnc-badge--similar');
+  badge.title = a.variant
+    ? `${a.total} listing(s) of this unique matching ${a.mods} of its ${a.rolled} rolled ` +
+      `modifier(s), cheapest median. Replaces poe.ninja's floor price.` +
+      (a.partial ? ' Priced on fewer mods than it has, so it is worth at least this.' : '')
+    : `Median of the cheapest listings among ${a.total} similar items. ` +
+      `Reliability: ${a.reliability}.` +
+      (a.adjusted ? ' Filter count was adjusted to find a usable result.' : '');
 }
 
 async function run() {
@@ -720,12 +775,22 @@ async function run() {
     renderSummary(matches, chaosPerDivine, failed);
     lastRun = { matches, chaosPerDivine, league, failed };
 
-    const rares = matches.filter((m) => m.reason === 'random' && isAppraisable(m.item));
+    // Not just rares any more: `≥` uniques go to trade too, to find out what
+    // the roll they actually have is worth.
+    const pending = matches.filter((m) => needsTradeLookup(m));
     const button = document.querySelector(`#${PANEL_ID} .pnc-rares`);
     if (button) {
-      button.hidden = !rares.length;
-      const seconds = Math.ceil((rares.length * 5.5) / 5) * 5;
-      button.textContent = `Appraise ${rares.length} rare(s) on trade (~${seconds} s)`;
+      button.hidden = !pending.length;
+      button.textContent = `Price ${pending.length} item(s) on trade`;
+      if (pending.length) {
+        // The queue is no longer a fixed delay, so the estimate comes from the
+        // limiter, which knows how much of GGG's budget is already spent.
+        send('estimate', { count: pending.length })
+          .then(({ seconds }) => {
+            button.textContent = `Price ${pending.length} item(s) on trade (~${seconds} s)`;
+          })
+          .catch(() => {});
+      }
     }
 
     const withPrice = matches.filter((m) => m.price).length;

@@ -57,6 +57,7 @@ const fmt = (c) =>
   c >= CHAOS_PER_DIV ? `${(c / CHAOS_PER_DIV).toFixed(1)} div` : `${Math.round(c)} c`;
 let sum = 0;
 let counted = 0;
+const startedAt = Date.now();
 
 for (const item of rares) {
   const helpers = { significantMods, totalElementalResistance, totalLife };
@@ -99,4 +100,6 @@ for (const item of rares) {
   }
 }
 
-console.log(`\nRares with a reliable appraisal: ${counted}/${rares.length}   adding up to ${fmt(sum)}`);
+const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
+console.log(`\nElapsed: ${elapsed} s for ${rares.length} items`);
+console.log(`Rares with a reliable appraisal: ${counted}/${rares.length}   adding up to ${fmt(sum)}`);

@@ -1,3 +1,5 @@
+import { modTemplate } from './stats.js';
+
 // Access to poe.ninja's *documented* economy API.
 // Docs: https://poe.ninja/docs/api
 //
@@ -208,6 +210,19 @@ export async function buildPriceIndex(league) {
       spread: priceSpread(lines),
       floor: lines.some(isFloorPriced),
     };
+
+    // For floor-priced items we keep the pool of modifiers that actually roll,
+    // so a trade search can pin down *this* copy instead of matching every one.
+    // Only ~50 entries carry it, so the index stays small.
+    if (entry.floor) {
+      const pool = new Set();
+      for (const line of lines) {
+        for (const mod of line.explicitModifiers || []) {
+          if (mod.optional && mod.text) pool.add(modTemplate(mod.text));
+        }
+      }
+      if (pool.size) entry.rollPool = [...pool];
+    }
 
     // For gems we keep every level/quality roll: the character page shows
     // "Empower Support 4 / 20", so we can hit the exact line instead of settling

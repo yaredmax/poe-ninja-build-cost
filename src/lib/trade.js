@@ -7,17 +7,16 @@
 //   5 per 10 s (60 s ban), 15 per 60 s (300 s ban),
 //   30 per 300 s (1800 s ban), 600 per 21600 s (3600 s ban)
 
+import { RateLimiter } from './rate-limit.js';
+
 const API = 'https://www.pathofexile.com/api/trade/search';
 const FETCH = 'https://www.pathofexile.com/api/trade/fetch';
 const WEB = 'https://www.pathofexile.com/trade/search';
 
-/**
- * Minimum gap between searches. The limit that bites when appraising a whole
- * build is 15 per minute; 5 s leaves us at 12/min with room to spare.
- */
-const MIN_GAP_MS = 5000;
-
-let lastSearch = 0;
+// Search and fetch have separate policies and very different budgets
+// (5 per 10 s versus 12 per 4 s), so each gets its own limiter.
+export const searchLimit = new RateLimiter('search');
+export const fetchLimit = new RateLimiter('fetch');
 
 /**
  * Turns an item into a trade query.
@@ -59,6 +58,45 @@ export function buildQuery(item) {
 
 export function canSearch(item) {
   return buildQuery(item) !== null;
+}
+
+/** How many of a unique's own mods to pin down when searching for its variant. */
+const MAX_VARIANT_MODS = 3;
+
+/**
+ * Query for a unique whose price depends on which mods it rolled.
+ *
+ * poe.ninja publishes a single price for all Watcher's Eyes — the cheapest one —
+ * so the economy number is a floor, not a value. Here we search for the actual
+ * item: same name and base, plus the mods it actually rolled. That's the only
+ * way to find out what *this* one is worth.
+ */
+export function buildVariantQuery(item, statIndex, helpers, rollPool, maxMods = MAX_VARIANT_MODS) {
+  if (!item.name) return null;
+  const mods = helpers.rolledMods(statIndex, item, maxMods, rollPool);
+  if (!mods.length) return null;
+
+  const filters = mods.map((mod) => {
+    const filter = { id: mod.id };
+    const value = mod.values[0];
+    if (typeof value === 'number') {
+      filter.value = { min: Math.floor(Math.abs(value) * SLACK) * Math.sign(value || 1) };
+    }
+    return filter;
+  });
+
+  return {
+    query: {
+      status: { option: 'online' },
+      name: item.name,
+      type: item.baseType,
+      stats: [{ type: 'and', filters }],
+      filters: {
+        misc_filters: { filters: { corrupted: { option: String(!!item.corrupted) } } },
+      },
+    },
+    sort: { price: 'asc' },
+  };
 }
 
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
@@ -153,9 +191,17 @@ export async function fetchPrices(queryId, resultIds, chaosPerDivine) {
   const ids = resultIds.slice(0, 10);
   if (!ids.length) return [];
 
+  await fetchLimit.take();
+
   const url = `${FETCH}/${ids.join(',')}?query=${encodeURIComponent(queryId)}`;
   const res = await fetch(url);
-  if (res.status === 429) throw new Error('GGG is rate limiting us.');
+  fetchLimit.sync(res.headers);
+
+  if (res.status === 429) {
+    const retry = res.headers.get('Retry-After');
+    fetchLimit.penalise(retry);
+    throw new Error('GGG is rate limiting us.');
+  }
   if (!res.ok) throw new Error(`Trade fetch returned ${res.status}`);
 
   const data = await res.json();
@@ -173,17 +219,20 @@ export async function fetchPrices(queryId, resultIds, chaosPerDivine) {
 
 /** Runs a search and returns its id and result ids, without opening anything. */
 export async function runQuery(body, league) {
-  const wait = MIN_GAP_MS - (Date.now() - lastSearch);
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastSearch = Date.now();
+  await searchLimit.take();
 
   const res = await fetch(`${API}/${encodeURIComponent(league)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  // Sync first, even on an error: the headers are how we learn the real limits
+  // and how much of them somebody else on this IP has already spent.
+  searchLimit.sync(res.headers);
+
   if (res.status === 429) {
     const retry = res.headers.get('Retry-After');
+    searchLimit.penalise(retry);
     throw new Error(`GGG is rate limiting us${retry ? `; retry in ${retry} s` : ''}.`);
   }
   if (!res.ok) throw new Error(`Trade returned ${res.status}`);

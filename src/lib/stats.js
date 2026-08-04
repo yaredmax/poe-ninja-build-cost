@@ -40,6 +40,21 @@ function withoutLocal(key) {
   return key.replace(/\s*\(local\)$/, '');
 }
 
+/**
+ * Reduces a modifier to a comparable shape, so an item's roll can be matched
+ * against poe.ninja's template:
+ *   "(10-15)% increased Attack Speed while affected by Precision"  (template)
+ *   "14% increased Attack Speed while affected by Precision"       (item)
+ * both become "#% increased attack speed while affected by precision".
+ */
+export function modTemplate(text) {
+  return String(text)
+    .replace(/\(?-?\d+(?:\.\d+)?(?:\s*-\s*-?\d+(?:\.\d+)?)?\)?/g, '#')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 export function valuesOf(text) {
   return (String(text).match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
 }
@@ -162,6 +177,33 @@ const PRIORITY = [
 
 /** Strips the type prefix: `fractured.stat_123` and `explicit.stat_123` match. */
 const statNumber = (id) => id.replace(/^[a-z]+\./, '');
+
+/**
+ * Maps an item's own rolled modifiers, in the order they appear.
+ *
+ * For a rare this would be useless — six random mods find nothing. It exists
+ * for uniques whose value depends entirely on the roll: a Watcher's Eye rolls
+ * two or three mods out of ninety, and those mods *are* the item. Searching by
+ * name alone returns the 40 c floor, which is what makes the `≥` mark useless.
+ */
+export function rolledMods(statIndex, item, limit, rollPool) {
+  // Without the pool we'd take the first mods listed, and on a Watcher's Eye
+  // those are the three every copy has (energy shield, life, mana). Filtering by
+  // them finds every Watcher's Eye in the league — the floor price again. The
+  // pool holds the modifiers poe.ninja marks `optional`, i.e. the rolled ones.
+  const pool = rollPool?.length ? new Set(rollPool) : null;
+  const out = [];
+  for (const [field, type] of [['explicitMods', 'explicit'], ['implicitMods', 'implicit']]) {
+    for (const mod of item[field] || []) {
+      if (out.length >= limit) return out;
+      if (pool && !pool.has(modTemplate(mod))) continue;
+      const hit = matchMod(statIndex, mod, type);
+      if (!hit || out.some((s) => s.id === hit.id)) continue;
+      out.push({ ...hit, text: mod });
+    }
+  }
+  return out;
+}
 
 /** Picks the item's significant mods, already translated to stat ids. */
 export function significantMods(statIndex, item, limit) {

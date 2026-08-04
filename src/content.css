@@ -187,13 +187,25 @@
  */
 .pnc-badge--corner {
   position: absolute;
-  right: 3px;
-  bottom: 3px;
+  right: 2px;
+  bottom: 2px;
   margin: 0;
   z-index: 5;
   pointer-events: none;
+  padding: 0 5px;
+  font-size: 10px;
+  /* Cluster jewel icons are ~40px wide: without this the badge spills out. */
+  max-width: calc(100% - 4px);
+  overflow: hidden;
   background: hsl(43 55% 16% / 0.94);
   box-shadow: 0 1px 4px hsl(0 0% 0% / 0.6);
+}
+
+/* A dash on a dozen rares should recede, not compete with the real prices. */
+.pnc-badge--corner.pnc-badge--noprice {
+  background: hsl(204 12% 12% / 0.8);
+  border-color: hsl(204 12% 30% / 0.7);
+  color: hsl(204 10% 55%);
 }
 
 .pnc-badge--warn {

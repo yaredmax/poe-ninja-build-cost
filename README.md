@@ -96,7 +96,7 @@ This is an estimate with a floor, not a valuation:
   the cheapest one. The real one can be a hundred times higher. They're detected
   by counting `optional` modifiers (a normal unique has 0; a Watcher's Eye has
   87), plus a hand-written list for the ones that vary by something that isn't a
-  mod.
+  mod. The trade pass prices these properly — see below.
 - **Items marked `±`**: poe.ninja publishes several variants (gem level/quality,
   links, corruption) and the fallback path can't tell which one the character
   has. The best-selling one is shown.
@@ -106,6 +106,30 @@ This is an estimate with a floor, not a valuation:
   Lords version exists only corrupted and is worth whatever keystone it rolled.
 
 That's why the total is labelled **Minimum**.
+
+## Pricing `≥` uniques by their actual roll
+
+poe.ninja publishes one price for every Watcher's Eye — the cheapest — so its
+number is a floor. The trade pass searches for the item's *own* roll instead.
+
+The trick is telling the rolled mods from the ones every copy carries. poe.ninja
+flags the roll pool as `optional`, and that pool (87 modifiers for a Watcher's
+Eye) travels in the price index. Without it we'd filter on the first three mods
+listed — energy shield, life, mana — which every copy has, and land right back on
+the floor price.
+
+Asking for all rolled mods at once describes a nearly unique item, so the search
+steps down 3 → 2 → 1 until the market has something. When it prices on fewer mods
+than the item has, the badge shows `≥`: the item is worth *at least* that.
+
+Measured on the test build's Watcher's Eye:
+
+```
+poe.ninja floor:  30 c
+3 mods:  0 listings
+2 mods:  0 listings
+1 mod:  10 listings   median 2.0 div      ← 12x the floor
+```
 
 ## Rare appraisal
 
@@ -149,21 +173,41 @@ improves.
 answer: the other four are shown with their estimate in amber, outside the total.
 A confident wrong number would be worse than no number.
 
-### Request cost
+### Rate limiting
 
-One search plus one fetch per item, plus up to two tuning searches. Spacing is
-5 s (`MIN_GAP_MS`), leaving 12 searches per minute against GGG's limit of 15.
+`src/lib/rate-limit.js` drives the pace from GGG's own response headers rather
+than a fixed delay. Measured policies:
+
+```
+POST /api/trade/search   trade-search-request-limit
+    5:10:60,  15:60:300,  30:300:1800,  600:21600:3600
+
+GET  /api/trade/fetch    trade-fetch-request-limit
+    12:4:10,  16:12:300,  50:300:300,   1000:21600:1800
+
+GET  /api/trade/data/*   no limit headers at all (static data)
+```
+
+Each triplet is `hits:period:penalty`. **The penalty is deliberately ignored** —
+it only applies if you exceed the limit, and the point is never to. Awakened PoE
+Trade ignores it too; its parser reads only the first two fields.
+
+One bucket per triplet, per policy. A request waits until every bucket for its
+policy has room. Two details matter more than the arithmetic:
+
+- **Start pessimistic.** Until the first response teaches us the real numbers we
+  assume one request per 5 s.
+- **Sync with `-state` on every response.** The buckets are per IP, so the trade
+  website open in another tab spends the same budget. If the server's count is
+  higher than ours, the difference is recorded as if we had spent it. A fixed
+  delay is blind to this and would walk straight into a 429.
+
+This is both faster and safer than the fixed 5 s gap it replaced: the seven-rare
+pass went from about 70 s to **23.8 s**, and the limiter now knows about traffic
+it didn't cause.
+
 Jewels are not appraised: a cluster jewel is worth whatever notables it grants,
 and that isn't expressible with the mods we read.
-
-Limits measured against `POST /api/trade/search/{league}`:
-
-```
-X-Rate-Limit-Ip: 5:10:60, 15:60:300, 30:300:1800, 600:21600:3600
-```
-
-5 requests per 10 s (60 s ban), 15 per minute (5 min ban), 30 per 5 min (30 min
-ban), 600 per 6 h.
 
 ## Where the price is painted
 
@@ -224,5 +268,6 @@ dumps the candidate texts and icons so you can see what changed.
 | `src/page-bridge.js` | Pulls the item JSON out of the MAIN world |
 | `src/lib/economy.js` | Economy API, price index, floor-price detection |
 | `src/lib/trade.js` | Trade queries, rare appraisal, reliability |
-| `src/lib/stats.js` | Mod text → `stat id`, pseudo-mods |
+| `src/lib/stats.js` | Mod text → `stat id`, pseudo-mods, roll pools |
+| `src/lib/rate-limit.js` | Adaptive throttling from GGG's rate-limit headers |
 | `tools/fixtures/` | Real texts, icons, items and mods from a character page |
