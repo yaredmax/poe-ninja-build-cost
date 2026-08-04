@@ -729,6 +729,14 @@ async function tradePass(matches, { league, chaosPerDivine, failed }) {
  */
 function linkToSearch(badge, url) {
   if (!url) return;
+
+  // A badge gets linked twice: once when the economy pass paints it, and again
+  // when its trade appraisal comes back with a better search. Only the URL
+  // changes — attaching a second listener opened two tabs on one click.
+  badge.dataset.searchUrl = url;
+  if (badge.dataset.linked) return;
+  badge.dataset.linked = '1';
+
   badge.classList.add('pnc-badge--link');
   badge.title += ' Click to open this search on the trade site.';
   badge.addEventListener('click', (ev) => {
@@ -736,7 +744,7 @@ function linkToSearch(badge, url) {
     ev.stopPropagation();
     // Straight from the click, with no await in between, or Chrome treats it as
     // a popup and blocks it.
-    window.open(url, '_blank', 'noopener');
+    window.open(badge.dataset.searchUrl, '_blank', 'noopener');
   });
 }
 

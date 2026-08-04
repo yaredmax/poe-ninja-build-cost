@@ -108,6 +108,16 @@
       sockets: (item.sockets || []).length,
       gemLevel: parseInt(props.Level, 10) || null,
       gemQuality: parseInt(String(props.Quality || '').replace('+', ''), 10) || 0,
+      // The totals the item actually has, after its own modifiers and quality.
+      // Searching these directly beats filtering on the flat and percentage
+      // modifiers that produce them: one filter instead of two, and it matches
+      // items that reach the same defence a different way.
+      defences: {
+        ar: parseInt(props.Armour, 10) || 0,
+        ev: parseInt(props['Evasion Rating'], 10) || 0,
+        es: parseInt(props['Energy Shield'], 10) || 0,
+        ward: parseInt(props.Ward, 10) || 0,
+      },
       implicitMods: item.implicitMods || [],
       explicitMods: item.explicitMods || [],
       craftedMods: item.craftedMods || [],

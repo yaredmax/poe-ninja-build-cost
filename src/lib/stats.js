@@ -270,6 +270,19 @@ export function isResistanceMod(text) {
   return IS_RESISTANCE.test(text.trim()) && /fire|cold|lightning|elemental/i.test(text);
 }
 
+/**
+ * Modifiers already covered by the defence filters above.
+ *
+ * Keeping both would double-count: the property is the result of these, so
+ * filtering on each separately only narrows the search without adding meaning.
+ */
+const DEFENCE_MODS =
+  /^([+-]?\d+ to (maximum Energy Shield|Armour|Evasion Rating|Ward)|\d+% increased (Armour|Evasion|Energy Shield|Ward)([, ]|$))/i;
+
+export function isDefenceMod(text) {
+  return DEFENCE_MODS.test(text.trim()) || /% increased .*(Armour|Evasion).*Energy Shield/i.test(text);
+}
+
 export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIELDS) {
   // Without the pool we'd take the first mods listed, and on a Watcher's Eye
   // those are the three every copy has (energy shield, life, mana). Filtering by
@@ -282,8 +295,10 @@ export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIE
     for (const mod of item[field] || []) {
       if (out.length >= limit) return out;
       if (pool && !pool.has(modTemplate(mod))) continue;
-      // Resistances are covered by the pseudo total the caller adds.
+      // Resistances and defences are covered by the pseudo total and the
+      // armour filters the caller adds, so they never take a filter slot here.
       if (isResistanceMod(mod)) continue;
+      if (local && isDefenceMod(mod)) continue;
       const hit = matchMod(statIndex, mod, type, local);
       if (!hit || out.some((s) => s.id === hit.id)) continue;
       out.push({ ...hit, text: mod });

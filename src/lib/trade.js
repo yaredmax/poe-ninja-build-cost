@@ -129,6 +129,20 @@ export function searchUrl(league, body) {
 
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
 
+/** Defence totals worth filtering on, ignoring the ones the item doesn't have. */
+function defenceFilters(item, minRoll) {
+  const totals = item.defences;
+  if (!totals) return null;
+  const out = {};
+  for (const key of ['ar', 'ev', 'es', 'ward']) {
+    const value = totals[key];
+    if (!value) continue;
+    out[key] = minRoll > 0 ? { min: Math.floor((value * minRoll) / 100) } : {};
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+
 /** Query for one specific set of modifiers. */
 export function buildComboQuery(item, mods, opts = {}) {
   const { byName = false, useCategory = false, minRoll = 0, resistance = 0 } = opts;
@@ -145,7 +159,8 @@ export function buildComboQuery(item, mods, opts = {}) {
     if (minRoll > 0) filter.value = { min: Math.floor((resistance * minRoll) / 100) };
     pseudo.push(filter);
   }
-  if (!mods.length && !pseudo.length) return null;
+  const hasDefences = useCategory && defenceFilters(item, minRoll) !== null;
+  if (!mods.length && !pseudo.length && !hasDefences) return null;
 
   const filters = pseudo.concat(mods.map((mod) => {
     const filter = { id: mod.id };
@@ -164,6 +179,16 @@ export function buildComboQuery(item, mods, opts = {}) {
       misc_filters: { filters: { corrupted: { option: String(!!item.corrupted) } } },
     },
   };
+
+  // Defences go in as the totals the item ends up with, the same numbers
+  // poe.ninja shows and the trade site's own Armour Filters take. One filter
+  // covers what "+93 to maximum Energy Shield" and "136% increased Energy
+  // Shield" were spending two on, and it also matches items that reach the same
+  // number a different way.
+  // Only on the gear path. A unique is found by its name, and pinning its
+  // defences on top would just exclude the copies with worse rolls.
+  const defences = useCategory ? defenceFilters(item, minRoll) : null;
+  if (defences) query.filters.armour_filters = { filters: defences };
 
   // Gear searches by category — "any boots with these mods". Pinning the exact
   // base on top of specific mods finds nothing: some bases have a single listing

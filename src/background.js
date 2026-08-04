@@ -307,7 +307,7 @@ async function appraiseItem({ item, rollPool, league: resolved, chaosPerDivine, 
     //    hand-written list will ever cover every such case.
     let width = -1;
     for (const n of GEAR_MOD_STEPS) {
-      const query = buildOwnModsQuery(item, index, { rolledMods }, {
+      const query = buildOwnModsQuery(item, index, { rolledMods, totalElementalResistance }, {
         maxMods: n,
         fields: GEAR_FIELDS,
         useCategory: true,

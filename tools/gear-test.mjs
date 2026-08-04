@@ -39,6 +39,7 @@ const ITEM = {
   craftedMods: ['+20% to Fire and Lightning Resistances'],
   fracturedMods: [],
   enchantMods: ['8% increased Explicit Defence Modifier magnitudes'],
+  defences: { ar: 0, ev: 0, es: 1119, ward: 0 },
 };
 
 const league = (await fetchLeagues())[0].id;
@@ -64,5 +65,9 @@ for (const minRoll of [80, 0]) {
   const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
   console.log(`\nmin roll ${String(minRoll).padStart(3)}%  ->  ${String(r.total).padStart(5)} listings   median ${median ? fmt(median) : '—'}`);
   for (const f of filters) console.log(`     ${f.id}${f.value ? ` >= ${f.value.min}` : ''}`);
+  const armour = body.query.filters.armour_filters?.filters;
+  for (const [k, v] of Object.entries(armour || {})) {
+    console.log(`     armour_filters.${k}${v.min ? ` >= ${v.min}` : ''}`);
+  }
   console.log(`     ${webUrl(league, r.id)}`);
 }
