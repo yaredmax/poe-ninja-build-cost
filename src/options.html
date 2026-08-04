@@ -51,6 +51,10 @@
 
       <p class="saved" id="saved" hidden>Saved.</p>
     </main>
+    <!-- settings.js first: options.js uses PNC_SALE_MODES and pncLoadSettings.
+         The manifest only injects it into the content script, so the options
+         page has to ask for it here. -->
+    <script src="settings.js"></script>
     <script src="options.js"></script>
   </body>
 </html>
