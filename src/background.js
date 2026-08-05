@@ -340,10 +340,20 @@ async function appraiseItem({
         .slice(0, MAX_COMBO_MODS);
       if (!mods.length) return { skipped: 'none of its mods could be translated' };
 
+      // What actually varies between copies. A unique's explicit modifiers are
+      // the same on every one of them, so dropping an explicit does not widen
+      // the search by a single listing — permuting them is pure spend. Only the
+      // corruption implicits, the mutation and the rolled variants distinguish
+      // one copy from another, so those are the only ones worth laddering.
+      const distinguishing = mutated.concat(corrupted).filter((m) => mods.includes(m));
+
+      // One query with everything first: it is the precise one and it usually
+      // hits, which is why a typical item costs one search and one fetch.
       let best = await priceByCombinations({
         item,
         mods,
         byName: isUnique,
+        maxQueries: isUnique && distinguishing.length ? 1 : MAX_COMBO_QUERIES,
         // Rare jewels come through here too, and `rolledMods` drops resistance
         // mods on the floor expecting a pseudo to carry them. Without these a
         // jewel whose whole value is resistance was searched on whatever else
@@ -354,28 +364,26 @@ async function appraiseItem({
         chaosPerDivine,
         minRollPercent,
       });
-      // A double corruption is two implicits that individually are common and
-      // together are almost unheard of, so every subset containing both finds
-      // nothing — and with six modifiers the ladder spends its whole budget on
-      // the level below the top without ever getting down to one. An Architect's
-      // Hand with two corruption implicits is the case. Each of them alone is a
-      // real, useful answer, and the dearest of them is the tightest floor.
-      const distinguishing = mutated.concat(corrupted);
-      if (!best && isUnique && distinguishing.length > 1) {
-        for (const mod of distinguishing) {
-          const alone = await priceByCombinations({
-            item,
-            mods: [mod],
-            byName: true,
-            maxQueries: 1,
-            league: resolved,
-            chaosPerDivine,
-            minRollPercent,
-          });
-          if (alone && (!best || alone.chaos > best.chaos)) {
-            best = { ...alone, rolled: mods.length };
-          }
-        }
+      // Nothing sells with all of it. Ladder the distinguishing modifiers alone
+      // — for a double corruption that is two implicits which are each common
+      // and together almost unheard of, so the pair finds nothing and each one
+      // alone is a real answer. Dropping straight to these instead of permuting
+      // the explicits is what makes it affordable: an Architect's Hand used to
+      // spend its whole budget one level below the top, on subsets that were
+      // never going to differ, and never reached a single implicit.
+      if (!best && isUnique && distinguishing.length) {
+        const found = await priceByCombinations({
+          item,
+          mods: distinguishing,
+          byName: true,
+          maxQueries: MAX_COMBO_QUERIES,
+          league: resolved,
+          chaosPerDivine,
+          minRollPercent,
+        });
+        // Still a floor: the copy carries the explicits too, which this did not
+        // ask for, so `rolled` stays the item's full count.
+        if (found) best = { ...found, rolled: mods.length };
       }
 
       // Nobody is selling this combination. For a unique there is still a
