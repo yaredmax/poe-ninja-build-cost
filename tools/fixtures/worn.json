@@ -53,8 +53,20 @@
    "sockets": 0,
    "gemLevel": null,
    "gemQuality": 0,
-   "defences": { "ar": 0, "ev": 0, "es": 0, "ward": 0, "block": 0 },
-   "weapon": { "dps": 0, "pdps": 0, "edps": 0, "aps": 0, "crit": 0 },
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
    "mutated": false,
    "mutatedMods": [],
    "implicitMods": [],
@@ -89,8 +101,20 @@
    "sockets": 0,
    "gemLevel": null,
    "gemQuality": 0,
-   "defences": { "ar": 0, "ev": 0, "es": 0, "ward": 0, "block": 0 },
-   "weapon": { "dps": 0, "pdps": 0, "edps": 0, "aps": 0, "crit": 0 },
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
    "mutated": false,
    "mutatedMods": [],
    "implicitMods": [],
@@ -125,8 +149,20 @@
    "sockets": 0,
    "gemLevel": null,
    "gemQuality": 0,
-   "defences": { "ar": 0, "ev": 0, "es": 0, "ward": 0, "block": 0 },
-   "weapon": { "dps": 0, "pdps": 0, "edps": 0, "aps": 0, "crit": 0 },
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
    "mutated": false,
    "mutatedMods": [],
    "implicitMods": [],
@@ -158,8 +194,20 @@
    "sockets": 4,
    "gemLevel": null,
    "gemQuality": 20,
-   "defences": { "ar": 631, "ev": 622, "es": 0, "ward": 0, "block": 0 },
-   "weapon": { "dps": 0, "pdps": 0, "edps": 0, "aps": 0, "crit": 0 },
+   "defences": {
+    "ar": 631,
+    "ev": 622,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
    "mutated": false,
    "mutatedMods": [],
    "implicitMods": [
@@ -195,8 +243,20 @@
    "sockets": 0,
    "gemLevel": null,
    "gemQuality": 0,
-   "defences": { "ar": 0, "ev": 0, "es": 0, "ward": 0, "block": 0 },
-   "weapon": { "dps": 0, "pdps": 0, "edps": 0, "aps": 0, "crit": 0 },
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
    "mutated": false,
    "mutatedMods": [],
    "implicitMods": [
@@ -232,8 +292,20 @@
    "sockets": 4,
    "gemLevel": null,
    "gemQuality": 20,
-   "defences": { "ar": 0, "ev": 355, "es": 76, "ward": 0, "block": 0 },
-   "weapon": { "dps": 0, "pdps": 0, "edps": 0, "aps": 0, "crit": 0 },
+   "defences": {
+    "ar": 0,
+    "ev": 355,
+    "es": 76,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
    "mutated": false,
    "mutatedMods": [],
    "implicitMods": [
@@ -250,6 +322,246 @@
    "craftedMods": [],
    "fracturedMods": [],
    "enchantMods": []
+  },
+  {
+   "kind": "worn optional unique",
+   "index": 6,
+   "anchor": null,
+   "id": "e05df48fdef84c837b3d8fdd6bc8c06905b90e4062deed3bde8e6bff5d2d8ca6",
+   "name": "Watcher's Eye",
+   "typeLine": "Prismatic Jewel",
+   "baseType": "Prismatic Jewel",
+   "frameType": 3,
+   "ilvl": 87,
+   "corrupted": false,
+   "identified": true,
+   "inventoryId": "PassiveJewels",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [],
+   "explicitMods": [
+    "4% increased maximum Energy Shield",
+    "6% increased maximum Life",
+    "4% increased maximum Mana",
+    "41% increased Attack Damage while affected by Precision",
+    "14% increased Cast Speed while affected by Zealotry",
+    "Critical Strikes Penetrate 10% of Enemy Elemental Resistances while affected by Zealotry"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": []
+  },
+  {
+   "kind": "worn cluster adds 4",
+   "index": 7,
+   "anchor": null,
+   "id": "7ed972e09135df036512b93bd855c60aad5702b3ac1210a71b5b3721d6496054",
+   "name": "Pandemonium Glisten",
+   "typeLine": "Medium Cluster Jewel",
+   "baseType": "Medium Cluster Jewel",
+   "frameType": 2,
+   "ilvl": 84,
+   "corrupted": false,
+   "identified": true,
+   "inventoryId": "PassiveJewels",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [],
+   "explicitMods": [
+    "Added Small Passive Skills also grant: +8 to Dexterity",
+    "Added Small Passive Skills also grant: +8 to Strength",
+    "1 Added Passive Skill is Guerilla Tactics",
+    "1 Added Passive Skill is Surprise Sabotage"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": [
+    "Adds 4 Passive Skills",
+    "1 Added Passive Skill is a Jewel Socket",
+    "Added Small Passive Skills grant: 12% increased Trap Damage\nAdded Small Passive Skills grant: 12% increased Mine Damage"
+   ]
+  },
+  {
+   "kind": "worn cluster adds 5",
+   "index": 8,
+   "anchor": null,
+   "id": "29006d57df125fd94ce0074d93d376c6b570b9086517b4ef3be3243c1540d366",
+   "name": "Glyph Splinter",
+   "typeLine": "Medium Cluster Jewel",
+   "baseType": "Medium Cluster Jewel",
+   "frameType": 2,
+   "ilvl": 84,
+   "corrupted": false,
+   "identified": true,
+   "inventoryId": "PassiveJewels",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [],
+   "explicitMods": [
+    "Added Small Passive Skills also grant: +8 to Dexterity",
+    "Added Small Passive Skills also grant: +8 to Strength",
+    "1 Added Passive Skill is Guerilla Tactics",
+    "1 Added Passive Skill is Surprise Sabotage"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": [
+    "Adds 5 Passive Skills",
+    "1 Added Passive Skill is a Jewel Socket",
+    "Added Small Passive Skills grant: 12% increased Trap Damage\nAdded Small Passive Skills grant: 12% increased Mine Damage"
+   ]
+  },
+  {
+   "kind": "worn cluster alt roll",
+   "index": 9,
+   "anchor": null,
+   "id": "71a5b36b35b7eab665ea0fafd8bd233e63fc1e566d2af46332acf2d15aab743a",
+   "name": "Ghoul Vessel",
+   "typeLine": "Medium Cluster Jewel",
+   "baseType": "Medium Cluster Jewel",
+   "frameType": 2,
+   "ilvl": 84,
+   "corrupted": false,
+   "identified": true,
+   "inventoryId": "PassiveJewels",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [],
+   "explicitMods": [
+    "Added Small Passive Skills also grant: +8 to Strength",
+    "Added Small Passive Skills also grant: 3% increased Trap and Mine Throwing Speed",
+    "1 Added Passive Skill is Guerilla Tactics",
+    "1 Added Passive Skill is Surprise Sabotage"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": [
+    "Adds 5 Passive Skills",
+    "1 Added Passive Skill is a Jewel Socket",
+    "Added Small Passive Skills grant: 12% increased Trap Damage\nAdded Small Passive Skills grant: 12% increased Mine Damage"
+   ]
+  },
+  {
+   "kind": "worn corrupted unique",
+   "index": 10,
+   "anchor": null,
+   "id": "23374b2deb0649d3dfb0b90d601169a9b2ca3c3ab65b8402d7aba28ec032cc53",
+   "name": "Badge of the Brotherhood",
+   "typeLine": "Turquoise Amulet",
+   "baseType": "Turquoise Amulet",
+   "frameType": 3,
+   "ilvl": 85,
+   "corrupted": true,
+   "identified": true,
+   "inventoryId": "Amulet",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [
+    "4% increased Attributes",
+    "+1 to Minimum Frenzy Charges"
+   ],
+   "explicitMods": [
+    "Your Maximum Frenzy Charges is equal to your Maximum Power Charges",
+    "9% increased Cooldown Recovery Rate of Travel Skills per Frenzy Charge",
+    "7% increased Effect of Elusive on you per Power Charge",
+    "23% chance to lose a Frenzy Charge when you use a Travel Skill",
+    "22% chance to lose a Power Charge when you gain Elusive"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": [
+    "Allocates Disciple of the Slaughter"
+   ]
   }
  ]
 }

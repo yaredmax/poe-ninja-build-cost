@@ -467,7 +467,17 @@ async function runAppraisal({
       // the search by a single listing — permuting them is pure spend. Only the
       // corruption implicits, the mutation and the rolled variants distinguish
       // one copy from another, so those are the only ones worth laddering.
-      const distinguishing = mutated.concat(corrupted).filter((m) => mods.includes(m));
+      //
+      // The rolled ones count **only when poe.ninja published a roll pool**,
+      // because that is what makes them rolled rather than fixed. Leaving them
+      // out cost the item this whole path exists for: a Watcher's Eye rolls
+      // three of eighty-seven modifiers, no copy on the market had the same
+      // three, and with nothing to ladder it fell through to "any Watcher's
+      // Eye" — ten thousand listings, median 2 c, for a jewel worth divines.
+      const rolledArePool = !!rollPool?.length;
+      const distinguishing = mutated
+        .concat(corrupted, rolledArePool ? rolled : [])
+        .filter((m) => mods.includes(m));
 
       // One query with everything first: it is the precise one and it usually
       // hits, which is why a typical item costs one search and one fetch.
@@ -503,14 +513,23 @@ async function runAppraisal({
       // pools every subset together, and the ten cheapest are then whichever
       // subset is junk — 1745 listings at 1 c where the per-subset ladder found
       // 100 c.
-      const ladder = isUnique ? distinguishing : mods;
+      //
+      // Never empty. When a unique has nothing we can point at as varying —
+      // no pool, no corruption, no mutation — its own modifiers are the only
+      // thing left to ladder, and laddering them beats the alternative, which
+      // is the price of the plain unique and therefore the floor we came here
+      // to beat.
+      const ladder = isUnique && distinguishing.length ? distinguishing : mods;
       if (!best && ladder.length) {
         const found = await priceByCombinations({
           item,
           mods: ladder,
           byName: isUnique,
-          // The widest query already ran above, so start one below it.
-          maxSize: isUnique ? null : mods.length - 1,
+          // Laddering a subset is a wider question than the one already asked,
+          // so it starts at the top. Laddering the same set is not: that query
+          // has been asked and answered, and repeating it spends a budget slot
+          // to be told the same thing.
+          maxSize: ladder === mods ? mods.length - 1 : null,
           maxQueries: MAX_COMBO_QUERIES,
           resistance: totalElementalResistance(item),
           chaos: totalChaosResistance(item),
