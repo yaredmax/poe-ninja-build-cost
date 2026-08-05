@@ -436,6 +436,50 @@ function paintBadges(matches, chaosPerDivine) {
 
 // ----------------------------------------------------------------------- panel
 
+const FAB_ID = 'pnc-fab';
+
+/**
+ * The trigger: a floating button rather than a panel that is always open.
+ *
+ * poe.ninja's own layout is busy enough; a 400px panel parked over it before
+ * anyone asked for a price is rude. The button is the whole interface until
+ * there is something to show.
+ */
+function ensureFab() {
+  let fab = document.getElementById(FAB_ID);
+  if (fab) return fab;
+
+  fab = document.createElement('button');
+  fab.id = FAB_ID;
+  fab.type = 'button';
+  fab.title = 'Calculate this build\'s cost';
+  fab.innerHTML = '<i class="pnc-mark"></i>';
+  fab.addEventListener('click', () => {
+    // While results are up, the button closes them again.
+    if (document.getElementById(PANEL_ID)) closePanel();
+    else run();
+  });
+  document.body.appendChild(fab);
+  return fab;
+}
+
+function setFabPhase(phase) {
+  const fab = document.getElementById(FAB_ID);
+  if (!fab) return;
+  fab.innerHTML = phase === 'loading' ? '<i class="pnc-spinner"></i>' : '<i class="pnc-mark"></i>';
+  fab.title = phase === 'loading'
+    ? 'Pricing…'
+    : document.getElementById(PANEL_ID)
+      ? 'Hide the breakdown'
+      : "Calculate this build's cost";
+}
+
+function closePanel() {
+  clearBadges();
+  document.getElementById(PANEL_ID)?.remove();
+  setFabPhase('idle');
+}
+
 function ensurePanel() {
   let panel = document.getElementById(PANEL_ID);
   if (panel) return panel;
@@ -444,24 +488,24 @@ function ensurePanel() {
   panel.id = PANEL_ID;
   panel.innerHTML = `
     <div class="pnc-head">
-      <strong>Build cost</strong>
-      <button class="pnc-close" title="Close">×</button>
+      <div class="pnc-brand"><i></i>Build cost</div>
+      <button class="pnc-close" type="button" title="Close">×</button>
     </div>
     <div class="pnc-body">
-      <button class="pnc-run">Calculate cost</button>
-      <div class="pnc-status"></div>
-      <div class="pnc-summary"></div>
+      <div class="pnc-loading"><i></i><span>Reading the build…</span></div>
     </div>
   `;
   document.body.appendChild(panel);
-
-  panel.querySelector('.pnc-close').addEventListener('click', () => {
-    clearBadges();
-    panel.remove();
-  });
-  panel.querySelector('.pnc-run').addEventListener('click', run);
-
+  panel.querySelector('.pnc-close').addEventListener('click', closePanel);
   return panel;
+}
+
+/** Swaps the panel body for the spinner and a line about what is happening. */
+function showLoading(text) {
+  const body = document.querySelector(`#${PANEL_ID} .pnc-body`);
+  if (body) body.innerHTML = `<div class="pnc-loading"><i></i><span></span></div>`;
+  const label = document.querySelector(`#${PANEL_ID} .pnc-loading span`);
+  if (label) label.textContent = text;
 }
 
 function setStatus(text, kind = '') {
@@ -469,7 +513,11 @@ function setStatus(text, kind = '') {
   if (node) {
     node.textContent = text;
     node.className = `pnc-status ${kind}`;
+    return;
   }
+  // Before the first summary exists, the loading line carries the message.
+  const loading = document.querySelector(`#${PANEL_ID} .pnc-loading span`);
+  if (loading) loading.textContent = text;
 }
 
 /** Merges identical rows: nine identical Raise Spectre need one line, not nine. */
@@ -489,7 +537,7 @@ function mergeDuplicates(rows) {
 }
 
 function renderSummary(matches, chaosPerDivine, failed) {
-  const box = document.querySelector(`#${PANEL_ID} .pnc-summary`);
+  const box = document.querySelector(`#${PANEL_ID} .pnc-body`);
   if (!box) return;
 
   // Only appraisals we trust make it into the total.
@@ -562,19 +610,19 @@ function renderSummary(matches, chaosPerDivine, failed) {
           <span>${escapeHtml(s.name)} <em>(${s.units})</em></span>
           <strong>${s.subtotal === null ? '—' : formatChaos(s.subtotal, chaosPerDivine)}</strong>
         </div>
-        <table class="pnc-table">${s.items
+        ${s.items
           .map(
             (f) => `
-          <tr>
-            <td>${escapeHtml(f.name)}${f.count > 1 ? ` <em class="pnc-x">×${f.count}</em>` : ''}</td>
-            <td class="pnc-num">${f.mark ? `<span class="pnc-warn">${f.mark}</span> ` : ''}${
-              f.chaos === null
-                ? '<span class="pnc-warn">—</span>'
-                : formatChaos(f.chaos, chaosPerDivine)
-            }</td>
-          </tr>`,
+        <div class="pnc-row">
+          <span>${escapeHtml(f.name)}${f.count > 1 ? ` <em>×${f.count}</em>` : ''}</span>
+          <b${f.chaos === null ? ' class="pnc-none"' : ''}>${
+            f.chaos === null
+              ? 'unpriced'
+              : `${f.mark ? `${f.mark} ` : ''}${formatChaos(f.chaos, chaosPerDivine)}`
+          }</b>
+        </div>`,
           )
-          .join('')}</table>
+          .join('')}
       </div>`,
     )
     .join('');
@@ -585,10 +633,12 @@ function renderSummary(matches, chaosPerDivine, failed) {
   const pendingRares = random.length - appraised.length - unreliable.length;
 
   box.innerHTML = `
-    <div class="pnc-total pnc-total--header">
-      <span>Minimum (${rows.length} items)</span>
-      <strong>${formatChaos(total, chaosPerDivine)}</strong>
+    <div class="pnc-total">
+      <div class="pnc-total-label">Minimum build cost</div>
+      <div class="pnc-total-value">${formatChaos(total, chaosPerDivine)}</div>
+      <div class="pnc-total-cover">${rows.length} of ${matches.length} items priced</div>
     </div>
+    <div class="pnc-status"></div>
     ${blocks}
     ${chaosPerDivine ? note(`1 div ≈ ${Math.round(chaosPerDivine)} c`) : ''}
     ${
@@ -810,13 +860,10 @@ async function run() {
   if (running) return;
   running = true;
   clearBadges();
-  const runButton = document.querySelector(`#${PANEL_ID} .pnc-run`);
-  if (runButton) {
-    runButton.disabled = true;
-    runButton.textContent = 'Working…';
-  }
+  ensurePanel();
+  setFabPhase('loading');
   settings = await pncLoadSettings();
-  setStatus('Loading poe.ninja economy…');
+  showLoading('Loading poe.ninja economy…');
 
   try {
     const { index, icons, chaosPerDivine, failed, league } = await send('prices', {
@@ -872,11 +919,7 @@ async function run() {
     setStatus(`Error: ${err.message}`, 'pnc-warn');
   } finally {
     running = false;
-    const button = document.querySelector(`#${PANEL_ID} .pnc-run`);
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'Calculate cost';
-    }
+    setFabPhase('done');
   }
 }
 
@@ -902,10 +945,10 @@ window.pncDiagnose = function pncDiagnose() {
 
 function sync() {
   if (isCharacterPage()) {
-    ensurePanel();
+    ensureFab();
   } else {
-    clearBadges();
-    document.getElementById(PANEL_ID)?.remove();
+    closePanel();
+    document.getElementById(FAB_ID)?.remove();
   }
 }
 
