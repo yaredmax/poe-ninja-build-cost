@@ -129,6 +129,7 @@ const PHASES = ['wide', 'fallback', 'broad'];
 const zero = () => Object.fromEntries(PHASES.map((p) => [p, { searches: 0, fetches: 0 }]));
 const totals = zero();
 const outcome = { wide: 0, fallback: 0, broad: 0, none: 0, free: 0, cached: 0 };
+const time = { total: 0, waiting: 0, network: 0 };
 
 /**
  * Which half of the search produced the answer. `none` means it searched and
@@ -149,14 +150,21 @@ function addSpend(spend) {
     totals[phase].searches += spend[phase].searches;
     totals[phase].fetches += spend[phase].fetches;
   }
+  for (const key of Object.keys(time)) time[key] += spend.ms?.[key] ?? 0;
 }
 
-/** `wide 1s+1f  fallback 6s+1f  |  8 http` */
+const seconds = (ms) => `${(ms / 1000).toFixed(1)}s`;
+
+/** `wide 1s+1f  fallback 6s+1f  |  8 http  |  92.4s held, 1.9s on the wire` */
 function spendLine(spend, http) {
   const parts = PHASES
     .filter((p) => spend?.[p].searches || spend?.[p].fetches)
     .map((p) => `${p} ${spend[p].searches}s+${spend[p].fetches}f`);
-  return `${parts.join('  ') || 'no searches'}  |  ${http} http`;
+  const ms = spend?.ms;
+  // Held by our own limiter versus in GGG's hands. Everything a slow pass could
+  // be fixed by depends on which of the two it is.
+  const time = ms ? `  |  ${seconds(ms.waiting)} held, ${seconds(ms.network)} on the wire` : '';
+  return `${parts.join('  ') || 'no searches'}  |  ${http} http${time}`;
 }
 
 // Every badge is clickable, and the link is built without spending a request —
@@ -246,6 +254,10 @@ for (const phase of PHASES) {
 }
 console.log(row('total', sum('searches'), sum('fetches')));
 console.log(`\n${requests} trade requests over the wire`);
+console.log(
+  `${seconds(time.total)} appraising: ${seconds(time.waiting)} held by our own limiter, `
+  + `${seconds(time.network)} waiting on GGG`,
+);
 // Fewer requests than searches means runQuery answered a repeat from its
 // in-memory cache — two items that build the same query.
 const asked = sum('searches') + sum('fetches');

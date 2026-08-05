@@ -462,6 +462,13 @@ This is both faster and safer than the fixed 5 s gap it replaced: the seven-rare
 pass went from about 70 s to **23.8 s**, and the limiter now knows about traffic
 it didn't cause.
 
+**What it cannot do is beat the policy.** 30 searches per 300 s is one search
+every 10 s sustained, and reserving a third for the player makes it 15. No
+client is faster than that — Awakened PoE Trade spends one search per item and
+checks one item at a time, which is why it never feels slow; a whole build at
+once is a different shape of problem. The only real lever is asking fewer
+questions per item, which is why the ladder is worth measuring.
+
 Cluster jewels are the only thing left out: they're worth the notables they
 grant, and those aren't modifiers we can filter on. Ordinary rare jewels are
 priced like uniques, by their own mods — see below.
@@ -623,6 +630,30 @@ pncDiagnose()
 ```
 
 dumps the candidate texts and icons so you can see what changed.
+
+## Where a slow pass went
+
+After a trade pass, from the page console:
+
+```js
+pncReport()
+```
+
+downloads a JSON (and copies it, and prints a table) with, per item: the searches
+it spent on the wide query, on the fallback ladder and on the broad last resort,
+plus the two numbers that matter when a pass takes minutes —
+
+- **held**: time our own rate limiter sat on the request,
+- **on the wire**: time GGG had it.
+
+Those have opposite fixes. Time on the wire is GGG being slow and nothing here
+can help it; time held is the ladder asking too many questions, or the third of
+every bucket we keep back for the player's own trade searches. The report also
+dumps the limiter's live view of each bucket — `max`, `usable`, `spent` — so
+"we are holding it back" and "GGG has no room" can be told apart rather than
+guessed at.
+
+The same split prints at the end of `background-test.mjs`.
 
 **What the tests still do not cover.** Whether an item misses the wide query is a
 property of the market on the day, not of the fixture: `worn.json` was three out

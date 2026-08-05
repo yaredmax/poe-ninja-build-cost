@@ -123,6 +123,10 @@ export class RateLimiter {
     this.name = name;
     this.buckets = PESSIMISTIC.map((s) => new Bucket(s.max, s.window));
     this.blockedUntil = 0;
+    // Total time callers have spent held here. The pass is slow either because
+    // GGG is slow or because we are holding requests back, and those are
+    // opposite problems with opposite fixes — so they are counted apart.
+    this.waitedMs = 0;
     // Serialises callers: without it two concurrent takes could both see the
     // last free slot and use it twice.
     this.chain = Promise.resolve();
@@ -135,6 +139,7 @@ export class RateLimiter {
   }
 
   async #take() {
+    const enteredAt = Date.now();
     for (;;) {
       const now = Date.now();
       const readyAt = Math.max(
@@ -143,10 +148,29 @@ export class RateLimiter {
       );
       if (readyAt <= now) {
         for (const bucket of this.buckets) bucket.consume(now);
+        this.waitedMs += now - enteredAt;
         return;
       }
       await sleep(Math.min(readyAt - now, 30_000));
     }
+  }
+
+  /**
+   * What the limiter believes right now, for the debug report.
+   *
+   * `usable` is the part of each bucket we let ourselves have; the rest is held
+   * back for the player's own trade searches. If a report shows a bucket at its
+   * usable limit with the server's own count far below, the wait is ours and
+   * not GGG's.
+   */
+  state() {
+    const now = Date.now();
+    return this.buckets.map((b) => {
+      b.prune(now);
+      return {
+        max: b.max, usable: b.usable, windowSeconds: b.windowSeconds, spent: b.hits.length,
+      };
+    });
   }
 
   /** Rebuilds the buckets from a response's headers. */

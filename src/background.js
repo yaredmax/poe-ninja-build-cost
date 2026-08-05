@@ -17,6 +17,9 @@ import {
   reliability,
   runQuery,
   webUrl,
+  searchLimit,
+  fetchLimit,
+  network,
 } from './lib/trade.js';
 import {
   GEAR_FIELDS,
@@ -160,6 +163,10 @@ function newSpend() {
     wide: { searches: 0, fetches: 0 },
     fallback: { searches: 0, fetches: 0 },
     broad: { searches: 0, fetches: 0 },
+    // Filled in by `appraiseItem`. `waiting` is time held by our own limiter,
+    // `network` is time GGG had the request. A pass is slow for one reason or
+    // the other and the fixes are opposite, so guessing between them is no good.
+    ms: { total: 0, waiting: 0, network: 0 },
   };
 }
 
@@ -383,6 +390,21 @@ const handlers = {
     await chrome.storage.local.clear();
     return { ok: true };
   },
+
+  /**
+   * What the rate limiter believes, for `pncReport()`.
+   *
+   * Costs nothing and answers the question a slow pass always raises: is the
+   * wait GGG's policy, or the third of every bucket we hold back for the
+   * player's own searches?
+   */
+  async limits() {
+    return {
+      search: { buckets: searchLimit.state(), waitedMs: searchLimit.waitedMs },
+      fetch: { buckets: fetchLimit.state(), waitedMs: fetchLimit.waitedMs },
+      networkMs: network.ms,
+    };
+  },
 };
 
 /**
@@ -393,7 +415,17 @@ const handlers = {
  */
 async function appraiseItem(args) {
   const spend = newSpend();
+  const startedAt = Date.now();
+  const waitedBefore = searchLimit.waitedMs + fetchLimit.waitedMs;
+  const networkBefore = network.ms;
+
   const result = await runAppraisal({ ...args, spend });
+
+  spend.ms = {
+    total: Date.now() - startedAt,
+    waiting: searchLimit.waitedMs + fetchLimit.waitedMs - waitedBefore,
+    network: network.ms - networkBefore,
+  };
   return { ...result, spend };
 }
 

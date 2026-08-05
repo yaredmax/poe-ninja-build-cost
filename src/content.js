@@ -887,6 +887,136 @@ function hasAddedImplicit(match) {
     .some((mod) => !published.has(pncModTemplate(mod)));
 }
 
+// ------------------------------------------------------------------ debug log
+//
+// Every appraisal comes back saying what it cost — how many searches went to the
+// wide query, how many to the fallback ladder, and how long was spent waiting on
+// our own rate limiter versus waiting on GGG. None of that is worth showing in
+// the panel, and all of it is worth having when a pass takes minutes and the
+// question is which part to attack. `pncReport()` writes it out.
+
+const runLog = [];
+
+function logAppraisal(match, elapsedMs, error = null) {
+  const a = match.appraisal || {};
+  const item = match.item;
+  const modCount = ['implicitMods', 'explicitMods', 'craftedMods', 'fracturedMods', 'enchantMods']
+    .reduce((n, field) => n + (item[field] || []).length, 0);
+
+  runLog.push({
+    name: item.name || '(rare)',
+    base: item.baseType,
+    slot: item.inventoryId,
+    corrupted: !!item.corrupted,
+    mods: modCount,
+    error: error ? String(error.message || error) : null,
+    cached: !!a.cached,
+    chaos: a.chaos ?? null,
+    listings: a.total ?? null,
+    strategy: a.strategy || (a.variant ? 'variant' : null),
+    skipped: a.skipped || null,
+    reliability: a.reliability ?? null,
+    reliable: a.reliable ?? null,
+    // Priced on fewer modifiers than the item carries, i.e. the badge shows ≥.
+    partial: a.partial ?? null,
+    filters: a.filters || [],
+    spend: a.spend || null,
+    // Wall clock as the page saw it, which includes the message round trip.
+    elapsedMs,
+  });
+}
+
+const PHASES = ['wide', 'fallback', 'broad'];
+
+function reportTotals() {
+  const totals = { searches: 0, fetches: 0, waitingMs: 0, networkMs: 0 };
+  for (const phase of PHASES) totals[phase] = { searches: 0, fetches: 0 };
+  for (const entry of runLog) {
+    // A cached answer carries the spend of the run that earned it. Counting it
+    // again would invent requests that were never made.
+    if (!entry.spend || entry.cached) continue;
+    for (const phase of PHASES) {
+      totals[phase].searches += entry.spend[phase].searches;
+      totals[phase].fetches += entry.spend[phase].fetches;
+      totals.searches += entry.spend[phase].searches;
+      totals.fetches += entry.spend[phase].fetches;
+    }
+    totals.waitingMs += entry.spend.ms?.waiting || 0;
+    totals.networkMs += entry.spend.ms?.network || 0;
+  }
+  return totals;
+}
+
+/**
+ * Writes out what the last trade pass actually did, as a file and to the
+ * console. Run it from the page console after a pass.
+ *
+ * The file is the point: it can be handed to someone who was not sitting here
+ * watching the status line.
+ */
+window.pncReport = async function pncReport() {
+  const limits = await send('limits').catch((err) => ({ error: String(err.message) }));
+  const totals = reportTotals();
+  const wallMs = (runLog.finishedAt || Date.now()) - (runLog.startedAt || Date.now());
+
+  const report = {
+    generatedAt: new Date().toISOString(),
+    version: chrome.runtime.getManifest().version,
+    url: location.href,
+    league: runLog.league ?? null,
+    settings,
+    pass: {
+      items: runLog.length,
+      cached: runLog.filter((e) => e.cached).length,
+      wallMs,
+      // What the wall clock was spent on. Anything left over is ours: parsing,
+      // rendering the panel, and the message round trip.
+      waitingMs: totals.waitingMs,
+      networkMs: totals.networkMs,
+    },
+    totals,
+    limits,
+    items: runLog,
+  };
+
+  console.log('[poe-ninja-build-cost] report', report);
+  console.table(runLog.map((e) => ({
+    item: `${e.name} ${e.base}`,
+    wide: e.spend ? `${e.spend.wide.searches}s+${e.spend.wide.fetches}f` : '',
+    fallback: e.spend ? `${e.spend.fallback.searches}s+${e.spend.fallback.fetches}f` : '',
+    broad: e.spend ? `${e.spend.broad.searches}s+${e.spend.broad.fetches}f` : '',
+    waiting: e.spend ? `${Math.round((e.spend.ms?.waiting || 0) / 100) / 10}s` : '',
+    network: e.spend ? `${Math.round((e.spend.ms?.network || 0) / 100) / 10}s` : '',
+    total: `${Math.round(e.elapsedMs / 100) / 10}s`,
+    cached: e.cached || '',
+  })));
+
+  const text = JSON.stringify(report, null, 1);
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  // Not `pnc-…`: check-wiring.mjs reads every `pnc-` string in here as a CSS
+  // class that content.css owes it, and a filename is not one.
+  link.download = `poe-ninja-build-cost-report-${stamp}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Late enough that the download has taken the blob, soon enough not to leak.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+  try {
+    await navigator.clipboard.writeText(text);
+    console.log('[poe-ninja-build-cost] report copied to the clipboard and downloaded');
+  } catch {
+    // Needs the page focused; the download already happened either way.
+    console.log('[poe-ninja-build-cost] report downloaded (clipboard needs the page focused)');
+  }
+
+  return report;
+};
+
 /**
  * Prices the items that need a trade search, one at a time, refreshing the
  * panel after each so numbers appear as they arrive instead of after a minute
@@ -912,11 +1042,16 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
   let done = 0;
   let live = 0; // the ones that actually hit the network
 
+  runLog.length = 0;
+  runLog.startedAt = Date.now();
+  runLog.league = league;
+
   for (const match of pending) {
     done++;
     const label = match.item.name || match.item.baseType;
     setStatus(`Pricing on trade… ${done}/${pending.length} — ${label}`);
 
+    const askedAt = Date.now();
     try {
       match.appraisal = await send('appraise', {
         item: match.item,
@@ -932,13 +1067,16 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
         matchCorruptedImplicits: settings.matchCorruptedImplicits,
       });
       if (!match.appraisal.cached) live++;
+      logAppraisal(match, Date.now() - askedAt);
       updateRareBadge(match, chaosPerDivine);
       renderSummary(matches, chaosPerDivine, failed);
     } catch (err) {
+      logAppraisal(match, Date.now() - askedAt, err);
       setStatus(`Stopped after ${done - 1} of ${pending.length}: ${err.message}`, 'pnc-warn');
       return;
     }
   }
+  runLog.finishedAt = Date.now();
 
   const cached = pending.length - live;
   setStatus(

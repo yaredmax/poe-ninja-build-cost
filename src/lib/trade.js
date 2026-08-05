@@ -21,6 +21,25 @@ export const searchLimit = new RateLimiter('search');
 export const fetchLimit = new RateLimiter('fetch');
 
 /**
+ * Time with a request actually in flight to GGG, in milliseconds.
+ *
+ * The counterpart to the limiters' `waitedMs`: between them they account for a
+ * pass. Only the search and fetch calls are counted — `/data/*` carries no rate
+ * limit and is loaded once.
+ */
+export const network = { ms: 0 };
+
+/** `fetch`, timed. */
+async function timedFetch(url, init) {
+  const started = Date.now();
+  try {
+    return await fetch(url, init);
+  } finally {
+    network.ms += Date.now() - started;
+  }
+}
+
+/**
  * Turns an item into a trade query by name — good enough for uniques and gems,
  * which are identified by what they are rather than by what they rolled.
  *
@@ -452,7 +471,7 @@ export async function fetchPrices(queryId, resultIds, chaosPerDivine, league = n
   await fetchLimit.take();
 
   const url = `${FETCH}/${ids.join(',')}?query=${encodeURIComponent(queryId)}`;
-  const res = await fetch(url);
+  const res = await timedFetch(url);
   fetchLimit.sync(res.headers);
 
   if (res.status === 429) {
@@ -498,7 +517,7 @@ export async function runQuery(body, league) {
 
   await searchLimit.take();
 
-  const res = await fetch(`${API}/${encodeURIComponent(league)}`, {
+  const res = await timedFetch(`${API}/${encodeURIComponent(league)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
