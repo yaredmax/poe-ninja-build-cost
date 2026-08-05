@@ -909,6 +909,11 @@ function logAppraisal(match, elapsedMs, error = null) {
     slot: item.inventoryId,
     corrupted: !!item.corrupted,
     mods: modCount,
+    // How many modifiers poe.ninja flags `optional` for this unique. Zero means
+    // we cannot tell a rolled modifier from a fixed one, which changes what the
+    // search is allowed to assume — and is the difference between pricing a
+    // Watcher's Eye at 16 div and at 2 c. See docs/poe-modifiers.md.
+    rollPool: match.price?.rollPool?.length ?? 0,
     error: error ? String(error.message || error) : null,
     cached: !!a.cached,
     chaos: a.chaos ?? null,
@@ -955,7 +960,10 @@ function reportTotals() {
  * watching the status line.
  */
 window.pncReport = async function pncReport() {
-  const limits = await send('limits').catch((err) => ({ error: String(err.message) }));
+  // Captured when the pass ended; see tradePass. Asking now would read a
+  // service worker that has since been torn down and restarted.
+  const limits = runLog.limits
+    ?? { note: 'no pass has run in this tab yet' };
   const totals = reportTotals();
   const wallMs = (runLog.finishedAt || Date.now()) - (runLog.startedAt || Date.now());
 
@@ -1077,6 +1085,12 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
     }
   }
   runLog.finishedAt = Date.now();
+  // Read the limiter now, not when the report is asked for. The service worker
+  // is torn down after about thirty seconds of quiet and comes back with virgin
+  // buckets, so a report written a minute later showed `max: 1, spent: 0` — a
+  // limiter that had never seen a response, which says nothing about the pass
+  // that just ran.
+  runLog.limits = await send('limits').catch((err) => ({ error: String(err.message) }));
 
   const cached = pending.length - live;
   setStatus(
@@ -1182,8 +1196,13 @@ function updateRareBadge(match, chaosPerDivine) {
         `worth at least that.`
       // "this unique" was wrong on the rare jewels, which come through the same
       // branch and are not uniques at all.
-      : `${a.total} listing(s) matching ${a.mods} of its ${a.rolled} rolled ` +
-        `modifier(s), cheapest median.` +
+      // "of its N rolled modifiers" read as a fact about the item and was not
+      // one: N is how many of its modifiers we could translate and fit in a
+      // query, so a Badge of the Brotherhood with five explicits, two implicits
+      // and an anointment was described as having six. What the number really
+      // says is how much of the search survived, so it says that now.
+      : `${a.total} listing(s) matching ${a.mods} of the ${a.rolled} ` +
+        `modifier(s) searched for, cheapest median.` +
         // One listing is a real answer for a query this precise, but it is one
         // person's item: take it and the search behind this number is empty.
         (a.total === 1 ? ' Only one was listed, so it may already be sold.' : '') +
