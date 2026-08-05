@@ -30,7 +30,7 @@ globalThis.fetch = (url, init = {}) =>
 
 const { buildPriceIndex, fetchLeagues, normalizeName } = await import('../src/lib/economy.js');
 const {
-  GEAR_FIELDS, loadStatIndex, corruptedImplicits, isCoveredByTotals, isResistanceMod,
+  GEAR_FIELDS, loadStatIndex, corruptedImplicits, isAnointment, isCoveredByTotals, isResistanceMod,
   matchMod, modTemplate, mutatedMods, rolledMods, totalElementalResistance,
   totalChaosResistance, wantsLocalStats,
 } = await import('../src/lib/stats.js');
@@ -111,6 +111,7 @@ for (const item of items) {
         ? price.rollPool.includes(modTemplate(text)) : null;
       const why = !matchMod(statIndex, text, type, local) ? 'NO STAT ID — nothing in trade matches this text'
         : isResistanceMod(text) ? 'the resistance pseudo carries it'
+        : isAnointment(text, type) ? 'an anointment, left out on purpose — see stats.js'
         : local && isCoveredByTotals(text) ? 'a property filter carries it'
         : inPool === false ? 'not in the published roll pool, so every copy has it'
         : 'translated fine, but the six-filter cap cut it';

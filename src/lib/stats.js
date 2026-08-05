@@ -420,6 +420,24 @@ export function isClusterJewel(item) {
   return /cluster jewel/i.test(item?.baseType || '');
 }
 
+/**
+ * An anointment: "Allocates Disciple of the Slaughter" on an amulet.
+ *
+ * Never filtered on, and that is a fact about the market rather than about the
+ * modifier. An anointment is applied by whoever ends up wearing the amulet, so
+ * a dropped one is almost always listed without it — filtering by the anoint
+ * throws away nearly every comparable listing to insist on a step the buyer
+ * performs themselves.
+ *
+ * Scoped to the enchantment slot on purpose. Forbidden Flame and Forbidden
+ * Flesh carry "Allocates X if you have the matching modifier on Forbidden …"
+ * as an *explicit*, and that one is the entire item — excluding it would price
+ * a Chieftain jewel as a Berserker one.
+ */
+export function isAnointment(text, type) {
+  return type === 'enchant' && /^Allocates\s/i.test(String(text));
+}
+
 /** Reorders a cluster jewel's modifiers so the notables come first. */
 function clusterFirst(entries) {
   const rank = (text) => {
@@ -507,6 +525,7 @@ export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIE
       // property filters the caller adds, so they never take a filter slot here.
       if (isResistanceMod(mod)) continue;
       if (local && isCoveredByTotals(mod)) continue;
+      if (isAnointment(mod, type)) continue;
       candidates.push({ mod, type });
     }
   }

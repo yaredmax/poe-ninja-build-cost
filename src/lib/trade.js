@@ -253,6 +253,15 @@ export function buildComboQuery(item, mods, opts = {}) {
     // the "|23" *is* the choice. Trade has nothing to compare a minimum against,
     // so asking for one on top returns nothing at all.
     const isOption = mod.id.includes('|');
+    // An enchantment has no roll range — the wiki is explicit that its values
+    // are fixed, which is why a Blessed Orb does nothing to one. So the roll
+    // slider must not touch it: asking a "Adds 5 Passive Skills" cluster jewel
+    // for 80% of five is asking for four, and a four-passive jewel is a
+    // different, cheaper item. We were pricing five-passive jewels off them.
+    if (typeof value === 'number' && !isOption && mod.id.startsWith('enchant.')) {
+      filter.value = { min: value, max: value };
+      return filter;
+    }
     if (minRoll > 0 && typeof value === 'number' && !isOption) {
       const floor = Math.floor((Math.abs(value) * minRoll) / 100);
       // A negative roll has to be bounded from above, not below. "33% reduced
