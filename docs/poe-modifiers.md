@@ -122,9 +122,25 @@ valores: el id acaba en `|38918` y ese número *es* la elección. No admiten
 mínimo — pedirlo devuelve cero, que es por lo que `buildComboQuery` no pone
 `value` cuando el id lleva `|`.
 
-Sin resolver: el anointment de un amuleto ("Allocates Disciple of the Slaughter")
-no lo estamos traduciendo — `query-test.mjs` lo marca como caído. Es un mod
-caro y se está perdiendo.
+**Los que sí llevan número tampoco admiten el deslizador.** La wiki: *"They are
+always fixed values, so Blessed Orbs have no effect on them"*. Un encantamiento
+no tiene rango, así que pedirle el 80% no es pedir una tirada peor del mismo
+encantamiento: es pedir **otro distinto**. Una cluster con "Adds 5 Passive
+Skills" se buscaba como "4 o más", y una joya de 4 pasivas es un ítem más barato
+que se colaba en la comparación. Van con valor exacto. Medido: de 20 listados a
+14, mismo precio, seis joyas que no eran comparables fuera.
+
+**El anointment no se filtra nunca.** "Allocates Disciple of the Slaughter" en un
+amuleto traduce perfectamente (`enchant.stat_2954116742|58921`) y aun así se deja
+fuera a propósito, y el motivo es de mercado y no de modificador: lo aplica quien
+se pone el amuleto, así que uno dropeado se vende **sin anointar**. Exigirlo tira
+casi todos los listados comparables para insistir en un paso que hace el
+comprador.
+
+Ojo con el alcance: se excluye solo en la ranura de encantamiento. Forbidden
+Flame y Forbidden Flesh llevan "Allocates X if you have the matching modifier
+on…" como **explícito**, y ahí ese modificador *es* el ítem entero — excluirlo
+tasaría una joya de Chieftain como una de Berserker.
 
 ## Cluster jewels
 
