@@ -383,6 +383,10 @@ node tools/cluster-test.mjs # a cluster jewel searched by its notables
 node tools/gear-test.mjs    # a rare body armour: local stats, property filters
 ```
 
+```bash
+node tools/foulborn-test.mjs # an Allflame mutation, renamed on one side only
+```
+
 One that needs no network, and catches what the others cannot — a script the
 page never loads, a helper the caller never passes, an element id nothing
 touches. Every one of those has shipped here at least once:

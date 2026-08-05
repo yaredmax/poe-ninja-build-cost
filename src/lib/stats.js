@@ -350,6 +350,23 @@ export function corruptedImplicits(statIndex, item, implicitPool) {
   return out;
 }
 
+/**
+ * The modifiers an Allflame mutation changed.
+ *
+ * They live in their own field on the item but are ordinary explicit stats as
+ * far as trade is concerned. On a Foulborn they are the whole difference from
+ * the plain unique, so they lead the query the same way a corruption implicit
+ * does.
+ */
+export function mutatedMods(statIndex, item) {
+  const out = [];
+  for (const mod of item.mutatedMods || []) {
+    const hit = matchMod(statIndex, mod, 'explicit');
+    if (hit) out.push({ ...hit, text: mod });
+  }
+  return out;
+}
+
 export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIELDS) {
   // Without the pool we'd take the first mods listed, and on a Watcher's Eye
   // those are the three every copy has (energy shield, life, mana). Filtering by

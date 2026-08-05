@@ -22,6 +22,7 @@ import {
   GEAR_FIELDS,
   loadStatIndex,
   corruptedImplicits,
+  mutatedMods,
   rolledMods,
   significantMods,
   totalElementalResistance,
@@ -278,8 +279,10 @@ async function appraiseItem({ item, rollPool, league: resolved, chaosPerDivine, 
       const corrupted = matchCorruptedImplicits === false
         ? []
         : corruptedImplicits(index, item, implicitPool);
+      // A Foulborn's mutation is the whole difference from the plain unique.
+      const mutated = mutatedMods(index, item);
       const rolled = rolledMods(index, item, MAX_COMBO_MODS, rollPool);
-      const mods = corrupted.concat(rolled).slice(0, MAX_COMBO_MODS);
+      const mods = mutated.concat(corrupted, rolled).slice(0, MAX_COMBO_MODS);
       if (!mods.length) return { skipped: 'none of its mods could be translated' };
 
       const best = await priceByCombinations({

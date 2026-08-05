@@ -39,7 +39,7 @@ export function buildQuery(item) {
 
   // unique (3) or foil (10)
   if ((item.frameType === 3 || item.frameType === 10) && item.name) {
-    query.name = item.name;
+    query.name = tradeName(item);
     query.type = item.baseType;
     const filters = {
       misc_filters: { filters: { corrupted: { option: String(!!item.corrupted) } } },
@@ -128,6 +128,18 @@ export function searchUrl(league, body) {
 }
 
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
+
+/**
+ * The name trade knows the item by.
+ *
+ * poe.ninja calls an Allflame mutation "Foulborn Tulfall"; trade calls it
+ * "Tulfall" and answers 400 "Unknown item name" for anything else. The mutation
+ * is a flag on the search, not part of the name. Verified against the API:
+ * "Foulborn Tulfall" -> 400, "Tulfall" -> 3436, plus the flag -> 1851.
+ */
+export function tradeName(item) {
+  return String(item.name || '').replace(/^Foulborn\s+/i, '');
+}
 
 /** Turns a set of totals into trade filters, skipping the ones at zero. */
 function totalsToFilters(totals, keys, minRoll) {
@@ -218,7 +230,7 @@ export function buildComboQuery(item, mods, opts = {}) {
   } else {
     query.type = item.baseType;
   }
-  if (byName && item.name) query.name = item.name;
+  if (byName && item.name) query.name = tradeName(item);
 
   return { query, sort: { price: 'asc' } };
 }
