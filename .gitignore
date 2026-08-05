@@ -8,3 +8,6 @@ Thumbs.db
 # In case node tooling ever lands here
 node_modules/
 *.log
+
+# A local clone of Awakened PoE Trade, kept for reference. Not part of this project.
+Awakened/
