@@ -104,6 +104,7 @@ for (const cls of used) {
 // collect-fixture.mjs has to duplicate slim(): the real one lives inside an IIFE
 // in a MAIN-world content script, and Chrome has no declarative module content
 // scripts, so it cannot be imported. This keeps the copy from drifting.
+let bridgeFields;
 {
   // Indentation differs — the bridge's slim() sits inside an IIFE — so the
   // object is brace-matched and only its top-level keys are taken.
@@ -132,6 +133,7 @@ for (const cls of used) {
     return keys;
   };
   const bridge = fields(read('src/page-bridge.js'));
+  bridgeFields = bridge;
   const copy = fields(read('tools/collect-fixture.mjs'));
   // The copy spreads modLines() in place of the five mod arrays, and takes the
   // slot as an argument rather than reading it off the item.
@@ -141,6 +143,23 @@ for (const cls of used) {
   check(!missing.length && !extra.length, 'collect-fixture.mjs slim() matches the bridge',
     [missing.length ? `missing ${missing.join(', ')}` : '', extra.length ? `extra ${extra.join(', ')}` : '']
       .filter(Boolean).join('; '));
+}
+
+// --- the hand-pasted fixture carries what the pipeline reads -----------------
+// worn.json is copied out of a page console rather than written by a script, so
+// nothing stops a paste from arriving without `defences` or `weapon`. Those are
+// read unguarded when the property filters are built, and the item would fail
+// with a TypeError twenty minutes into a rate-limited run.
+{
+  const worn = JSON.parse(read('tools/fixtures/worn.json')).items;
+  const bad = [];
+  for (const item of worn) {
+    const missing = [...bridgeFields].filter((f) => !(f in item));
+    if (missing.length) bad.push(`${item.name || item.baseType}: no ${missing.join(', ')}`);
+    // The label the test prints, and the only field the bridge does not supply.
+    if (!item.kind) bad.push(`${item.name || item.baseType}: no kind`);
+  }
+  check(!bad.length, `worn.json items match the bridge's shape (${worn.length})`, bad.join('; '));
 }
 
 // --- content.js's copy of modTemplate still matches the real one -------------

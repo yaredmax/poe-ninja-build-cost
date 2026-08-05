@@ -12,6 +12,13 @@
 //   node tools/collect-fixture.mjs          # rewrites tools/fixtures/kinds.json
 //
 // Run it again when a league ends and the fixture stops resembling the market.
+//
+// What it cannot collect, by construction: an item that misses the wide query.
+// Everything here comes off a listing, so a search for its own modifiers at 80%
+// of its own rolls always matches at least the copy it was taken from — one
+// search, one fetch, and the fallback ladder never runs. Those items have to be
+// worn rather than sold; they live in fixtures/worn.json, which this does not
+// touch.
 
 import { writeFileSync } from 'node:fs';
 

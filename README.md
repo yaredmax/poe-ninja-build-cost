@@ -332,6 +332,24 @@ misses, the fallback is where the time goes: dropping one modifier from six is
 six queries, one per modifier. Both attempts to make that cheaper were measured
 and both were reverted, so here is why, to save the next attempt.
 
+A full `background-test.mjs` run, 23 items, five of which miss:
+
+```
+             searches  fetches
+  wide             22       17
+  fallback         23       10
+  broad             1        1
+  total            46       28
+
+74 trade requests over the wire
+22 item(s) priced: 17 on the wide query, 4 down the ladder, 1 on a broad search
+```
+
+Five items out of twenty-three account for half of every search made. That is the
+number a future attempt has to move, and it is the one the suite could not
+produce before: it reported "36 trade requests total", with the ladder's share of
+that sitting at zero.
+
 **Descending instead of permuting** — keep the most important N, drop the tail —
 looks strictly better: same query count, more modifiers pinned. But the order
 `rolledMods` returns is field order, not what the market pays for, so the tail it
@@ -535,7 +553,7 @@ node tools/foulborn-test.mjs # an Allflame mutation, renamed on one side only
 The one that matters most drives the **real service worker**, behind a mock
 `chrome`, over one real item of every kind — rare gear in eight slots, rare and
 abyss and cluster jewels, a Watcher's Eye, a corrupted unique, a Foulborn, a
-plain unique:
+plain unique — and six more taken off characters who are wearing them:
 
 ```bash
 node tools/background-test.mjs
@@ -553,6 +571,40 @@ Its fixture is real items pulled from trade, refreshed with:
 ```bash
 node tools/collect-fixture.mjs
 ```
+
+**And a second fixture of items nobody is selling.** Everything
+`collect-fixture.mjs` collects came off a listing, so on the day it was collected
+the widest query — the item's own modifiers at 80% of its own rolls — matched at
+least the copy it was taken from. One search, one fetch, and the fallback ladder
+never ran. That is not a matter of having picked easy items: it is what
+collecting from a market means, and it is why three separate attempts at the
+ladder measured as free when they were not.
+
+Those items do drift into the ladder later, as their listings expire — one of the
+seven rares was down it a day after collection — but that is the same measurement
+being run against a quietly different fixture each week.
+
+`tools/fixtures/worn.json` is items harvested off real character pages, where no
+such guarantee exists, and where the ones that miss are exactly the ones a build
+is full of. The file says how to refresh it — the extension's own bridge already
+publishes the JSON, so it is two lines in the page console.
+
+Each item now reports where its requests went:
+
+```
+worn medium cluster  Soul Shine Medium Cluster Jewel     6.1 div    20 listings >= reliable
+                     explicit.stat_1882129725, explicit.stat_3051562738, …
+                     wide 1s+0f  fallback 6s+3f  |  10 http
+```
+
+`10 http` is what actually went over the wire, so a run also shows when two items
+built the same query and the second was answered from the cache. There is a table
+of the same split at the end, and a warning if no item reached the ladder at all —
+which is the state the suite was in until now.
+
+That warning is the point of all of this. The slow path is the one every future
+"this will be faster" has to be judged on, and for three of them there was
+nothing to judge: the pass total did not move because the ladder was never in it.
 
 One that needs no network, and catches what the others cannot — a script the
 page never loads, a helper the caller never passes, a parameter a function reads
@@ -572,11 +624,12 @@ pncDiagnose()
 
 dumps the candidate texts and icons so you can see what changed.
 
-**What the tests do not cover, and it matters.** Every item in the fixture hits
-on the wide query, so the fallback ladder — the slow path, and the one three
-separate "improvements" were judged on — is never exercised by a run. That is
-why two of them measured as free when they were not. A fixture item that misses
-the wide query would make those decisions measurable instead of arguable.
+**What the tests still do not cover.** Whether an item misses the wide query is a
+property of the market on the day, not of the fixture: `worn.json` was three out
+of six when it was collected and could be two or four next league. The run says
+which, and warns at zero, so the answer is checked rather than assumed — but it
+is not pinned, and it cannot be without mocking the API, which this suite is
+deliberately not willing to do.
 
 ## Giving it to someone else
 
@@ -616,3 +669,4 @@ without it and shipped a `background.js` that could not resolve `./lib/trade.js`
 | `tools/check-wiring.mjs` | Static checks: scripts load, symbols resolve, files exist |
 | `tools/preview.html` | The panel rendered against sample data, no extension needed |
 | `tools/fixtures/` | Real texts, icons, items and mods from a character page |
+| `tools/fixtures/worn.json` | Items off real characters, the only ones that miss the wide query |

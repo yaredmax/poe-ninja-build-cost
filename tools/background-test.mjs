@@ -71,7 +71,19 @@ function send(type, payload = {}) {
 
 const { normalizeName } = await import('../src/lib/economy.js');
 
-const raw = JSON.parse(readFileSync(new URL('fixtures/kinds.json', import.meta.url), 'utf8'));
+const read = (name) => {
+  const data = JSON.parse(readFileSync(new URL(`fixtures/${name}`, import.meta.url), 'utf8'));
+  return Array.isArray(data) ? data : data.items;
+};
+
+// Two fixtures, because one of them cannot do the job of the other. kinds.json
+// is collected from trade listings, so on collection day every item in it
+// matches its own widest query — the listing it came from is right there — and
+// it drifts out of that as listings expire, which is a fixture that changes
+// under you rather than one that tests the ladder. worn.json is items people
+// are wearing, which nobody is selling, and those miss on purpose. The long
+// version is in tools/fixtures/worn.json.
+const raw = [...read('kinds.json'), ...read('worn.json')];
 const all = raw
   // Gems and flasks are priced from the economy index and never appraised, the
   // same filter content.js applies before it starts the trade pass.
@@ -103,6 +115,49 @@ const fmt = (c) => (c == null ? '—'
 console.log(`League ${league}   ${items.length} items\n`);
 
 const failures = [];
+
+// --------------------------------------------------------------- accounting
+//
+// The wide query — every modifier at once — costs one search and one fetch, and
+// it is what nine items in ten spend. The fallback ladder below it is one query
+// per subset per level, and that is where a slow pass goes. A total that adds
+// the two together cannot tell you which one an "optimisation" moved, which is
+// exactly how three of them were measured as free: the fixture had no item that
+// missed the wide query, so the ladder never ran at all.
+
+const PHASES = ['wide', 'fallback', 'broad'];
+const zero = () => Object.fromEntries(PHASES.map((p) => [p, { searches: 0, fetches: 0 }]));
+const totals = zero();
+const outcome = { wide: 0, fallback: 0, broad: 0, none: 0, free: 0, cached: 0 };
+
+/**
+ * Which half of the search produced the answer. `none` means it searched and
+ * came back empty; `free` means it never asked, which is the right outcome for
+ * a Tabula Rasa and a wrong one for anything else.
+ */
+function phaseOf(spend) {
+  if (!spend) return 'none';
+  for (const phase of ['broad', 'fallback', 'wide']) {
+    if (spend[phase].fetches) return phase;
+  }
+  return PHASES.some((p) => spend[p].searches) ? 'none' : 'free';
+}
+
+function addSpend(spend) {
+  if (!spend) return;
+  for (const phase of PHASES) {
+    totals[phase].searches += spend[phase].searches;
+    totals[phase].fetches += spend[phase].fetches;
+  }
+}
+
+/** `wide 1s+1f  fallback 6s+1f  |  8 http` */
+function spendLine(spend, http) {
+  const parts = PHASES
+    .filter((p) => spend?.[p].searches || spend?.[p].fetches)
+    .map((p) => `${p} ${spend[p].searches}s+${spend[p].fetches}f`);
+  return `${parts.join('  ') || 'no searches'}  |  ${http} http`;
+}
 
 // Every badge is clickable, and the link is built without spending a request —
 // so this covers all of them for free, and catches a query builder that throws
@@ -146,7 +201,15 @@ for (const item of items) {
     r = { error: String(err.message) };
   }
 
-  const head = `${kind(item).padEnd(16)} ${label.slice(0, 38).padEnd(38)}`;
+  const head = `${kind(item).padEnd(20)} ${label.slice(0, 36).padEnd(36)}`;
+  // Cached answers carry the spend of the run that produced them, and adding
+  // that again would count the same searches twice. Two identical items in one
+  // build is a saving, not a spend, so it is reported and not summed.
+  if (r.cached) outcome.cached++;
+  else { addSpend(r.spend); outcome[phaseOf(r.spend)]++; }
+  const cost = r.cached ? 'cached (an identical item was already priced)'
+    : spendLine(r.spend, requests - before);
+
   if (r.error) {
     console.log(`${head} ERROR  ${r.error}`);
     failures.push(`${label}: ${r.error}`);
@@ -157,6 +220,7 @@ for (const item of items) {
     const nothingToSearch = !(item.explicitMods || []).length
       && !(item.implicitMods || []).length;
     console.log(`${head} skipped: ${r.skipped}${nothingToSearch ? '  (expected — no mods)' : ''}`);
+    console.log(`${' '.repeat(20)} ${cost}`);
     if (!nothingToSearch) failures.push(`${label}: skipped — ${r.skipped}`);
   } else {
     const flags = [
@@ -165,12 +229,44 @@ for (const item of items) {
       r.strategy || (r.variant ? 'variant' : ''),
     ].join(' ');
     console.log(`${head} ${fmt(r.chaos).padStart(8)}  ${String(r.total).padStart(5)} listings  ${flags}`);
-    console.log(`${' '.repeat(16)} ${(r.filters || []).join(', ') || '(no filters)'}  [${requests - before} requests]`);
+    console.log(`${' '.repeat(20)} ${(r.filters || []).join(', ') || '(no filters)'}`);
+    console.log(`${' '.repeat(20)} ${cost}`);
     if (!r.reliable) failures.push(`${label}: unreliable, ${r.total} listings`);
   }
 }
 
-console.log(`\n${requests} trade requests total`);
+// ------------------------------------------------------------------ the bill
+
+const sum = (key) => PHASES.reduce((n, p) => n + totals[p][key], 0);
+
+const row = (label, s, f) => `  ${String(label).padEnd(10)}${String(s).padStart(9)}${String(f).padStart(9)}`;
+console.log(`\n${row('', 'searches', 'fetches')}`);
+for (const phase of PHASES) {
+  console.log(row(phase, totals[phase].searches, totals[phase].fetches));
+}
+console.log(row('total', sum('searches'), sum('fetches')));
+console.log(`\n${requests} trade requests over the wire`);
+// Fewer requests than searches means runQuery answered a repeat from its
+// in-memory cache — two items that build the same query.
+const asked = sum('searches') + sum('fetches');
+if (requests < asked) console.log(`${asked - requests} answered from the query cache`);
+
+const priced = outcome.wide + outcome.fallback + outcome.broad;
+console.log(
+  `\n${priced} item(s) priced: ${outcome.wide} on the wide query, `
+  + `${outcome.fallback} down the fallback ladder, ${outcome.broad} on a broad search`,
+);
+if (outcome.none) console.log(`${outcome.none} searched and found nothing`);
+if (outcome.free) console.log(`${outcome.free} needed no search at all`);
+if (outcome.cached) console.log(`${outcome.cached} served from the appraisal cache`);
+if (!outcome.fallback) {
+  // The whole reason this accounting exists. See the README, "Two shortcuts
+  // that cost more than they saved".
+  console.log(
+    '\nWARNING: no item exercised the fallback ladder, so this run says nothing\n'
+    + '         about the slow path. Add an item that misses the wide query.',
+  );
+}
 if (failures.length) {
   console.log(`\n${failures.length} item(s) did not price cleanly:`);
   for (const f of failures) console.log(`  ${f}`);

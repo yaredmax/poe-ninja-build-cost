@@ -142,6 +142,28 @@ const MAX_COMBO_MODS = 6;
 const MAX_COMBO_QUERIES = 6;
 
 /**
+ * Where an item's requests went, split by which half of the search spent them.
+ *
+ * The **wide** query — every modifier the item has, at once — is one search and
+ * one fetch, and it is what nine items in ten cost. The **fallback** ladder is
+ * everything below it: one query per subset, per level, and that is where the
+ * time actually goes. **Broad** is the last resort that asks about something
+ * other than this item's own modifiers — the plain unique, or the lookalike
+ * search built from pseudo life and resistances.
+ *
+ * Kept because three separate attempts to speed the ladder up were judged on a
+ * total that lumped all three together, on a fixture where the ladder never ran.
+ * A number that does not separate them cannot tell you whether it improved.
+ */
+function newSpend() {
+  return {
+    wide: { searches: 0, fetches: 0 },
+    fallback: { searches: 0, fetches: 0 },
+    broad: { searches: 0, fetches: 0 },
+  };
+}
+
+/**
  * Prices an item by trying its modifiers, then every combination of one fewer,
  * and so on until the market has something.
  *
@@ -163,12 +185,18 @@ async function priceByCombinations({
   // Where to start the descent. The fallback passes one below the full set,
   // because the widest query has already been asked and answered.
   maxSize = null,
+  // Accounting. `wide: false` says the top level of this descent is already
+  // part of the fallback — the caller asked the wide question itself, or is
+  // laddering a subset of the item's modifiers.
+  spend = null, wide = true,
 }) {
   const minRoll = minRollFor(item, minRollPercent);
   let budget = maxQueries;
   let widest = mods.length;
 
-  for (let size = Math.min(maxSize ?? mods.length, mods.length); size >= 1; size--) {
+  const top = Math.min(maxSize ?? mods.length, mods.length);
+  for (let size = top; size >= 1; size--) {
+    const phase = wide && size === top ? 'wide' : 'fallback';
     const hits = [];
     for (const combo of combinations(mods, size)) {
       if (budget <= 0) break;
@@ -177,6 +205,7 @@ async function priceByCombinations({
       });
       if (!query) continue;
       budget--;
+      if (spend) spend[phase].searches++;
       const attempt = await runQuery(query, league);
       if (attempt.total > 0) hits.push({ ...attempt, query, size });
     }
@@ -185,6 +214,7 @@ async function priceByCombinations({
     // Price each hit and keep the dearest.
     let best = null;
     for (const hit of hits) {
+      if (spend) spend[phase].fetches++;
       const prices = await fetchPrices(hit.id, hit.result, chaosPerDivine, league);
       const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
       if (median != null && (!best || median > best.chaos)) best = { ...hit, chaos: median };
@@ -355,10 +385,21 @@ const handlers = {
   },
 };
 
-/** The actual work, split out so `appraise` can serve cached answers first. */
-async function appraiseItem({
+/**
+ * The actual work, split out so `appraise` can serve cached answers first.
+ *
+ * Every answer carries what it cost, including the ones that give up: an item
+ * that spends seven searches to find nothing is exactly the case worth seeing.
+ */
+async function appraiseItem(args) {
+  const spend = newSpend();
+  const result = await runAppraisal({ ...args, spend });
+  return { ...result, spend };
+}
+
+async function runAppraisal({
   item, rollPool, implicitPool, basePool, league: resolved, chaosPerDivine, minRollPercent,
-  matchCorruptedImplicits,
+  matchCorruptedImplicits, spend,
 }) {
   {
     const index = await loadStatIndex();
@@ -412,6 +453,7 @@ async function appraiseItem({
         league: resolved,
         chaosPerDivine,
         minRollPercent,
+        spend,
       });
       // Nothing sells with all of it. Ladder the distinguishing modifiers alone
       // — for a double corruption that is two implicits which are each common
@@ -443,6 +485,9 @@ async function appraiseItem({
           league: resolved,
           chaosPerDivine,
           minRollPercent,
+          // The widest query is already paid for above, so every search this
+          // one makes belongs to the fallback, including its own top level.
+          spend, wide: false,
         });
         // Still a floor: the copy carries the explicits too, which this did not
         // ask for, so `rolled` stays the item's full count.
@@ -455,8 +500,10 @@ async function appraiseItem({
       // Tabula Rasa whose implicit nobody lists prices at nothing at all.
       if (!best && isUnique) {
         const plain = buildQuery(item);
+        if (plain) spend.broad.searches++;
         const attempt = plain ? await runQuery(plain, resolved) : null;
         if (attempt?.total) {
+          spend.broad.fetches++;
           const prices = await fetchPrices(attempt.id, attempt.result, chaosPerDivine, resolved);
           if (prices.length) {
             return {
@@ -526,6 +573,7 @@ async function appraiseItem({
         league: resolved,
         chaosPerDivine,
         minRollPercent,
+        spend,
       });
       if (found) {
         return {
@@ -553,11 +601,15 @@ async function appraiseItem({
     //    a request on another empty result.
     if (!best || !RELIABLE.has(reliability(best.total))) {
       const query = buildRareQuery(item, index, helpers, FALLBACK_MODS);
-      if (query) consider(await runQuery(query, resolved), query, 'pseudo');
+      if (query) {
+        spend.broad.searches++;
+        consider(await runQuery(query, resolved), query, 'pseudo');
+      }
     }
 
     if (!best) return { skipped: 'no filterable mods recognised' };
 
+    if (best.total) spend.broad.fetches++;
     const prices = best.total ? await fetchPrices(best.id, best.result, chaosPerDivine, resolved) : [];
     const rating = reliability(best.total);
     const byOwnMods = best.strategy === 'own-mods';
