@@ -9,8 +9,6 @@ Thumbs.db
 node_modules/
 *.log
 
-# A local clone of Awakened PoE Trade, kept for reference. Not part of this project.
-Awakened/
 
 # Notes taken while reading that clone; its file paths only resolve locally.
 docs/awakened-poe-trade-analisis.md
