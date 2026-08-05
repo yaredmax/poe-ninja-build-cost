@@ -84,6 +84,20 @@ export function normalizeName(raw) {
     .toLowerCase();
 }
 
+/**
+ * A Foulborn's mutations, as one comparable string.
+ *
+ * Sorted, because an item carrying two of them says nothing about the order
+ * poe.ninja listed them in. Empty for an ordinary unique, which is what makes
+ * the same comparison work for both.
+ */
+export function mutationKey(mods) {
+  return (mods || [])
+    .map((m) => modTemplate(m.text || m))
+    .sort()
+    .join('|');
+}
+
 async function cacheGet(key) {
   const store = await chrome.storage.local.get(key);
   const entry = store[key];
@@ -294,11 +308,22 @@ export async function buildPriceIndex(league) {
         .filter((l) => typeof l.chaosValue === 'number')
         .map((l) => [l.gemLevel ?? 0, l.gemQuality ?? 0, l.corrupted ? 1 : 0, l.chaosValue]);
     } else if (lines.length > 1) {
-      // Uniques: poe.ninja publishes a line per link count and corruption. With
-      // the real item JSON we know both, so we can pick the right one.
+      // Uniques: poe.ninja publishes a line per link count, corruption *and*
+      // Foulborn mutation. With the real item JSON we know all three.
+      //
+      // The mutation used to be dropped, which collapsed every mutation sharing
+      // a link count into whichever line came first. Null's Inclination has
+      // twelve lines and the spread is not small: the same "Summon Phantasm"
+      // mutation is 585 c at six links, 7.8 c at five and 5.8 c unlinked.
       entry.uniq = lines
         .filter((l) => typeof l.chaosValue === 'number')
-        .map((l) => [l.links ?? 0, l.corrupted ? 1 : 0, l.chaosValue]);
+        .map((l) => [
+          l.links ?? 0,
+          l.corrupted ? 1 : 0,
+          l.chaosValue,
+          mutationKey(l.mutatedModifiers),
+          l.listingCount ?? 0,
+        ]);
     }
 
     index[key] = entry;

@@ -160,14 +160,23 @@ function priceForItem(item, index) {
 
   if (isUnique(item) && entry.uniq?.length) {
     const corrupted = item.corrupted ? 1 : 0;
-    const exact = entry.uniq.find(([l, c]) => l === item.links && c === corrupted);
+    // Links, corruption and — for a Foulborn — which mutation. Ignoring the
+    // last one collapsed every mutation sharing a link count into whichever
+    // line came first, and on Null's Inclination those run from 3 c to 1562 c.
+    const mutation = mutationKeyOf(item, index);
+    const matches = (l, c, k) => l === item.links && c === corrupted && k === mutation;
+
+    const exact = entry.uniq.find(([l, c, , k]) => matches(l, c, k));
+    const sameMutation = entry.uniq.filter(([, , , k]) => k === mutation);
     const sameLinks = entry.uniq.filter(([l]) => l === item.links);
-    const hit = exact || sameLinks[0];
+    const hit = exact || sameMutation[0] || sameLinks[0];
     if (hit) {
       return {
         ...entry,
         chaos: hit[2],
-        variantCount: 0,
+        // Still uncertain when we had to settle for a different link count or a
+        // different mutation: those are genuinely other items.
+        variantCount: exact ? 0 : entry.uniq.length,
         detail: item.links >= 5 ? `${item.links}L` : null,
       };
     }
@@ -805,8 +814,36 @@ function needsTradeLookup(match) {
 function basePoolFor(match, index) {
   const item = match.item;
   if (!item || !isFoulborn(item)) return undefined;
-  const plain = index?.[normalizeName(String(item.name).replace(/^Foulborns+/i, ''))];
-  return plain?.modPool;
+  return plainEntryFor(item, index)?.modPool;
+}
+
+function plainEntryFor(item, index) {
+  const plain = String(item.name || '').replace(/^Foulborn[ ]+/i, '');
+  return index?.[normalizeName(plain)];
+}
+
+/**
+ * This copy's mutations, in the same shape economy.js keys its lines by.
+ *
+ * Empty for anything that is not a Foulborn, which is what lets one comparison
+ * serve both. When poe.ninja's page data names the mutations we use those; when
+ * it does not — it carried them for Tulfall and not for Lori's Lantern — they
+ * are whatever the item has that the plain unique is not published with,
+ * because a Foulborn modifier *replaces* an original one.
+ */
+function mutationKeyOf(item, index) {
+  if (!isFoulborn(item)) return '';
+
+  const named = (item.mutatedMods || []).map(pncModTemplate);
+  if (named.length) return named.sort().join('|');
+
+  const base = new Set(plainEntryFor(item, index)?.modPool || []);
+  if (!base.size) return '';
+  return (item.explicitMods || [])
+    .map(pncModTemplate)
+    .filter((t) => !base.has(t))
+    .sort()
+    .join('|');
 }
 
 function isFoulborn(item) {
