@@ -159,9 +159,10 @@ That's why the total is labelled **Minimum**.
 
 ## Items priced by their own modifiers
 
-Two kinds of item are searched for by the mods they actually carry, stepping
-down 3 → 2 → 1 filters until the market has something. When it prices on fewer
-mods than the item has, the badge shows `≥`: worth *at least* that.
+Every item that isn't priced by name is searched for by the mods it actually
+carries: all of them, then every combination of one fewer, until the market has
+something. When it prices on fewer mods than the item has, the badge shows `≥`:
+worth *at least* that.
 
 **Rare jewels.** A jewel has no life, no resistances and no equipment category,
 so the "similar gear" query below has nothing to work with. A jewel *is* its
@@ -228,35 +229,69 @@ valuable one, the old approach would have missed it.
 | Unique whose roll matters | Name plus the modifiers it rolled, by combination |
 | Corrupted unique | The above plus the implicit the corruption added |
 | Foulborn | The above plus `misc_filters.mutated`, which trade labels "Foulborn" |
-| Rare gear | Its own modifiers across the equipment category, plus property totals |
+| Rare gear | All its modifiers by combination, across the category, plus property totals |
 | Rare jewel | Its own modifiers, by base type |
 | Cluster jewel | The notables it grants, then the passive count |
-| Rare weapon | Damage per second, attack rate and crit, plus its distinctive mods |
+| Rare weapon | The above plus dps, pdps, edps, attack rate and crit |
 
 Two things never take a filter slot, because something else already expresses
 them: elemental resistances become one pseudo total, and any modifier feeding a
 property — energy shield, armour, evasion, ward, block, damage — is covered by
 that property's own filter.
 
+A modifier is also searched **where it actually sits on the item**. Only
+`fractured` and `crafted` are rewritten to their explicit twin, because those
+describe how a modifier arrived rather than what it is. Everything else keeps
+its own prefix, and two bugs paid for that rule: a cluster jewel's "Adds 5
+Passive Skills" matches the market as `enchant.` and nothing at all as
+`explicit.`, and a corrupted Le Heup's "Bleeding cannot be inflicted on you" is
+an `implicit.` that no copy carries as an explicit — so the search found
+nothing, fell back to two common mods, and returned the 1 c floor of the
+commonest ring in the game.
+
 ## Rare appraisal
 
 A rare has no market price: that exact item isn't for sale. What we *can* do is
 search for items like it and see what they go for. Two strategies are tried, in
-this order, within three searches:
+this order:
 
-**1. The item's own modifiers, across its equipment category.** Up to three of
-them, stepping down to two if nothing comes back. This catches what no
+**1. All of its modifiers, then every combination of one fewer**, across its
+equipment category — the same search the uniques get. This catches what no
 hand-written list ever will: the test build's Focused Amulet is defined by
 "+2 to Level of all Physical Skill Gems", a mod the priority list below doesn't
 know about, and pricing it any other way lands on junk.
 
+It used to take the first three modifiers in the order poe.ninja listed them,
+which is how a Void Sceptre got priced on fire damage, cast speed and crit while
+"+20% to Fire Damage over Time Multiplier" — the mod a fire build actually pays
+for — never reached the query, purely because it was listed last. Measured over
+one real item of each kind:
+
+```
+helm          50 c /   10 listings  ->   20 c /   1   (7 filters)
+body armour    5 c /  143           ->   45 c /  13
+boots          1 c /  389           ->   20 c /   1
+gloves         5 c / 1684 unreliable->   10 c / 117 reliable
+ring           1 c /  173           ->  100 c /   4
+belt           1 c / 2921           ->    5 c / 196
+
+48 trade requests -> 36
+```
+
+Fewer requests, not more, which is the opposite of what you'd expect. Pinning
+every modifier usually hits on the first query; stepping 3 → 2 spent a request
+per level to arrive somewhere worse. Those items were sampled above 20 c, so the
+1 c answers were simply wrong.
+
+What makes it affordable is the **weapon and armour properties** — the same
+boxes Awakened PoE Trade shows: `dps`, `pdps`, `edps`, `aps`, `crit`, and
+`ar` / `ev` / `es` / `ward` / `block`. Added damage, increased physical damage,
+attack speed and crit are all expressed by those, so they cost no filter slot
+and the combinations start from a much shorter list.
+
 **2. Pseudo life and resistances plus one priority mod.** Deliberately broad —
 step 1 already tried the specific route. This is the better answer for plain
 defensive gear whose individual mods are all common.
-
-Measured on the seven rares of the test build, the hybrid took the reliable
-count from **3 of 7 to 6 of 7** in the same time and the same request budget.
-Nearly all of them are now answered by strategy 1.
 
 A search built from the item's own mods is precise, so a single listing is a
 real answer — "one like yours is on sale for X" — and is accepted. The
