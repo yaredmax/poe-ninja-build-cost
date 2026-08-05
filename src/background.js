@@ -340,7 +340,7 @@ async function appraiseItem({
         .slice(0, MAX_COMBO_MODS);
       if (!mods.length) return { skipped: 'none of its mods could be translated' };
 
-      const best = await priceByCombinations({
+      let best = await priceByCombinations({
         item,
         mods,
         byName: isUnique,
@@ -354,6 +354,30 @@ async function appraiseItem({
         chaosPerDivine,
         minRollPercent,
       });
+      // A double corruption is two implicits that individually are common and
+      // together are almost unheard of, so every subset containing both finds
+      // nothing — and with six modifiers the ladder spends its whole budget on
+      // the level below the top without ever getting down to one. An Architect's
+      // Hand with two corruption implicits is the case. Each of them alone is a
+      // real, useful answer, and the dearest of them is the tightest floor.
+      const distinguishing = mutated.concat(corrupted);
+      if (!best && isUnique && distinguishing.length > 1) {
+        for (const mod of distinguishing) {
+          const alone = await priceByCombinations({
+            item,
+            mods: [mod],
+            byName: true,
+            maxQueries: 1,
+            league: resolved,
+            chaosPerDivine,
+            minRollPercent,
+          });
+          if (alone && (!best || alone.chaos > best.chaos)) {
+            best = { ...alone, rolled: mods.length };
+          }
+        }
+      }
+
       // Nobody is selling this combination. For a unique there is still a
       // sensible answer — what the plain item goes for — and it is a true floor,
       // since the copy we are pricing has extra on top. Without this a corrupted

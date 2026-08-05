@@ -271,6 +271,16 @@ export function buildComboQuery(item, mods, opts = {}) {
   }
   if (byName && item.name) query.name = tradeName(item);
 
+  // Links, for the uniques where they are the price. The Annihilating Light is
+  // worth almost nothing under six links and a lot at six, and this path — the
+  // one corrupted, Foulborn and variant uniques take — was not asking for them
+  // at all, so it priced a 6L against the whole market including the 4Ls.
+  // Only from five up: below that nobody sorts by links and demanding an exact
+  // count would only cost listings.
+  if (byName && item.links >= 5) {
+    query.filters.socket_filters = { filters: { links: { min: item.links } } };
+  }
+
   return { query, sort: { price: 'asc' } };
 }
 

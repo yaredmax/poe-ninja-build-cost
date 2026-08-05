@@ -986,6 +986,9 @@ function updateRareBadge(match, chaosPerDivine) {
       // branch and are not uniques at all.
       : `${a.total} listing(s) matching ${a.mods} of its ${a.rolled} rolled ` +
         `modifier(s), cheapest median.` +
+        // One listing is a real answer for a query this precise, but it is one
+        // person's item: take it and the search behind this number is empty.
+        (a.total === 1 ? ' Only one was listed, so it may already be sold.' : '') +
         (match.price ? " Replaces poe.ninja's published price." : '') +
         (a.partial ? ' Priced on fewer mods than it has, so it is worth at least this.' : '')
     : `Median of the cheapest listings among ${a.total} similar items. ` +

@@ -48,6 +48,14 @@ globalThis.fetch = (url, init = {}) => {
 
 await import('../src/background.js');
 
+// Carry the rate-limit budget over from previous tool runs. Each process starts
+// a fresh limiter that knows nothing until its first response, and a dozen of
+// those in an afternoon is how you earn a 1800-second penalty on an IP that a
+// person is also using to browse trade.
+const { restoreLimits, trackLimits } = await import('./lib/shared-limits.mjs');
+await trackLimits();
+await restoreLimits();
+
 /** Post a message the way content.js does, and wait for the reply. */
 function send(type, payload = {}) {
   return new Promise((resolve, reject) => {
