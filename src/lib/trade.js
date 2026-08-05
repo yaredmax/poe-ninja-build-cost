@@ -166,7 +166,7 @@ function defenceFilters(item, minRoll) {
  * for the modifiers that add up to it — the same argument as the defences.
  */
 function weaponFilters(item, minRoll) {
-  return totalsToFilters(item.weapon, ['pdps', 'edps', 'aps', 'crit'], minRoll);
+  return totalsToFilters(item.weapon, ['dps', 'pdps', 'edps', 'aps', 'crit'], minRoll);
 }
 
 

@@ -177,12 +177,18 @@ function slim(item, index, slot) {
       ward: parseInt(props.Ward, 10) || 0,
       block: parseInt(props['Chance to Block'], 10) || 0,
     },
-    weapon: {
-      pdps: round1(average(props['Physical Damage']) * toNumber(props['Attacks per Second'])),
-      edps: round1(average(props['Elemental Damage']) * toNumber(props['Attacks per Second'])),
-      aps: round1(toNumber(props['Attacks per Second'])),
-      crit: round1(toNumber(props['Critical Strike Chance'])),
-    },
+    weapon: (() => {
+      const aps = toNumber(props['Attacks per Second']);
+      const pdps = average(props['Physical Damage']) * aps;
+      const edps = average(props['Elemental Damage']) * aps;
+      return {
+        dps: round1(pdps + edps),
+        pdps: round1(pdps),
+        edps: round1(edps),
+        aps: round1(aps),
+        crit: round1(toNumber(props['Critical Strike Chance'])),
+      };
+    })(),
     mutated: !!item.mutated || (item.mutatedMods || []).length > 0,
     mutatedMods: (item.mutatedMods || []).map((m) => (typeof m === 'string' ? m : m.description)),
     ...modLines(item),

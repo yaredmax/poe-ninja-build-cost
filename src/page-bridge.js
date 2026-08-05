@@ -139,14 +139,23 @@
         ward: parseInt(props.Ward, 10) || 0,
         block: parseInt(props['Chance to Block'], 10) || 0,
       },
-      weapon: {
+      // The same five boxes Awakened PoE Trade shows for a weapon. Searching
+      // these means the modifiers behind them — added damage, increased physical
+      // damage, attack speed, crit chance — do not each need a filter slot.
+      weapon: (() => {
         // "50-100" -> 75. Trade wants damage per second, so we need the average
         // of the range times the attack rate.
-        pdps: round1(average(props['Physical Damage']) * toNumber(props['Attacks per Second'])),
-        edps: round1(average(props['Elemental Damage']) * toNumber(props['Attacks per Second'])),
-        aps: round1(toNumber(props['Attacks per Second'])),
-        crit: round1(toNumber(props['Critical Strike Chance'])),
-      },
+        const aps = toNumber(props['Attacks per Second']);
+        const pdps = average(props['Physical Damage']) * aps;
+        const edps = average(props['Elemental Damage']) * aps;
+        return {
+          dps: round1(pdps + edps),
+          pdps: round1(pdps),
+          edps: round1(edps),
+          aps: round1(aps),
+          crit: round1(toNumber(props['Critical Strike Chance'])),
+        };
+      })(),
       // Allflame's Foulborn mutation. The trade site calls the flag
       // "Foulborn" and exposes it as misc_filters.mutated.
       mutated: !!item.mutated || (item.mutatedMods || []).length > 0,

@@ -125,16 +125,22 @@ export async function loadStatIndex() {
  * against 2712 for the explicit id. Same trap for crafted. We care that the item
  * has the modifier, not how it got there.
  */
+const REWRITABLE = /^(fractured|crafted)\./;
+
 export function preferExplicit(statIndex, id) {
-  if (id.startsWith('explicit.') || id.startsWith('pseudo.')) return id;
-  // Not enchantments. Fractured and crafted describe how a modifier got onto
-  // the item, so the explicit twin is the same thing more broadly; an
-  // enchantment is its own thing and the twin is a different item. A cluster
-  // jewel's "Adds 5 Passive Skills" is the case that proves it: as
-  // `enchant.stat_3086156145` it matches the whole market, and rewritten to
-  // `explicit.stat_3086156145` it matches only corrupted ones — 0 listings for
-  // every normal jewel, which is why cluster jewels never priced.
-  if (id.startsWith('enchant.')) return id;
+  // A whitelist, not a blacklist. Fractured and crafted describe *how* a
+  // modifier got onto the item, so the explicit twin is the same modifier asked
+  // for more broadly. Every other prefix is a different place on the item, and
+  // rewriting it asks for something no listing has. Both cost real money here:
+  //
+  //   enchant  a cluster jewel's "Adds 5 Passive Skills" matches the market as
+  //            `enchant.stat_3086156145` and nothing at all as `explicit.` —
+  //            which is why cluster jewels never priced.
+  //   implicit a corrupted Le Heup's "Bleeding cannot be inflicted on you" is
+  //            an implicit. No Le Heup carries it as an explicit, so the query
+  //            found nothing, fell back to a pair of common mods and returned
+  //            the 1 c floor of the commonest ring in the game.
+  if (!REWRITABLE.test(id)) return id;
   const twin = `explicit.${id.replace(/^[a-z]+\./, '')}`;
   return statIndex.allIds?.has(twin) ? twin : id;
 }
@@ -353,8 +359,17 @@ function clusterFirst(entries) {
  * a modifier to match.
  */
 export function corruptedImplicits(statIndex, item, implicitPool) {
-  if (!item.corrupted || !implicitPool?.length) return [];
-  const known = new Set(implicitPool);
+  if (!item.corrupted) return [];
+  // An empty pool is not a reason to give up — it is the clearest case there is.
+  // Le Heup of All is built on an Iron Ring, which has no implicit at all, so
+  // poe.ninja publishes none and the "Bleeding cannot be inflicted on you" on
+  // this copy can only have come from the corruption. Bailing out here priced it
+  // as the plain unique: 10000 listings, 1 c, which is the floor for the
+  // commonest ring in the game and nothing to do with this one.
+  //
+  // Guessing wrong costs little — a filter every copy carries narrows nothing —
+  // while ignoring a corruption implicit misprices the item outright.
+  const known = new Set(implicitPool || []);
   const out = [];
   for (const mod of item.implicitMods || []) {
     if (known.has(modTemplate(mod))) continue;

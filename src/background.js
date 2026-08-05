@@ -3,7 +3,6 @@ import {
   buildQuery,
   buildRareQuery,
   buildComboQuery,
-  buildOwnModsQuery,
   combinations,
   DEFAULT_MIN_ROLL,
   minRollFor,
@@ -99,8 +98,17 @@ async function resolveLeague(slug, id) {
 /** Priority mods added on top of the pseudo ones in the fallback query. */
 const FALLBACK_MODS = 1;
 
-/** Same idea for rare gear, but two steps: the third search is the fallback. */
-const GEAR_MOD_STEPS = [3, 2];
+/**
+ * Rare gear is searched by combination like the uniques, so these bound it.
+ *
+ * The mod cap keeps the combinatorics finite — with the property filters
+ * absorbing added damage, attack speed and crit, real gear rarely gets near it.
+ * The query budget is larger than a unique's because the search starts from the
+ * full set, and a rare with every one of its modifiers pinned usually has no
+ * listing at all: the first query is expected to miss.
+ */
+const GEAR_MAX_MODS = 6;
+const GEAR_COMBO_QUERIES = 8;
 
 /** Most modifiers considered for a permutation search. Bounds the combinatorics. */
 const MAX_COMBO_MODS = 3;
@@ -124,16 +132,19 @@ const MAX_COMBO_QUERIES = 4;
  * Most items resolve on the first or second query; the combinatorial tail only
  * runs for the awkward ones.
  */
-async function priceByCombinations({ item, mods, byName, league, chaosPerDivine, minRollPercent }) {
+async function priceByCombinations({
+  item, mods, byName, league, chaosPerDivine, minRollPercent,
+  useCategory = false, resistance = 0, maxQueries = MAX_COMBO_QUERIES,
+}) {
   const minRoll = minRollFor(item, minRollPercent);
-  let budget = MAX_COMBO_QUERIES;
+  let budget = maxQueries;
   let widest = mods.length;
 
   for (let size = mods.length; size >= 1; size--) {
     const hits = [];
     for (const combo of combinations(mods, size)) {
       if (budget <= 0) break;
-      const query = buildComboQuery(item, combo, { byName, minRoll });
+      const query = buildComboQuery(item, combo, { byName, minRoll, useCategory, resistance });
       if (!query) continue;
       budget--;
       const attempt = await runQuery(query, league);
@@ -148,7 +159,7 @@ async function priceByCombinations({ item, mods, byName, league, chaosPerDivine,
       const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
       if (median != null && (!best || median > best.chaos)) best = { ...hit, chaos: median };
     }
-    if (best) return { ...best, mods: size, rolled: widest, queriesUsed: MAX_COMBO_QUERIES - budget };
+    if (best) return { ...best, mods: size, rolled: widest, queriesUsed: maxQueries - budget };
   }
   return null;
 }
@@ -352,23 +363,47 @@ async function appraiseItem({
       if (!best || isBetter(attempt.total, best.total)) best = { ...attempt, body, strategy };
     };
 
-    // 1) The item's own modifiers, searched across its equipment category.
-    //    This catches what the priority list misses — a Focused Amulet with
-    //    "+2 to Level of all Physical Skill Gems" is defined by that mod, and no
-    //    hand-written list will ever cover every such case.
-    let width = -1;
-    for (const n of GEAR_MOD_STEPS) {
-      const query = buildOwnModsQuery(item, index, { rolledMods, totalElementalResistance }, {
-        maxMods: n,
-        fields: GEAR_FIELDS,
+    // 1) All of its modifiers, then every combination of one fewer, the same
+    //    search the uniques get. Taking the first three in the order poe.ninja
+    //    listed them meant a Void Sceptre was priced on fire damage, cast speed
+    //    and crit while "+20% to Fire Damage over Time Multiplier" — the mod a
+    //    fire build actually pays for — never reached the query, because it
+    //    happened to be listed last.
+    //
+    //    The property filters are what makes this affordable: added damage,
+    //    increased physical damage, attack speed and crit are already expressed
+    //    by dps / pdps / edps / aps / crit, so they cost no filter slot and the
+    //    combinatorics start from a much shorter list.
+    const geared = rolledMods(index, item, GEAR_MAX_MODS, null, GEAR_FIELDS);
+    if (geared.length) {
+      const found = await priceByCombinations({
+        item,
+        mods: geared,
+        byName: false,
         useCategory: true,
+        resistance: totalElementalResistance(item),
+        maxQueries: GEAR_COMBO_QUERIES,
+        league: resolved,
+        chaosPerDivine,
+        minRollPercent,
       });
-      if (!query) continue;
-      const filters = query.query.stats[0].filters.length;
-      if (filters === width) continue;
-      width = filters;
-      consider(await runQuery(query, resolved), query, 'own-mods');
-      if (RELIABLE.has(reliability(best.total))) break;
+      if (found) {
+        return {
+          url: webUrl(resolved, found.id),
+          total: found.total,
+          chaos: found.chaos,
+          reliability: reliability(found.total),
+          // Built from this item's own modifiers, so it is precise by
+          // construction and one listing is a real answer.
+          reliable: true,
+          partial: found.mods < found.rolled,
+          mods: found.mods,
+          rolled: found.rolled,
+          queries: found.queriesUsed,
+          strategy: 'own-mods',
+          filters: found.query.query.stats[0].filters.map((f) => f.id),
+        };
+      }
     }
 
     // 2) Fall back to pseudo life / resistances plus one priority mod, which is
