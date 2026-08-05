@@ -753,21 +753,51 @@ function isAppraisable(item) {
  * Jewels are only included for that second case: a rare cluster jewel is worth
  * whatever notables it grants, which we can't express with the mods we read.
  */
+/**
+ * Whether poe.ninja's published price is for *this* copy or for the generic one.
+ *
+ * Only three kinds of unique differ from what poe.ninja priced, and only those
+ * are worth a search — sending every unique would multiply the pass for nothing,
+ * since for an ordinary one the published price is already the answer.
+ */
 function needsTradeLookup(match) {
-  if (match.price?.floor && match.item && isUnique(match.item)) return true;
-  // A copy that is not the one poe.ninja priced. Their number is for the plain
-  // unique, and these two are different items: a Le Heup of All with "+1 to
-  // Maximum Power Charges" is 9-10 div against roughly a chaos, and a Foulborn
-  // is not the unique it is named after. Without this they never reached trade
-  // at all, so nothing ever filtered on the implicit or on the mutation.
-  if (match.item && isUnique(match.item) && isAlteredUnique(match.item)) return true;
-  return match.reason === 'random' && isAppraisable(match.item);
+  const item = match.item;
+  if (!item) return false;
+
+  if (isUnique(item)) {
+    // poe.ninja publishes one price for every roll of these, and it is the
+    // cheapest. `floor` is the same thing detected by counting.
+    if (match.price?.floor || match.price?.rollPool?.length) return true;
+    // Not the unique it is named after.
+    if (isFoulborn(item)) return true;
+    // Corrupted is not enough on its own — most corrupted uniques are worth what
+    // the plain one is. It is the added implicit that moves the price.
+    if (item.corrupted && hasAddedImplicit(match)) return true;
+    return false;
+  }
+
+  return match.reason === 'random' && isAppraisable(item);
 }
 
-/** Corrupted, or an Allflame mutation. Same name, different item. */
-function isAlteredUnique(item) {
-  return Boolean(item.corrupted) || Boolean(item.mutated)
-    || /^Foulborn\s/i.test(String(item.name || ''));
+function isFoulborn(item) {
+  return Boolean(item.mutated) || /^Foulborn\s/i.test(String(item.name || ''));
+}
+
+/**
+ * More implicits than poe.ninja publishes for this unique, so a corruption
+ * added one.
+ *
+ * Counting rather than comparing the texts, which would mean duplicating the
+ * mod-template normalisation out of stats.js into this classic script. It gets
+ * the cases that matter: an Iron Ring has no implicit at all, so a corrupted
+ * Le Heup carrying "+1 to Maximum Power Charges" has one more than published.
+ * It misses a corruption on a unique whose pool already lists as many implicits
+ * as this copy has, which costs us a search we should have made rather than one
+ * we should not.
+ */
+function hasAddedImplicit(match) {
+  const published = match.price?.implicitPool?.length || 0;
+  return (match.item?.implicitMods?.length || 0) > published;
 }
 
 /**
