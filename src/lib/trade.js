@@ -173,10 +173,14 @@ function weaponFilters(item, minRoll) {
 /** Query for one specific set of modifiers. */
 export function buildComboQuery(item, mods, opts = {}) {
   const { byName = false, useCategory = false, minRoll = 0, resistance = 0 } = opts;
-  const misc = { corrupted: { option: String(!!item.corrupted) } };
-  // Trade labels this flag "Foulborn". Without it an Allflame mutation is
-  // priced as the ordinary unique, which it is not.
-  if (item.mutated) misc.mutated = { option: 'true' };
+  const misc = {
+    corrupted: { option: String(!!item.corrupted) },
+    // Trade labels this flag "Foulborn". Set both ways, like corrupted: with it
+    // true an Allflame mutation is priced as the ordinary unique, which it is
+    // not; left unset on a plain item the search also matches Foulborn copies,
+    // which are a different item at a different price.
+    mutated: { option: String(!!item.mutated) },
+  };
 
   // One pseudo filter instead of two or three individual resistances: it is how
   // people actually shop, and it frees the scarce filter slots for mods that

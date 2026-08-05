@@ -21,20 +21,45 @@ const PNC_SALE_MODES = [
 ];
 
 /**
- * `sync` rather than `local` so the settings follow the user between machines.
- * It falls back to local storage on its own when sync is unavailable.
+ * Where the settings live, or `null` when there is nowhere to put them.
+ *
+ * `sync` rather than `local` so they follow the user between machines, falling
+ * back to `local` if sync is turned off.
+ *
+ * The null case is real and easy to hit: reloading the extension while a
+ * poe.ninja tab is open orphans the content script already injected in it. Its
+ * `chrome.storage` becomes `undefined` — not an error, just gone — so reading
+ * `.sync` off it throws and takes the whole panel down with it. Nothing here is
+ * worth breaking the page over; the defaults are perfectly good settings.
  */
+function pncStorageArea() {
+  const storage = typeof chrome !== 'undefined' ? chrome.storage : null;
+  return storage?.sync || storage?.local || null;
+}
+
 function pncLoadSettings() {
   return new Promise((resolve) => {
-    chrome.storage.sync.get(PNC_DEFAULTS, (stored) => {
-      if (chrome.runtime.lastError) return resolve({ ...PNC_DEFAULTS });
-      resolve({ ...PNC_DEFAULTS, ...stored });
-    });
+    const area = pncStorageArea();
+    if (!area) return resolve({ ...PNC_DEFAULTS });
+    try {
+      area.get(PNC_DEFAULTS, (stored) => {
+        if (chrome.runtime?.lastError) return resolve({ ...PNC_DEFAULTS });
+        resolve({ ...PNC_DEFAULTS, ...stored });
+      });
+    } catch {
+      resolve({ ...PNC_DEFAULTS });
+    }
   });
 }
 
 function pncSaveSettings(patch) {
   return new Promise((resolve) => {
-    chrome.storage.sync.set(patch, () => resolve());
+    const area = pncStorageArea();
+    if (!area) return resolve();
+    try {
+      area.set(patch, () => resolve());
+    } catch {
+      resolve();
+    }
   });
 }

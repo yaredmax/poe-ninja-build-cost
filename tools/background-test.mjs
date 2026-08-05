@@ -95,6 +95,28 @@ const fmt = (c) => (c == null ? '—'
 console.log(`League ${league}   ${items.length} items\n`);
 
 const failures = [];
+
+// Every badge is clickable, and the link is built without spending a request —
+// so this covers all of them for free, and catches a query builder that throws
+// or gives up on a kind of item the appraisal happens to price another way.
+{
+  const withIndex = items.map((item, i) => ({ ...item, index: i }));
+  const { urls, error } = await send('links', {
+    items: withIndex, league, minRollPercent: 80, saleMode: 'available',
+  });
+  if (error) {
+    console.log(`links: ERROR ${error}\n`);
+    failures.push(`links: ${error}`);
+  } else {
+    const missing = withIndex.filter((it) => !urls[it.index]);
+    console.log(`links: ${Object.keys(urls).length}/${items.length} items got a trade link`);
+    for (const it of missing) {
+      console.log(`  no link: ${kind(it)} ${it.name || '(rare)'} ${it.baseType}`);
+      failures.push(`${it.name || it.baseType}: no trade link`);
+    }
+    console.log('');
+  }
+}
 for (const item of items) {
   const label = `${item.name || '(rare)'} ${item.baseType || item.typeLine}`.trim();
   const price = index[normalizeName(item.name || '')] || index[normalizeName(label)];
