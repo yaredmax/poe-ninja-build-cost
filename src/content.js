@@ -177,6 +177,9 @@ function priceForItem(item, index) {
         // Still uncertain when we had to settle for a different link count or a
         // different mutation: those are genuinely other items.
         variantCount: exact ? 0 : entry.uniq.length,
+        // Whether this is the published line for *this* copy, rather than the
+        // nearest one. It decides whether trade has anything to add.
+        variantMatched: Boolean(exact),
         detail: item.links >= 5 ? `${item.links}L` : null,
       };
     }
@@ -799,8 +802,11 @@ function needsTradeLookup(match) {
     // times the Frenzy or Endurance ones, and its modifiers are not flagged
     // optional, so nothing above catches it.
     if (match.price?.variantCount > 1) return true;
-    // Not the unique it is named after.
-    if (isFoulborn(item)) return true;
+    // A Foulborn only when we could not pin its own published line. poe.ninja
+    // prices each mutation separately once you account for links, so a matched
+    // one already has its answer and a search would spend two requests to
+    // arrive at the same number.
+    if (isFoulborn(item) && !match.price?.variantMatched) return true;
     // Corrupted is not enough on its own — most corrupted uniques are worth what
     // the plain one is. It is the added implicit that moves the price.
     if (item.corrupted && hasAddedImplicit(match)) return true;

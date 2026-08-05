@@ -307,7 +307,7 @@ export async function buildPriceIndex(league) {
       entry.gems = lines
         .filter((l) => typeof l.chaosValue === 'number')
         .map((l) => [l.gemLevel ?? 0, l.gemQuality ?? 0, l.corrupted ? 1 : 0, l.chaosValue]);
-    } else if (lines.length > 1) {
+    } else if (lines.length > 1 || isUniqueLine(pick)) {
       // Uniques: poe.ninja publishes a line per link count, corruption *and*
       // Foulborn mutation. With the real item JSON we know all three.
       //
