@@ -125,19 +125,21 @@ const GEAR_COMBO_QUERIES = 8;
  */
 const MAX_COMBO_MODS = 6;
 
-/** Hard ceiling on searches for one item, whatever the maths says. */
-const MAX_COMBO_QUERIES = 4;
-
 /**
- * How many modifiers the fallback ladder permutes, once the wide query missed.
+ * Hard ceiling on searches for one item, whatever the maths says.
  *
- * Three, because one level down is one query per modifier: at six it is six
- * queries for that level alone, which is what made rare jewels crawl. The wide
- * first query still asks for all of them, so nothing is lost when it hits — and
- * when it does not, the item is being priced on a subset anyway and is marked
- * with a >= for it.
+ * Six, so the fallback can afford a whole level: dropping one modifier from six
+ * is six queries, one per modifier. Stopping halfway would settle for whichever
+ * subset happened to be tried first instead of the dearest, which is the entire
+ * point of trying them.
+ *
+ * Narrowing the wide query to five modifiers would cap the worst case at six
+ * searches instead of seven, and it was tried. It costs precision on every
+ * jewel whose market *does* have the full combination — the majority — to save
+ * one query on the few where it does not: a cluster jewel went from 56 c on six
+ * filters to 40 c on five, and the pass total did not move at all.
  */
-const LADDER_MODS = 3;
+const MAX_COMBO_QUERIES = 6;
 
 /**
  * Prices an item by trying its modifiers, then every combination of one fewer,
@@ -158,12 +160,15 @@ const LADDER_MODS = 3;
 async function priceByCombinations({
   item, mods, byName, league, chaosPerDivine, minRollPercent,
   useCategory = false, resistance = 0, chaos = 0, maxQueries = MAX_COMBO_QUERIES,
+  // Where to start the descent. The fallback passes one below the full set,
+  // because the widest query has already been asked and answered.
+  maxSize = null,
 }) {
   const minRoll = minRollFor(item, minRollPercent);
   let budget = maxQueries;
   let widest = mods.length;
 
-  for (let size = mods.length; size >= 1; size--) {
+  for (let size = Math.min(maxSize ?? mods.length, mods.length); size >= 1; size--) {
     const hits = [];
     for (const combo of combinations(mods, size)) {
       if (budget <= 0) break;
@@ -391,12 +396,14 @@ async function appraiseItem({
       // pools every subset together, and the ten cheapest are then whichever
       // subset is junk — 1745 listings at 1 c where the per-subset ladder found
       // 100 c.
-      const ladder = isUnique ? distinguishing : mods.slice(0, LADDER_MODS);
+      const ladder = isUnique ? distinguishing : mods;
       if (!best && ladder.length) {
         const found = await priceByCombinations({
           item,
           mods: ladder,
           byName: isUnique,
+          // The widest query already ran above, so start one below it.
+          maxSize: isUnique ? null : mods.length - 1,
           maxQueries: MAX_COMBO_QUERIES,
           resistance: totalElementalResistance(item),
           chaos: totalChaosResistance(item),
