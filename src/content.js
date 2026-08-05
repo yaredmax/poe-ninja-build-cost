@@ -1282,6 +1282,24 @@ window.pncDiagnose = function pncDiagnose() {
   return output;
 };
 
+// Both names are also exposed on the page's own window by page-bridge.js, which
+// forwards the call here — the console cannot see this realm. Keeping them on
+// `window` too means they still work from the content script context that the
+// DevTools context dropdown offers.
+window.addEventListener('message', async (ev) => {
+  if (ev.source !== window || ev.data?.source !== 'pnc-console-request') return;
+  const { name, id } = ev.data;
+  let result;
+  try {
+    result = name === 'report' ? await window.pncReport() : window.pncDiagnose();
+  } catch (err) {
+    result = { error: String(err?.message || err) };
+  }
+  // Plain data only: postMessage structured-clones, and anything else in here
+  // would throw on the way out instead of arriving.
+  window.postMessage({ source: 'pnc-console-reply', id, result }, '*');
+});
+
 // ------------------------------------------------------------------- lifecycle
 
 function sync() {

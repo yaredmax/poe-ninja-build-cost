@@ -59,8 +59,21 @@ for (const [, type] of contentJs.matchAll(/send\('(\w+)'/g)) {
 const contentCss = read('src/content.css');
 const used = new Set([...contentJs.matchAll(/pnc-[a-z-]+/g)].map((m) => m[0]));
 for (const cls of used) {
-  if (/bridge|request|item|summary/.test(cls)) continue; // message names, not classes
+  if (/bridge|request|item|summary|console/.test(cls)) continue; // message names, not classes
   check(contentCss.includes(cls), `content.css defines .${cls}`);
+}
+
+// --- the names the README tells you to type actually exist there -------------
+// They have to be defined in page-bridge.js. DevTools evaluates in the page's
+// world and content.js lives in an isolated one, so a `window.pncX` set there is
+// invisible to the console — which is how pncDiagnose() came to be documented,
+// for months, as something you could type.
+{
+  const readme = read('README.md');
+  const bridge = read('src/page-bridge.js');
+  for (const [, name] of readme.matchAll(/\b(pnc[A-Z]\w*)\(\)/g)) {
+    check(bridge.includes(`window.${name} =`), `${name}() is reachable from the page console`);
+  }
 }
 
 // --- a message payload reaches the helper that reads it ----------------------

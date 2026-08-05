@@ -181,9 +181,40 @@
     window.postMessage({ source: 'pnc-bridge', items }, '*');
   }
 
+  // ------------------------------------------------------- console helpers
+  //
+  // `pncDiagnose()` typed into the console never resolved, and the README told
+  // people to type it: DevTools evaluates in the page's world, and a content
+  // script's globals live in an isolated one, so the name does not exist there.
+  // This file is the one part of the extension that *does* run in the page's
+  // world, so the names live here and the call is forwarded.
+
+  let callId = 0;
+  const waiting = new Map();
+
+  const consoleCall = (name) => () => new Promise((resolve, reject) => {
+    const id = ++callId;
+    waiting.set(id, resolve);
+    window.postMessage({ source: 'pnc-console-request', name, id }, '*');
+    setTimeout(() => {
+      if (!waiting.delete(id)) return; // already answered
+      reject(new Error('The extension did not answer. Is this a character page?'));
+    }, 10000);
+  });
+
+  window.pncReport = consoleCall('report');
+  window.pncDiagnose = consoleCall('diagnose');
+
   // The content script asks for the harvest when the user clicks the button, so
   // we don't walk React's tree on every page load.
   window.addEventListener('message', (ev) => {
-    if (ev.source === window && ev.data?.source === 'pnc-request') publish();
+    if (ev.source !== window) return;
+    if (ev.data?.source === 'pnc-request') publish();
+    if (ev.data?.source === 'pnc-console-reply') {
+      const resolve = waiting.get(ev.data.id);
+      if (!resolve) return;
+      waiting.delete(ev.data.id);
+      resolve(ev.data.result);
+    }
   });
 })();
