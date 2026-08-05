@@ -361,3 +361,17 @@
 #pnc-panel .pnc-row--link:hover b {
   text-decoration: underline;
 }
+
+/*
+ * Still being checked against trade. The number under it is poe.ninja's price
+ * for the plain item, which for an altered copy can be off by two orders of
+ * magnitude, so it has to read as provisional rather than as an answer.
+ */
+.pnc-badge--pending {
+  opacity: 0.55;
+  animation: pnc-pending 1.2s ease-in-out infinite;
+}
+
+@keyframes pnc-pending {
+  50% { opacity: 0.9; }
+}

@@ -143,6 +143,28 @@ for (const cls of used) {
       .filter(Boolean).join('; '));
 }
 
+// --- content.js's copy of modTemplate still matches the real one -------------
+// It compares item modifiers against poe.ninja's published pools, which were
+// normalised by stats.js. If the two normalisations disagree, every comparison
+// silently says "not published" and every unique goes to trade.
+{
+  const body = (src, name) => {
+    const at = src.indexOf(`function ${name}(`);
+    const open = src.indexOf('{', at);
+    let depth = 0;
+    for (let i = open; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) {
+        return src.slice(open + 1, i).replace(/\s+/g, ' ').trim();
+      }
+    }
+    return '';
+  };
+  const real = body(read('src/lib/stats.js'), 'modTemplate');
+  const copy = body(read('src/content.js'), 'pncModTemplate');
+  check(real === copy && real.length > 0, 'content.js pncModTemplate matches stats.js modTemplate');
+}
+
 // --- the manifest points at files that exist ---------------------------------
 const manifest = JSON.parse(read('manifest.json'));
 const referenced = [

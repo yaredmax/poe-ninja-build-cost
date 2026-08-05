@@ -768,6 +768,12 @@ function needsTradeLookup(match) {
     // poe.ninja publishes one price for every roll of these, and it is the
     // cheapest. `floor` is the same thing detected by counting.
     if (match.price?.floor || match.price?.rollPool?.length) return true;
+    // Several published variants and no way to tell from the economy data which
+    // one this is, so we show the best-selling one and mark it `±`. Ralakesh's
+    // Impatience is the case: the copy that grants Power Charges is worth many
+    // times the Frenzy or Endurance ones, and its modifiers are not flagged
+    // optional, so nothing above catches it.
+    if (match.price?.variantCount > 1) return true;
     // Not the unique it is named after.
     if (isFoulborn(item)) return true;
     // Corrupted is not enough on its own — most corrupted uniques are worth what
@@ -784,20 +790,34 @@ function isFoulborn(item) {
 }
 
 /**
- * More implicits than poe.ninja publishes for this unique, so a corruption
- * added one.
+ * "+1 to Maximum Power Charges" -> "+# to maximum power charges"
  *
- * Counting rather than comparing the texts, which would mean duplicating the
- * mod-template normalisation out of stats.js into this classic script. It gets
- * the cases that matter: an Iron Ring has no implicit at all, so a corrupted
- * Le Heup carrying "+1 to Maximum Power Charges" has one more than published.
- * It misses a corruption on a unique whose pool already lists as many implicits
- * as this copy has, which costs us a search we should have made rather than one
- * we should not.
+ * Duplicated from `modTemplate` in src/lib/stats.js, which this classic script
+ * cannot import. tools/check-wiring.mjs compares the two so they cannot drift.
+ */
+function pncModTemplate(text) {
+  return String(text)
+    .replace(/\(?-?\d+(?:\.\d+)?(?:\s*-\s*-?\d+(?:\.\d+)?)?\)?/g, '#')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * An implicit poe.ninja does not publish for this unique, so a corruption put
+ * it there.
+ *
+ * This started out counting implicits instead of comparing them, and the count
+ * was wrong on the one item it most needed to get right: poe.ninja publishes one
+ * implicit for Le Heup of All, its Iron Ring "Adds # to # Physical Damage to
+ * Attacks", and a corrupted copy carries one implicit too — the corruption's.
+ * One is not more than one, so the ring never went to trade at all and kept the
+ * plain unique's price of about 7 c instead of the 9 div it is worth.
  */
 function hasAddedImplicit(match) {
-  const published = match.price?.implicitPool?.length || 0;
-  return (match.item?.implicitMods?.length || 0) > published;
+  const published = new Set((match.price?.implicitPool || []).map(pncModTemplate));
+  return (match.item?.implicitMods || [])
+    .some((mod) => !published.has(pncModTemplate(mod)));
 }
 
 /**
@@ -809,8 +829,18 @@ function hasAddedImplicit(match) {
  * page refresh — costs no requests at all.
  */
 async function tradePass(matches, { league, chaosPerDivine, failed }) {
-  const pending = matches.filter((m) => needsTradeLookup(m));
+  // Same order the panel lists them in — equipment, flasks, jewels, gems — so
+  // watching the run makes sense against what you are reading.
+  const pending = matches
+    .filter((m) => needsTradeLookup(m))
+    .sort((a, b) => SECTION_ORDER.indexOf(categoryOf(a)) - SECTION_ORDER.indexOf(categoryOf(b)));
   if (!pending.length) return;
+
+  // Mark every one of them up front. Until its search comes back the badge is
+  // showing poe.ninja's price for the plain unique, which for a corrupted Le
+  // Heup is 7 c against 9 div — so it needs to be visibly provisional rather
+  // than looking like a finished answer.
+  for (const match of pending) markPending(match);
 
   let done = 0;
   let live = 0; // the ones that actually hit the network
@@ -879,10 +909,21 @@ function linkToSearch(badge, url) {
   });
 }
 
+/** Flags a badge as still being checked against trade. */
+function markPending(match) {
+  const badge = match.badge;
+  if (!badge) return;
+  badge.classList.add('pnc-badge--pending');
+  badge.dataset.pendingTitle = badge.title || '';
+  badge.title = 'Checking this exact copy on trade. The number shown is '
+    + "poe.ninja's price for the plain item until then.";
+}
+
 /** Swaps the "no price" badge for the estimate, or for why there isn't one. */
 function updateRareBadge(match, chaosPerDivine) {
   const badge = match.badge;
   if (!badge) return;
+  badge.classList.remove('pnc-badge--pending');
   const a = match.appraisal;
 
   badge.classList.remove('pnc-badge--noprice');
@@ -925,8 +966,11 @@ function updateRareBadge(match, chaosPerDivine) {
       ? `Nobody is selling one with the modifiers this copy rolled. ` +
         `${a.total} listing(s) of the plain item, cheapest median — this one is ` +
         `worth at least that.`
-      : `${a.total} listing(s) of this unique matching ${a.mods} of its ${a.rolled} rolled ` +
-        `modifier(s), cheapest median. Replaces poe.ninja's floor price.` +
+      // "this unique" was wrong on the rare jewels, which come through the same
+      // branch and are not uniques at all.
+      : `${a.total} listing(s) matching ${a.mods} of its ${a.rolled} rolled ` +
+        `modifier(s), cheapest median.` +
+        (match.price ? " Replaces poe.ninja's published price." : '') +
         (a.partial ? ' Priced on fewer mods than it has, so it is worth at least this.' : '')
     : `Median of the cheapest listings among ${a.total} similar items. ` +
       `Reliability: ${a.reliability}.` +
