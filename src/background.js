@@ -202,9 +202,42 @@ async function priceByCombinations({
  */
 const APPRAISAL_TTL_MS = 2 * 60 * 60 * 1000;
 
+/**
+ * Everything about an item that changes what it is worth.
+ *
+ * Deliberately not its id. Two copies of the same jewel are two ids and were
+ * appraised twice for the same answer — the search was free after the first,
+ * because that is cached on the request body, but each still paid for its own
+ * fetch. Keyed on what the item *is*, the second copy costs nothing, and so
+ * does the same item met again on another character.
+ *
+ * `id` and `anchor` are excluded for exactly that reason; so is `index`, which
+ * is just where it sat on the page.
+ */
+function fingerprint(item) {
+  return JSON.stringify([
+    item.name, item.baseType, item.frameType, item.inventoryId,
+    !!item.corrupted, !!item.mutated, item.links ?? 0,
+    item.gemLevel ?? null, item.gemQuality ?? 0,
+    item.implicitMods, item.explicitMods, item.craftedMods,
+    item.fracturedMods, item.enchantMods, item.mutatedMods,
+    item.defences, item.weapon,
+  ]);
+}
+
+/** FNV-1a. Not a security hash — just a short, stable key for storage. */
+function hash32(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(36);
+}
+
 function cacheKey(item, league, minRoll, saleMode, corruptedImplicits) {
-  if (!item.id) return null;
-  return `ap:${league}:${minRoll}:${saleMode}:${corruptedImplicits ? 1 : 0}:${item.id}`;
+  const shape = hash32(fingerprint(item));
+  return `ap:${league}:${minRoll}:${saleMode}:${corruptedImplicits ? 1 : 0}:${shape}`;
 }
 
 async function cachedAppraisal(key) {
