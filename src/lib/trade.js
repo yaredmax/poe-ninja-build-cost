@@ -255,7 +255,13 @@ export function buildComboQuery(item, mods, opts = {}) {
     const isOption = mod.id.includes('|');
     if (minRoll > 0 && typeof value === 'number' && !isOption) {
       const floor = Math.floor((Math.abs(value) * minRoll) / 100);
-      filter.value = { min: floor * Math.sign(value || 1) };
+      // A negative roll has to be bounded from above, not below. "33% reduced
+      // Poison Duration on you" is -33 of the increased stat, and asking for
+      // `min: -26` excludes every copy with more than 26% reduction —
+      // including the item we are pricing, which would then fail to match its
+      // own query. The invariant is that it always matches: whatever else a
+      // search gets wrong, an item has to be in its own result set.
+      filter.value = value < 0 ? { max: -floor } : { min: floor };
     }
     return filter;
   }));

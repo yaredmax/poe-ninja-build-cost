@@ -169,6 +169,23 @@ function lookup(map, key) {
   );
 }
 
+/**
+ * "23% reduced Trap Throwing Speed" is how the game words a negative roll of
+ * "#% increased Trap Throwing Speed", and that second wording is the only one
+ * trade indexes. So the modifier matched nothing, was dropped without a word,
+ * and the item was searched for as though it did not have it.
+ *
+ * Not a blanket rewrite: 679 of trade's own entries are worded "reduced", so
+ * the literal text is always tried first and this only runs when it missed.
+ * The value flips sign with the wording, because -23% increased *is* 23%
+ * reduced and the filter minimum has to agree with the number on the item.
+ */
+const REDUCED = /(^|\s)reduced(\s)/i;
+
+function increasedForm(text) {
+  return REDUCED.test(text) ? text.replace(REDUCED, '$1increased$2') : null;
+}
+
 /** Finds a modifier's stat id. Returns null when we don't recognise it. */
 export function matchMod(statIndex, text, type, local = false) {
   const key = norm(text);
@@ -183,8 +200,14 @@ export function matchMod(statIndex, text, type, local = false) {
     // the enchant bucket finds nothing and the modifier that defines the jewel
     // gets dropped. Knowing the text is what matters; where it was filed isn't.
     (type !== 'explicit' ? lookup(statIndex.byType.get('explicit'), key) : null);
-  if (!id) return null;
-  return { id: preferExplicit(statIndex, id), values: valuesOf(text) };
+  if (id) return { id: preferExplicit(statIndex, id), values: valuesOf(text) };
+
+  // Only now, with the literal wording exhausted, is "reduced" worth reading as
+  // a negative "increased".
+  const increased = increasedForm(text);
+  if (!increased) return null;
+  const flipped = matchMod(statIndex, increased, type, local);
+  return flipped ? { ...flipped, values: flipped.values.map((v) => -v) } : null;
 }
 
 const RESIST_SINGLE = /^\+(-?\d+)% to (Fire|Cold|Lightning) Resistance$/;

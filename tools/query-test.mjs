@@ -30,8 +30,9 @@ globalThis.fetch = (url, init = {}) =>
 
 const { buildPriceIndex, fetchLeagues, normalizeName } = await import('../src/lib/economy.js');
 const {
-  GEAR_FIELDS, loadStatIndex, corruptedImplicits, modTemplate, mutatedMods, rolledMods,
-  totalElementalResistance, totalChaosResistance,
+  GEAR_FIELDS, loadStatIndex, corruptedImplicits, isCoveredByTotals, isResistanceMod,
+  matchMod, modTemplate, mutatedMods, rolledMods, totalElementalResistance,
+  totalChaosResistance, wantsLocalStats,
 } = await import('../src/lib/stats.js');
 const { buildComboQuery, minRollFor } = await import('../src/lib/trade.js');
 
@@ -60,7 +61,12 @@ const statIndex = await loadStatIndex();
 
 console.log(`League ${league}   ${items.length} items\n`);
 
-const MOD_FIELDS = ['implicitMods', 'explicitMods', 'craftedMods', 'fracturedMods', 'enchantMods'];
+// Which trade prefix each list is searched under. Same pairing stats.js uses;
+// see docs/poe-modifiers.md for why the prefix is not cosmetic.
+const FIELD_TYPES = [
+  ['implicitMods', 'implicit'], ['explicitMods', 'explicit'], ['craftedMods', 'crafted'],
+  ['fracturedMods', 'fractured'], ['enchantMods', 'enchant'],
+];
 const seen = new Map();
 const rows = [];
 
@@ -90,18 +96,25 @@ for (const item of items) {
     chaos: totalChaosResistance(item),
   });
 
-  // Which of the item's own modifier texts never reached the query. A mod can
-  // drop out for three different reasons and they need telling apart: it is a
-  // resistance or a defence the pseudo and property filters already carry, it is
-  // not in the published roll pool, or nothing in the stat index matched it.
+  // Which of the item's own modifier texts never reached the query, and which
+  // of four different reasons is why. Lumping them together is how an
+  // anointment worth divines looked like a translation failure for an hour:
+  // "Allocates Disciple of the Slaughter" resolves perfectly to
+  // enchant.stat_2954116742|58921, and was simply pushed out by the cap.
+  const local = wantsLocalStats(item);
   const chosen = new Set(mods.map((m) => m.text));
   const dropped = [];
-  for (const field of MOD_FIELDS) {
+  for (const [field, type] of FIELD_TYPES) {
     for (const text of item[field] || []) {
       if (chosen.has(text)) continue;
       const inPool = price?.rollPool?.length
         ? price.rollPool.includes(modTemplate(text)) : null;
-      dropped.push({ field, text, inPool });
+      const why = !matchMod(statIndex, text, type, local) ? 'NO STAT ID — nothing in trade matches this text'
+        : isResistanceMod(text) ? 'the resistance pseudo carries it'
+        : local && isCoveredByTotals(text) ? 'a property filter carries it'
+        : inPool === false ? 'not in the published roll pool, so every copy has it'
+        : 'translated fine, but the six-filter cap cut it';
+      dropped.push({ field, text, why });
     }
   }
 
@@ -122,10 +135,7 @@ for (const row of rows) {
     + `   filters: ${query?.query.stats[0].filters.length ?? 0}`);
   for (const mod of mods) console.log(`    + ${mod.id.padEnd(34)} ${mod.text.split('\n')[0]}`);
   for (const d of dropped) {
-    const why = d.inPool === false ? 'not in the roll pool'
-      : d.inPool === true ? 'in the pool but cut by the cap or a duplicate id'
-      : 'no stat id, a pseudo carries it, or the cap';
-    console.log(`    - ${`(${d.field.replace('Mods', '')})`.padEnd(34)} ${d.text.split('\n')[0]}  — ${why}`);
+    console.log(`    - ${`(${d.field.replace('Mods', '')})`.padEnd(34)} ${d.text.split('\n')[0]}  — ${d.why}`);
   }
   if (twin) console.log(`  !! identical query to: ${twin}`);
   console.log('');
