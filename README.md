@@ -9,10 +9,11 @@ build would cost.
 1. `chrome://extensions` → turn on **Developer mode**.
 2. **Load unpacked** → pick this folder.
 3. Open any build: `https://poe.ninja/poe1/builds/.../character/...`
-4. Panel on the top right → **Calculate cost**.
+4. Click the button in the bottom right corner.
 
 That one button does everything: poe.ninja's economy prices land immediately,
-then the trade pass runs behind them and the panel updates item by item.
+then the trade pass runs behind them and the panel updates item by item. Click
+it again to close.
 
 ## Support
 
@@ -28,16 +29,20 @@ extension is free and will stay that way.
 
 ## Options
 
-`chrome://extensions` → Details → Extension options. Three settings, all
-explained on the page itself:
+The toolbar icon opens a popup with the two settings that get revisited, and a
+way through to the rest. The full page is at `chrome://extensions` → Details →
+Extension options. All of it is explained on the page itself:
 
 - **Minimum roll** (default 80%) — how good a listing has to be to count as
   comparable. Ignored for uniques, whose ranges are narrow, except timeless and
   Time-Lost jewels.
 - **Which listings count** (default "Instant Buyout and In Person") — the same
   choice as the trade site's own dropdown.
+- **Corrupted uniques** (default on) — match the implicit a corruption added. A
+  Le Heup of All with "+1 to Maximum Power Charges" is worth many times a plain
+  one. Turn it off if a corrupted unique finds nothing.
 - **Clear cached prices** — appraisals are kept for two hours, keyed on the item,
-  the league and the two settings above.
+  the league and the settings above.
 
 They live in `chrome.storage.sync`, so they follow you between machines, and the
 content script re-reads them at the start of every run.
@@ -200,6 +205,24 @@ The number happens to match what the old "first single mod" descent found. What
 changed is that it is now justified: we know every pair has no market, so no
 tighter bound exists. On an item where a different pair or single is the
 valuable one, the old approach would have missed it.
+
+## What each kind of item is searched by
+
+| Kind | Query |
+| --- | --- |
+| Unique, gem | Name and base type |
+| Unique whose roll matters | Name plus the modifiers it rolled, by combination |
+| Corrupted unique | The above plus the implicit the corruption added |
+| Foulborn | The above plus `misc_filters.mutated`, which trade labels "Foulborn" |
+| Rare gear | Its own modifiers across the equipment category, plus property totals |
+| Rare jewel | Its own modifiers, by base type |
+| Cluster jewel | The notables it grants, then the passive count |
+| Rare weapon | Damage per second, attack rate and crit, plus its distinctive mods |
+
+Two things never take a filter slot, because something else already expresses
+them: elemental resistances become one pseudo total, and any modifier feeding a
+property — energy shield, armour, evasion, ward, block, damage — is covered by
+that property's own filter.
 
 ## Rare appraisal
 
