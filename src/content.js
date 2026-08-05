@@ -135,6 +135,18 @@ function priceForItem(item, index) {
   const entry = index[normalizeName(isGem(item) ? item.baseType : item.name)];
   if (!entry) return null;
 
+  // A unique is its name *and* its base. Two can share a name: poe.ninja
+  // publishes "Stormblood" only as a Sapphire Flask, at 20 c, and matching on
+  // the name alone handed that price to a Stormblood Topaz Flask, which is a
+  // different item they do not price at all. Better to admit we have no number
+  // and let the trade pass find one — it searches name and base together.
+  if (
+    isUnique(item) && entry.baseType && item.baseType
+    && normalizeName(entry.baseType) !== normalizeName(item.baseType)
+  ) {
+    return null;
+  }
+
   if (isGem(item) && entry.gems?.length) {
     const { gemLevel: level, gemQuality: quality } = item;
     const exact = entry.gems.find(
@@ -571,7 +583,7 @@ function renderSummary(matches, chaosPerDivine, failed) {
   // count the item twice.
   const priced = matches.filter((m) => typeof m.price?.chaos === 'number' && !usesAppraisal(m));
   const random = matches.filter((m) => !m.price && m.reason !== 'unpriced');
-  const unpriced = matches.filter((m) => m.reason === 'unpriced');
+  const unpriced = matches.filter((m) => m.reason === 'unpriced' && !usesAppraisal(m));
   const unreliable = matches.filter((m) => m.appraisal && !m.appraisal.reliable && m.appraisal.chaos);
   const uncertain = priced.filter((m) => m.price.floor || m.price.variantCount > 1);
 
@@ -765,6 +777,10 @@ function needsTradeLookup(match) {
   if (!item) return false;
 
   if (isUnique(item)) {
+    // No published price at all — either poe.ninja does not list it, or it
+    // lists a different base under the same name. Trade searches name and base
+    // together, so it can answer where the economy cannot.
+    if (!match.price) return true;
     // poe.ninja publishes one price for every roll of these, and it is the
     // cheapest. `floor` is the same thing detected by counting.
     if (match.price?.floor || match.price?.rollPool?.length) return true;
