@@ -241,15 +241,45 @@ export function totalChaosResistance(item) {
 
 const FLAT_LIFE = /^\+(-?\d+) to maximum Life$/;
 
+/**
+ * Strength, from whichever wording grants it.
+ *
+ * "+# to all Attributes" and the hybrid "+# to Strength and Dexterity" grant
+ * their full value to each attribute, so they count the same as a plain
+ * "+# to Strength".
+ */
+const STRENGTH = [
+  /^\+(-?\d+) to Strength$/,
+  /^\+(-?\d+) to all Attributes$/,
+  /^\+(-?\d+) to Strength and (?:Dexterity|Intelligence)$/,
+  /^\+(-?\d+) to (?:Dexterity|Intelligence) and Strength$/,
+];
+
+/** Every 10 Strength is 5 maximum Life. */
+const LIFE_PER_STRENGTH = 0.5;
+
+/**
+ * Total maximum life, counting the Strength that grants it — the same pseudo
+ * Awakened builds, and the one people actually shop gear with.
+ *
+ * Returns 0 without a flat life modifier, mirroring their `required` flag: an
+ * amulet with Strength and no life is not a life amulet, and pricing it as one
+ * would find a market it does not belong to.
+ */
 export function totalLife(item) {
-  let total = 0;
+  let life = 0;
+  let strength = 0;
   for (const [field] of MOD_FIELDS) {
     for (const mod of item[field] || []) {
       const m = FLAT_LIFE.exec(mod);
-      if (m) total += Number(m[1]);
+      if (m) { life += Number(m[1]); continue; }
+      for (const pattern of STRENGTH) {
+        const s = pattern.exec(mod);
+        if (s) { strength += Number(s[1]); break; }
+      }
     }
   }
-  return total;
+  return life > 0 ? life + Math.floor(strength * LIFE_PER_STRENGTH) : 0;
 }
 
 /**

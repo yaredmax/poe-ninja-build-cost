@@ -466,8 +466,26 @@ export async function fetchPrices(queryId, resultIds, chaosPerDivine, league = n
   return chaos.sort((a, b) => a - b);
 }
 
+/**
+ * Identical searches within a run, answered once.
+ *
+ * The appraisal cache is keyed on the item's own id, so two copies of the same
+ * jewel in a build are two different items and each paid for its own search —
+ * even though the query built from them is byte for byte the same. Awakened
+ * caches on a hash of the request body for exactly this reason.
+ *
+ * In memory rather than storage: this exists to deduplicate within one pass,
+ * and the appraisal cache already covers coming back to a build later.
+ */
+const QUERY_TTL_MS = 5 * 60 * 1000;
+const queryCache = new Map();
+
 /** Runs a search and returns its id and result ids, without opening anything. */
 export async function runQuery(body, league) {
+  const key = `${league}|${JSON.stringify(body)}`;
+  const hit = queryCache.get(key);
+  if (hit && Date.now() - hit.at < QUERY_TTL_MS) return hit.value;
+
   await searchLimit.take();
 
   const res = await fetch(`${API}/${encodeURIComponent(league)}`, {
@@ -486,7 +504,9 @@ export async function runQuery(body, league) {
   }
   if (!res.ok) throw new Error(`Trade returned ${res.status}`);
   const data = await res.json();
-  return { id: data.id, result: data.result || [], total: data.total ?? 0 };
+  const value = { id: data.id, result: data.result || [], total: data.total ?? 0 };
+  queryCache.set(key, { at: Date.now(), value });
+  return value;
 }
 
 /**
