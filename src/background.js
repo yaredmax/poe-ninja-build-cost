@@ -6,6 +6,7 @@ import {
   combinations,
   DEFAULT_MIN_ROLL,
   minRollFor,
+  isMutated,
   searchUrl,
   setSaleMode,
   DEFAULT_SALE_MODE,
@@ -205,8 +206,25 @@ async function cacheAppraisal(key, data) {
 
 /** A trade link for any item, built without spending a request. */
 async function linkFor(item, league, minRollPercent) {
-  const simple = buildQuery(item);
+  const isUnique = item.frameType === 3 || item.frameType === 10;
+  // A corrupted or mutated unique needs its modifiers in the link too. The
+  // by-name query would open a search for the plain unique, which is a
+  // different item at a different price — the whole reason we appraise these.
+  const altered = isUnique && (item.corrupted || isMutated(item));
+
+  const simple = altered ? null : buildQuery(item);
   if (simple) return searchUrl(league, simple);
+
+  if (altered) {
+    const index = await loadStatIndex();
+    const body = buildComboQuery(item, rolledMods(index, item, MAX_COMBO_MODS, null), {
+      byName: true,
+      minRoll: minRollFor(item, minRollPercent),
+      resistance: totalElementalResistance(item),
+      chaos: totalChaosResistance(item),
+    });
+    if (body) return searchUrl(league, body);
+  }
 
   // Rares and magic items have no name to search by, so we link the same query
   // the appraisal would run: its own modifiers at the configured roll.

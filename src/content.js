@@ -755,7 +755,19 @@ function isAppraisable(item) {
  */
 function needsTradeLookup(match) {
   if (match.price?.floor && match.item && isUnique(match.item)) return true;
+  // A copy that is not the one poe.ninja priced. Their number is for the plain
+  // unique, and these two are different items: a Le Heup of All with "+1 to
+  // Maximum Power Charges" is 9-10 div against roughly a chaos, and a Foulborn
+  // is not the unique it is named after. Without this they never reached trade
+  // at all, so nothing ever filtered on the implicit or on the mutation.
+  if (match.item && isUnique(match.item) && isAlteredUnique(match.item)) return true;
   return match.reason === 'random' && isAppraisable(match.item);
+}
+
+/** Corrupted, or an Allflame mutation. Same name, different item. */
+function isAlteredUnique(item) {
+  return Boolean(item.corrupted) || Boolean(item.mutated)
+    || /^Foulborn\s/i.test(String(item.name || ''));
 }
 
 /**
