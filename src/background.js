@@ -275,7 +275,7 @@ const handlers = {
    * plus one fetch per item; the spacing is enforced by `runQuery`.
    */
   async appraise({
-    item, rollPool, implicitPool, league, chaosPerDivine, minRollPercent, saleMode,
+    item, rollPool, implicitPool, basePool, league, chaosPerDivine, minRollPercent, saleMode,
     matchCorruptedImplicits,
   }) {
     setSaleMode(saleMode);
@@ -293,7 +293,7 @@ const handlers = {
     if (hit) return hit;
 
     const result = await appraiseItem({
-      item, rollPool, implicitPool, league: resolved, chaosPerDivine, minRollPercent,
+      item, rollPool, implicitPool, basePool, league: resolved, chaosPerDivine, minRollPercent,
       matchCorruptedImplicits,
     });
     await cacheAppraisal(key, result);
@@ -308,7 +308,7 @@ const handlers = {
 
 /** The actual work, split out so `appraise` can serve cached answers first. */
 async function appraiseItem({
-  item, rollPool, implicitPool, league: resolved, chaosPerDivine, minRollPercent,
+  item, rollPool, implicitPool, basePool, league: resolved, chaosPerDivine, minRollPercent,
   matchCorruptedImplicits,
 }) {
   {
@@ -328,7 +328,7 @@ async function appraiseItem({
         ? []
         : corruptedImplicits(index, item, implicitPool);
       // A Foulborn's mutation is the whole difference from the plain unique.
-      const mutated = mutatedMods(index, item);
+      const mutated = mutatedMods(index, item, basePool);
       const rolled = rolledMods(index, item, MAX_COMBO_MODS, rollPool);
       // Deduped: the three lists overlap. A corrupted Le Heup's implicit is
       // found by corruptedImplicits and again by rolledMods, and asking trade

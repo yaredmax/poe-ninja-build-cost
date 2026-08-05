@@ -264,6 +264,26 @@ export async function buildPriceIndex(league) {
         }
       }
       if (implicits.size) entry.implicitPool = [...implicits];
+
+      // Every explicit the plain unique is published with.
+      //
+      // A Foulborn has one or more of its modifiers *replaced* by mutated ones,
+      // so the same subtraction that finds a corruption implicit finds the
+      // mutation: whatever the item carries that the plain unique does not is
+      // what the Allflame put there. That matters when poe.ninja's page data
+      // does not expose `mutatedMods` — it did for Tulfall and did not for
+      // Lori's Lantern — because then the mutation is the whole difference from
+      // the ordinary unique and nothing else identifies it.
+      const explicits = new Set();
+      for (const line of lines) {
+        // Mutated lines would poison the reference with the very modifiers we
+        // are trying to detect.
+        if (line.mutatedModifiers?.length) continue;
+        for (const mod of line.explicitModifiers || []) {
+          if (mod.text) explicits.add(modTemplate(mod.text));
+        }
+      }
+      if (explicits.size) entry.modPool = [...explicits];
     }
 
     // For gems we keep every level/quality roll: the character page shows

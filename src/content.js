@@ -801,6 +801,14 @@ function needsTradeLookup(match) {
   return match.reason === 'random' && isAppraisable(item);
 }
 
+/** The published modifiers of the unique a Foulborn is a mutation of. */
+function basePoolFor(match, index) {
+  const item = match.item;
+  if (!item || !isFoulborn(item)) return undefined;
+  const plain = index?.[normalizeName(String(item.name).replace(/^Foulborns+/i, ''))];
+  return plain?.modPool;
+}
+
 function isFoulborn(item) {
   return Boolean(item.mutated) || /^Foulborn\s/i.test(String(item.name || ''));
 }
@@ -844,7 +852,7 @@ function hasAddedImplicit(match) {
  * Cached items come back instantly, so a second run on the same build — or a
  * page refresh — costs no requests at all.
  */
-async function tradePass(matches, { league, chaosPerDivine, failed }) {
+async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
   // Same order the panel lists them in — equipment, flasks, jewels, gems — so
   // watching the run makes sense against what you are reading.
   const pending = matches
@@ -871,6 +879,9 @@ async function tradePass(matches, { league, chaosPerDivine, failed }) {
         item: match.item,
         rollPool: match.price?.rollPool,
         implicitPool: match.price?.implicitPool,
+        // The plain unique behind a Foulborn, so the mutation can be deduced by
+        // subtraction when poe.ninja's page data does not name it.
+        basePool: basePoolFor(match, index),
         league,
         chaosPerDivine,
         minRollPercent: settings.minRollPercent,
@@ -1057,7 +1068,7 @@ async function run() {
 
     // Straight on into the trade pass. Everything above is already on screen, so
     // the slow part runs behind numbers the user can already read.
-    await tradePass(matches, { league, chaosPerDivine, failed });
+    await tradePass(matches, { league, chaosPerDivine, failed, index });
   } catch (err) {
     setStatus(`Error: ${err.message}`, 'pnc-warn');
   } finally {

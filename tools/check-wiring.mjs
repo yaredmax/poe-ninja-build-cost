@@ -165,6 +165,41 @@ for (const cls of used) {
   check(real === copy && real.length > 0, 'content.js pncModTemplate matches stats.js modTemplate');
 }
 
+// --- content.js passes nothing it never declared -----------------------------
+// The background guard above only covers background.js, and the same mistake
+// landed here: `basePoolFor(match, priceIndex)` where no `priceIndex` existed.
+// Narrow on purpose — bare identifiers passed as call arguments — so it stays
+// free of the false positives a real scope analysis would need to avoid.
+{
+  const src = read('src/content.js').replace(/^\s*\/\/.*$/gm, '');
+  const declared = new Set([
+    ...[...src.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)].map((m) => m[1]),
+    ...[...src.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)/g)].map((m) => m[1]),
+    // Destructured bindings and parameters, taken loosely.
+    ...[...src.matchAll(/[({,]\s*([A-Za-z_$][\w$]*)\s*[,})=:]/g)].map((m) => m[1]),
+    ...[...read('src/settings.js').matchAll(/\b(?:const|function)\s+([A-Za-z_$][\w$]*)/g)]
+      .map((m) => m[1]),
+  ]);
+  const GLOBALS = new Set([
+    'window', 'document', 'location', 'chrome', 'console', 'setTimeout', 'clearTimeout',
+    'Promise', 'Math', 'Set', 'Map', 'JSON', 'Object', 'Array', 'String', 'Number',
+    'Boolean', 'Date', 'RegExp', 'Error', 'NodeFilter', 'MutationObserver', 'URL',
+    'true', 'false', 'null', 'undefined', 'this', 'typeof', 'new', 'await', 'return',
+  ]);
+
+  const unknown = new Set();
+  for (const call of src.matchAll(/\b([A-Za-z_$][\w$]*)\(([^()]*)\)/g)) {
+    for (const arg of call[2].split(',')) {
+      const name = arg.trim();
+      if (!/^[A-Za-z_$][\w$]*$/.test(name)) continue;
+      if (declared.has(name) || GLOBALS.has(name)) continue;
+      unknown.add(name);
+    }
+  }
+  check(unknown.size === 0, 'content.js only passes names it declares',
+    unknown.size ? [...unknown].join(', ') : '');
+}
+
 // --- the manifest points at files that exist ---------------------------------
 const manifest = JSON.parse(read('manifest.json'));
 const referenced = [

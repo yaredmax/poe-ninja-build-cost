@@ -446,11 +446,24 @@ export function corruptedImplicits(statIndex, item, implicitPool) {
  * the plain unique, so they lead the query the same way a corruption implicit
  * does.
  */
-export function mutatedMods(statIndex, item) {
+export function mutatedMods(statIndex, item, basePool) {
   const out = [];
+  const seen = new Set();
   for (const mod of item.mutatedMods || []) {
     const hit = matchMod(statIndex, mod, 'explicit');
-    if (hit) out.push({ ...hit, text: mod });
+    if (hit && !seen.has(hit.id)) { seen.add(hit.id); out.push({ ...hit, text: mod }); }
+  }
+  if (out.length || !basePool?.length) return out;
+
+  // Nothing in `mutatedMods`, which happens: poe.ninja carries that field on
+  // some items and not others. Deduce it instead. A Foulborn *replaces* one or
+  // more modifiers, so anything the item has that the plain unique is not
+  // published with came from the Allflame.
+  const known = new Set(basePool);
+  for (const mod of item.explicitMods || []) {
+    if (known.has(modTemplate(mod))) continue;
+    const hit = matchMod(statIndex, mod, 'explicit');
+    if (hit && !seen.has(hit.id)) { seen.add(hit.id); out.push({ ...hit, text: mod }); }
   }
   return out;
 }
