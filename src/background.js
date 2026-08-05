@@ -21,6 +21,7 @@ import {
 import {
   GEAR_FIELDS,
   loadStatIndex,
+  corruptedImplicits,
   rolledMods,
   significantMods,
   totalElementalResistance,
@@ -159,8 +160,9 @@ async function priceByCombinations({ item, mods, byName, league, chaosPerDivine,
  */
 const APPRAISAL_TTL_MS = 2 * 60 * 60 * 1000;
 
-function cacheKey(item, league, minRoll, saleMode) {
-  return item.id ? `ap:${league}:${minRoll}:${saleMode}:${item.id}` : null;
+function cacheKey(item, league, minRoll, saleMode, corruptedImplicits) {
+  if (!item.id) return null;
+  return `ap:${league}:${minRoll}:${saleMode}:${corruptedImplicits ? 1 : 0}:${item.id}`;
 }
 
 async function cachedAppraisal(key) {
@@ -229,12 +231,21 @@ const handlers = {
    * Appraises a rare by searching trade for similar items. One search request
    * plus one fetch per item; the spacing is enforced by `runQuery`.
    */
-  async appraise({ item, rollPool, league, chaosPerDivine, minRollPercent, saleMode }) {
+  async appraise({
+    item, rollPool, implicitPool, league, chaosPerDivine, minRollPercent, saleMode,
+    matchCorruptedImplicits,
+  }) {
     setSaleMode(saleMode);
     await installUserAgentRule();
     const resolved = await resolveLeague(null, league);
 
-    const key = cacheKey(item, resolved, minRollPercent ?? DEFAULT_MIN_ROLL, saleMode ?? DEFAULT_SALE_MODE);
+    const key = cacheKey(
+      item,
+      resolved,
+      minRollPercent ?? DEFAULT_MIN_ROLL,
+      saleMode ?? DEFAULT_SALE_MODE,
+      matchCorruptedImplicits !== false,
+    );
     const hit = await cachedAppraisal(key);
     if (hit) return hit;
 
@@ -262,7 +273,13 @@ async function appraiseItem({ item, rollPool, league: resolved, chaosPerDivine, 
 
     // Both are searched by their own mods. The unique also pins its name.
     if (isUnique || isJewel) {
-      const mods = rolledMods(index, item, MAX_COMBO_MODS, rollPool);
+      // A corruption implicit goes first: it is usually the reason one copy of
+      // a unique costs many times what another does.
+      const corrupted = matchCorruptedImplicits === false
+        ? []
+        : corruptedImplicits(index, item, implicitPool);
+      const rolled = rolledMods(index, item, MAX_COMBO_MODS, rollPool);
+      const mods = corrupted.concat(rolled).slice(0, MAX_COMBO_MODS);
       if (!mods.length) return { skipped: 'none of its mods could be translated' };
 
       const best = await priceByCombinations({

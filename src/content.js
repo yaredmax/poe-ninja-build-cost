@@ -703,10 +703,12 @@ async function tradePass(matches, { league, chaosPerDivine, failed }) {
       match.appraisal = await send('appraise', {
         item: match.item,
         rollPool: match.price?.rollPool,
+        implicitPool: match.price?.implicitPool,
         league,
         chaosPerDivine,
         minRollPercent: settings.minRollPercent,
         saleMode: settings.saleMode,
+        matchCorruptedImplicits: settings.matchCorruptedImplicits,
       });
       if (!match.appraisal.cached) live++;
       updateRareBadge(match, chaosPerDivine);

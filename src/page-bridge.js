@@ -147,6 +147,10 @@
         aps: round1(toNumber(props['Attacks per Second'])),
         crit: round1(toNumber(props['Critical Strike Chance'])),
       },
+      // Allflame's Foulborn mutation. The trade site calls the flag
+      // "Foulborn" and exposes it as misc_filters.mutated.
+      mutated: !!item.mutated || (item.mutatedMods || []).length > 0,
+      mutatedMods: item.mutatedMods || [],
       implicitMods: item.implicitMods || [],
       explicitMods: item.explicitMods || [],
       craftedMods: item.craftedMods || [],

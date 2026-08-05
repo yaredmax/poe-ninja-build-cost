@@ -327,6 +327,29 @@ function clusterFirst(entries) {
   return entries.slice().sort((a, b) => rank(a.mod) - rank(b.mod));
 }
 
+/**
+ * The implicits a unique did not come with, i.e. what a corruption added.
+ *
+ * poe.ninja publishes the implicits every copy of a unique has, so anything on
+ * the item beyond that pool is a corruption. This is what separates a cheap
+ * Le Heup of All from one with "+1 to Maximum Power Charges", and pricing the
+ * two the same is the sort of error that makes a whole build's total wrong.
+ *
+ * The Foulborn mutation is handled separately: it is a flag on the search, not
+ * a modifier to match.
+ */
+export function corruptedImplicits(statIndex, item, implicitPool) {
+  if (!item.corrupted || !implicitPool?.length) return [];
+  const known = new Set(implicitPool);
+  const out = [];
+  for (const mod of item.implicitMods || []) {
+    if (known.has(modTemplate(mod))) continue;
+    const hit = matchMod(statIndex, mod, 'implicit');
+    if (hit) out.push({ ...hit, text: mod });
+  }
+  return out;
+}
+
 export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIELDS) {
   // Without the pool we'd take the first mods listed, and on a Watcher's Eye
   // those are the three every copy has (energy shield, life, mana). Filtering by

@@ -2,6 +2,7 @@ const minRoll = document.getElementById('minRoll');
 const minRollValue = document.getElementById('minRollValue');
 const saleMode = document.getElementById('saleMode');
 const saved = document.getElementById('saved');
+const matchCorrupted = document.getElementById('matchCorruptedImplicits');
 const cacheStatus = document.getElementById('cacheStatus');
 
 for (const mode of PNC_SALE_MODES) {
@@ -24,6 +25,12 @@ pncLoadSettings().then((settings) => {
   minRoll.value = settings.minRollPercent;
   minRollValue.textContent = `${settings.minRollPercent}%`;
   saleMode.value = settings.saleMode;
+  matchCorrupted.checked = settings.matchCorruptedImplicits;
+});
+
+matchCorrupted.addEventListener('change', async () => {
+  await pncSaveSettings({ matchCorruptedImplicits: matchCorrupted.checked });
+  flashSaved();
 });
 
 minRoll.addEventListener('input', () => {

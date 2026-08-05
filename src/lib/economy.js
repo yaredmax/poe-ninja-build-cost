@@ -62,6 +62,11 @@ const FLOOR_PRICED = new Set([
 /** How many `optional` mods before we treat the price as a floor. */
 const OPTIONAL_MODS_THRESHOLD = 4;
 
+/** Frame classes poe.ninja uses for uniques and their foil variants. */
+function isUniqueLine(line) {
+  return line.itemClass === 3 || line.itemClass === 10;
+}
+
 function isFloorPriced(line) {
   if (FLOOR_PRICED.has(normalizeName(line.name))) return true;
   const optional = (line.explicitModifiers || []).filter((m) => m.optional).length;
@@ -222,6 +227,19 @@ export async function buildPriceIndex(league) {
         }
       }
       if (pool.size) entry.rollPool = [...pool];
+    }
+
+    // A unique's published implicits are the ones every copy has. Anything else
+    // on the item came from a corruption, and that is what separates a 5 c
+    // Le Heup of All from a very expensive one.
+    if (isUniqueLine(pick)) {
+      const implicits = new Set();
+      for (const line of lines) {
+        for (const mod of line.implicitModifiers || []) {
+          if (mod.text) implicits.add(modTemplate(mod.text));
+        }
+      }
+      if (implicits.size) entry.implicitPool = [...implicits];
     }
 
     // For gems we keep every level/quality roll: the character page shows

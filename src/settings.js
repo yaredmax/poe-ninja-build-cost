@@ -6,6 +6,9 @@
 const PNC_DEFAULTS = {
   minRollPercent: 80,
   saleMode: 'available',
+  // A corrupted unique is a different item at a different price: a Le Heup of
+  // All with "+1 to Maximum Power Charges" is worth many times a plain one.
+  matchCorruptedImplicits: true,
 };
 
 /** Same list the trade site shows in its own dropdown. */

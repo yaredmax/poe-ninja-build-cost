@@ -93,6 +93,17 @@ button:hover {
   background: hsl(204 22% 22%);
 }
 
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.check input {
+  accent-color: hsl(43 60% 50%);
+}
+
 .saved {
   color: hsl(140 45% 62%);
   font-size: 12px;
