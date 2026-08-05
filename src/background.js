@@ -111,11 +111,21 @@ const FALLBACK_MODS = 1;
 const GEAR_MAX_MODS = 6;
 const GEAR_COMBO_QUERIES = 8;
 
-/** Most modifiers considered for a permutation search. Bounds the combinatorics. */
-const MAX_COMBO_MODS = 3;
+/**
+ * Most modifiers considered for a unique's permutation search.
+ *
+ * All of them, in practice. A unique's mod pool is fixed, and uniques are
+ * searched with no minimum on the values (see `minRollFor`), so asking for every
+ * modifier at once is asking "is it this unique" — which every copy answers yes
+ * to. It costs nothing to be specific here and it buys the case we cannot see:
+ * when poe.ninja does not expose a Foulborn's `mutatedMods`, the mutation is
+ * still in the item's own modifier list, so searching all of them catches it
+ * without having to know which one it is.
+ */
+const MAX_COMBO_MODS = 6;
 
 /** Hard ceiling on searches for one item, whatever the maths says. */
-const MAX_COMBO_QUERIES = 4;
+const MAX_COMBO_QUERIES = 8;
 
 /**
  * Prices an item by trying its modifiers, then every combination of one fewer,
@@ -302,7 +312,14 @@ async function appraiseItem({
       // A Foulborn's mutation is the whole difference from the plain unique.
       const mutated = mutatedMods(index, item);
       const rolled = rolledMods(index, item, MAX_COMBO_MODS, rollPool);
-      const mods = mutated.concat(corrupted, rolled).slice(0, MAX_COMBO_MODS);
+      // Deduped: the three lists overlap. A corrupted Le Heup's implicit is
+      // found by corruptedImplicits and again by rolledMods, and asking trade
+      // for the same stat twice spends a filter slot to narrow nothing.
+      const seen = new Set();
+      const mods = mutated
+        .concat(corrupted, rolled)
+        .filter((mod) => !seen.has(mod.id) && seen.add(mod.id))
+        .slice(0, MAX_COMBO_MODS);
       if (!mods.length) return { skipped: 'none of its mods could be translated' };
 
       const best = await priceByCombinations({
