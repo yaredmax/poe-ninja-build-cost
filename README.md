@@ -193,6 +193,15 @@ Asking for all rolled mods at once describes a nearly unique item, so the search
 steps down: all of them, then **every combination** of one fewer, then of two
 fewer, stopping at the first level where the market has anything.
 
+That step-down is only allowed for the modifiers that actually vary between
+copies: the corruption implicits, the Foulborn mutation, and the rolled ones —
+**rolled meaning in poe.ninja's published pool**, which is the only thing that
+tells a rolled modifier from a fixed one. Leaving that last clause out cost the
+feature its own flagship item for a day: an uncorrupted Watcher's Eye had
+nothing it was willing to ladder, so its three-modifier query missed and it fell
+through to "any Watcher's Eye at all" — 10000 listings, median **2 c**, for a
+jewel the ladder then priced at **16.3 div**.
+
 At that level every combination that returned listings is priced, and the
 **dearest** one wins. That is the point of the exhaustive search: the item
 carries all of the modifiers, so it is worth at least as much as the priciest
@@ -469,6 +478,18 @@ checks one item at a time, which is why it never feels slow; a whole build at
 once is a different shape of problem. The only real lever is asking fewer
 questions per item, which is why the ladder is worth measuring.
 
+Measured on a real build, 30 items, from `pncReport()`:
+
+```
+wall     386.9 s
+waiting  361.2 s   93.4%   our own limiter
+network   25.4 s    6.6%   GGG
+```
+
+So there is nothing to win in the network and everything to win in the number
+of questions. 69 searches for 30 items is not GGG being slow; it is us asking
+three times per item.
+
 Cluster jewels are the only thing left out: they're worth the notables they
 grant, and those aren't modifiers we can filter on. Ordinary rare jewels are
 priced like uniques, by their own mods — see below.
@@ -613,6 +634,21 @@ That warning is the point of all of this. The slow path is the one every future
 "this will be faster" has to be judged on, and for three of them there was
 nothing to judge: the pass total did not move because the ladder was never in it.
 
+One that shows what a query *asks for* rather than what it returns, and spends
+no search budget at all — `/api/trade/data/stats` carries no rate-limit headers
+and poe.ninja is a different budget entirely, so it runs as often as you like:
+
+```bash
+node tools/query-test.mjs          # every fixture item
+node tools/query-test.mjs --diff   # only the ones asking a duplicate question
+```
+
+It prints the modifiers that reached the query and, for the ones that did not,
+which of four reasons: no stat id at all, a pseudo or property filter already
+carries it, it is not in the published roll pool, or the six-filter cap cut it.
+Lumping those together hid three real bugs, including every modifier worded
+"reduced" silently failing to translate.
+
 One that needs no network, and catches what the others cannot — a script the
 page never loads, a helper the caller never passes, a parameter a function reads
 but never declares, a name passed to a function that nothing declares, an element
@@ -701,3 +737,5 @@ without it and shipped a `background.js` that could not resolve `./lib/trade.js`
 | `tools/preview.html` | The panel rendered against sample data, no extension needed |
 | `tools/fixtures/` | Real texts, icons, items and mods from a character page |
 | `tools/fixtures/worn.json` | Items off real characters, the only ones that miss the wide query |
+| `tools/query-test.mjs` | What each query asks for, and what got dropped — costs no search |
+| `docs/poe-modifiers.md` | How PoE's modifiers work and what each fact implies here |
