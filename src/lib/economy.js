@@ -113,6 +113,30 @@ export async function fetchLeagues() {
   return getJson(`${BASE}/leagues`, 'leagues');
 }
 
+/**
+ * What every currency is worth in chaos, by its full name.
+ *
+ * Trade quotes prices in whatever the seller picked, and on cheap gear that is
+ * almost never chaos: the ten cheapest rare belts in a league are all "1 alch".
+ * Without this the price comes back empty for items with thousands of listings.
+ *
+ * Same documented economy endpoint as the item overviews, so it costs one more
+ * request per league and shares the same 10-minute cache.
+ */
+export async function fetchCurrencyRates(league) {
+  const url = `${BASE}/stash/current/currency/overview?league=${encodeURIComponent(league)}&type=Currency`;
+  const data = await getJson(url, `cur:${league}`);
+  const rates = {};
+  for (const line of data.lines || []) {
+    if (line.currencyTypeName && line.chaosEquivalent > 0) {
+      rates[line.currencyTypeName] = line.chaosEquivalent;
+    }
+  }
+  // The endpoint prices everything *against* chaos, so chaos itself is absent.
+  rates['Chaos Orb'] = 1;
+  return rates;
+}
+
 /** Overview of one item category for a league. */
 async function fetchOverview(league, type) {
   const url = `${BASE}/stash/current/item/overview?league=${encodeURIComponent(league)}&type=${encodeURIComponent(type)}`;

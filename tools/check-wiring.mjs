@@ -63,6 +63,86 @@ for (const cls of used) {
   check(contentCss.includes(cls), `content.css defines .${cls}`);
 }
 
+// --- a message payload reaches the helper that reads it ----------------------
+// The bug this catches shipped: appraiseItem() was split out of appraise() with
+// the old parameter list, and a later feature used `implicitPool` and
+// `matchCorruptedImplicits` inside it. Both names existed in the caller, so the
+// code read fine; at runtime every unique and jewel threw ReferenceError.
+{
+  /** The body of a function, by brace matching from its signature. */
+  const bodyOf = (src, at) => {
+    const start = src.indexOf('{', at);
+    let depth = 0;
+    for (let i = start; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) return src.slice(start, i);
+    }
+    return '';
+  };
+  const params = (sig) => [...sig.matchAll(/(\w+)(?:\s*:\s*\w+)?/g)].map((m) => m[1]);
+
+  // Everything a handler destructures out of its message.
+  const payload = new Set();
+  for (const m of backgroundJs.matchAll(/async (\w+)\(\{([^}]*)\}\)/g)) {
+    for (const name of params(m[2])) payload.add(name);
+  }
+
+  // Every plain helper, and what it declares.
+  for (const m of backgroundJs.matchAll(/async function (\w+)\(\{([\s\S]*?)\}\)\s*\{/g)) {
+    const [, name, sig] = m;
+    const bound = new Set(params(sig));
+    const body = bodyOf(backgroundJs, m.index + m[0].length - 1);
+    for (const key of payload) {
+      // Used as a bare identifier, not as `obj.key` or `key:` in a literal.
+      const used = new RegExp(`(?<![.\\w])${key}(?![\\w:])`).test(body);
+      if (used) check(bound.has(key), `${name}() declares ${key} it reads`);
+    }
+  }
+}
+
+// --- the fixture collector mirrors the bridge's item shape -------------------
+// collect-fixture.mjs has to duplicate slim(): the real one lives inside an IIFE
+// in a MAIN-world content script, and Chrome has no declarative module content
+// scripts, so it cannot be imported. This keeps the copy from drifting.
+{
+  // Indentation differs — the bridge's slim() sits inside an IIFE — so the
+  // object is brace-matched and only its top-level keys are taken.
+  const fields = (whole) => {
+    // Comments first: prose inside the object is full of "word: more words",
+    // which reads exactly like a key.
+    const src = whole.replace(/^\s*\/\/.*$/gm, '');
+    const start = src.indexOf('return {', src.indexOf('function slim('));
+    const keys = new Set();
+    let depth = 0;
+    let lineStart = true;
+    for (let i = src.indexOf('{', start); i < src.length; i++) {
+      const ch = src[i];
+      if (ch === '\n') { lineStart = true; continue; }
+      if (ch === '{') { depth++; lineStart = false; continue; }
+      if (ch === '}') { if (--depth === 0) break; lineStart = false; continue; }
+      if (/\s/.test(ch)) continue;
+      // Only an identifier that opens its own line is a key; anything else at
+      // this depth is part of a value. Shorthand (`index,`) counts too.
+      if (depth === 1 && lineStart) {
+        const m = /^(\w+)\s*[:,]/.exec(src.slice(i));
+        if (m) keys.add(m[1]);
+      }
+      lineStart = false;
+    }
+    return keys;
+  };
+  const bridge = fields(read('src/page-bridge.js'));
+  const copy = fields(read('tools/collect-fixture.mjs'));
+  // The copy spreads modLines() in place of the five mod arrays, and takes the
+  // slot as an argument rather than reading it off the item.
+  const spread = new Set(['implicitMods', 'explicitMods', 'craftedMods', 'fracturedMods', 'enchantMods']);
+  const missing = [...bridge].filter((f) => !copy.has(f) && !spread.has(f));
+  const extra = [...copy].filter((f) => !bridge.has(f));
+  check(!missing.length && !extra.length, 'collect-fixture.mjs slim() matches the bridge',
+    [missing.length ? `missing ${missing.join(', ')}` : '', extra.length ? `extra ${extra.join(', ')}` : '']
+      .filter(Boolean).join('; '));
+}
+
 // --- the manifest points at files that exist ---------------------------------
 const manifest = JSON.parse(read('manifest.json'));
 const referenced = [

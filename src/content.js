@@ -848,9 +848,15 @@ function updateRareBadge(match, chaosPerDivine) {
   badge.classList.add('pnc-badge--similar');
   linkToSearch(badge, a.url);
   badge.title = a.variant
-    ? `${a.total} listing(s) of this unique matching ${a.mods} of its ${a.rolled} rolled ` +
-      `modifier(s), cheapest median. Replaces poe.ninja's floor price.` +
-      (a.partial ? ' Priced on fewer mods than it has, so it is worth at least this.' : '')
+    ? a.mods === 0
+      // Nothing is listed with what this copy rolled, so this is the plain
+      // item's price. It is a floor, and an honest one.
+      ? `Nobody is selling one with the modifiers this copy rolled. ` +
+        `${a.total} listing(s) of the plain item, cheapest median — this one is ` +
+        `worth at least that.`
+      : `${a.total} listing(s) of this unique matching ${a.mods} of its ${a.rolled} rolled ` +
+        `modifier(s), cheapest median. Replaces poe.ninja's floor price.` +
+        (a.partial ? ' Priced on fewer mods than it has, so it is worth at least this.' : '')
     : `Median of the cheapest listings among ${a.total} similar items. ` +
       `Reliability: ${a.reliability}.` +
       (a.adjusted ? ' Filter count was adjusted to find a usable result.' : '');

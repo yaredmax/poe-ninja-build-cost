@@ -8,10 +8,12 @@
 //   30 per 300 s (1800 s ban), 600 per 21600 s (3600 s ban)
 
 import { RateLimiter } from './rate-limit.js';
+import { fetchCurrencyRates } from './economy.js';
 
 const API = 'https://www.pathofexile.com/api/trade/search';
 const FETCH = 'https://www.pathofexile.com/api/trade/fetch';
 const WEB = 'https://www.pathofexile.com/trade/search';
+const STATIC = 'https://www.pathofexile.com/api/trade/data/static';
 
 // Search and fetch have separate policies and very different budgets
 // (5 per 10 s versus 12 per 4 s), so each gets its own limiter.
@@ -195,7 +197,11 @@ export function buildComboQuery(item, mods, opts = {}) {
   const filters = pseudo.concat(mods.map((mod) => {
     const filter = { id: mod.id };
     const value = mod.values[0];
-    if (minRoll > 0 && typeof value === 'number') {
+    // An id like `enchant.stat_3948993189|23` already names the exact variant —
+    // the "|23" *is* the choice. Trade has nothing to compare a minimum against,
+    // so asking for one on top returns nothing at all.
+    const isOption = mod.id.includes('|');
+    if (minRoll > 0 && typeof value === 'number' && !isOption) {
       const floor = Math.floor((Math.abs(value) * minRoll) / 100);
       filter.value = { min: floor * Math.sign(value || 1) };
     }
@@ -346,9 +352,59 @@ export function buildRareQuery(item, statIndex, helpers, maxMods = MAX_MOD_FILTE
  * Prices of the first listings of a search.
  * `/fetch` accepts up to 10 ids per request, so one call is enough.
  */
-export async function fetchPrices(queryId, resultIds, chaosPerDivine) {
+/**
+ * Trade's currency ids in chaos: `alch` -> 1.2, `divine` -> 171.5.
+ *
+ * Two sources, because neither has both halves. Trade quotes a short id and
+ * `/data/static` is the only place that says which orb it means; poe.ninja
+ * publishes what each orb is worth but names it in full. Joining them on the
+ * display name covers every currency a seller can pick, rather than the two we
+ * happened to hard-code.
+ *
+ * `/data/*` carries no rate-limit headers, and both sides are cached, so this
+ * costs nothing per item.
+ */
+let currencyChaos = null;
+let currencyLeague = null;
+
+async function loadCurrencyRates(league) {
+  if (currencyChaos && currencyLeague === league) return currencyChaos;
+
+  const [statics, rates] = await Promise.all([
+    fetch(STATIC).then((r) => (r.ok ? r.json() : { result: [] })),
+    fetchCurrencyRates(league),
+  ]);
+
+  const map = new Map();
+  for (const group of statics.result || []) {
+    for (const entry of group.entries || []) {
+      const chaos = rates[entry.text];
+      if (entry.id && chaos > 0) map.set(entry.id, chaos);
+    }
+  }
+  currencyChaos = map;
+  currencyLeague = league;
+  return map;
+}
+
+/**
+ * The chaos prices of the cheapest listings.
+ *
+ * `league` is optional: with it, every currency converts; without it we can only
+ * read the two we know by name, which is what the standalone tools do.
+ */
+export async function fetchPrices(queryId, resultIds, chaosPerDivine, league = null) {
   const ids = resultIds.slice(0, 10);
   if (!ids.length) return [];
+
+  let rates = null;
+  if (league) {
+    try {
+      rates = await loadCurrencyRates(league);
+    } catch {
+      // Prices still work for chaos and divine; better than failing the item.
+    }
+  }
 
   await fetchLimit.take();
 
@@ -368,10 +424,11 @@ export async function fetchPrices(queryId, resultIds, chaosPerDivine) {
   for (const line of data.result || []) {
     const price = line?.listing?.price;
     if (!price || typeof price.amount !== 'number') continue;
-    if (price.currency === 'chaos') chaos.push(price.amount);
-    else if (price.currency === 'divine' && chaosPerDivine) {
-      chaos.push(price.amount * chaosPerDivine);
-    }
+    const rate = rates?.get(price.currency)
+      ?? (price.currency === 'chaos' ? 1
+        : price.currency === 'divine' ? chaosPerDivine
+        : null);
+    if (rate > 0) chaos.push(price.amount * rate);
   }
   return chaos.sort((a, b) => a - b);
 }

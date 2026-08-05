@@ -144,7 +144,7 @@ async function priceByCombinations({ item, mods, byName, league, chaosPerDivine,
     // Price each hit and keep the dearest.
     let best = null;
     for (const hit of hits) {
-      const prices = await fetchPrices(hit.id, hit.result, chaosPerDivine);
+      const prices = await fetchPrices(hit.id, hit.result, chaosPerDivine, league);
       const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
       if (median != null && (!best || median > best.chaos)) best = { ...hit, chaos: median };
     }
@@ -250,7 +250,10 @@ const handlers = {
     const hit = await cachedAppraisal(key);
     if (hit) return hit;
 
-    const result = await appraiseItem({ item, rollPool, league: resolved, chaosPerDivine, minRollPercent });
+    const result = await appraiseItem({
+      item, rollPool, implicitPool, league: resolved, chaosPerDivine, minRollPercent,
+      matchCorruptedImplicits,
+    });
     await cacheAppraisal(key, result);
     return result;
   },
@@ -262,7 +265,10 @@ const handlers = {
 };
 
 /** The actual work, split out so `appraise` can serve cached answers first. */
-async function appraiseItem({ item, rollPool, league: resolved, chaosPerDivine, minRollPercent }) {
+async function appraiseItem({
+  item, rollPool, implicitPool, league: resolved, chaosPerDivine, minRollPercent,
+  matchCorruptedImplicits,
+}) {
   {
     const index = await loadStatIndex();
 
@@ -293,6 +299,31 @@ async function appraiseItem({ item, rollPool, league: resolved, chaosPerDivine, 
         chaosPerDivine,
         minRollPercent,
       });
+      // Nobody is selling this combination. For a unique there is still a
+      // sensible answer — what the plain item goes for — and it is a true floor,
+      // since the copy we are pricing has extra on top. Without this a corrupted
+      // Tabula Rasa whose implicit nobody lists prices at nothing at all.
+      if (!best && isUnique) {
+        const plain = buildQuery(item);
+        const attempt = plain ? await runQuery(plain, resolved) : null;
+        if (attempt?.total) {
+          const prices = await fetchPrices(attempt.id, attempt.result, chaosPerDivine, resolved);
+          if (prices.length) {
+            return {
+              url: webUrl(resolved, attempt.id),
+              total: attempt.total,
+              chaos: prices[Math.floor(prices.length / 2)],
+              reliability: 'variant',
+              reliable: true,
+              variant: true,
+              partial: true, // the plain item, so a floor for this one
+              mods: 0,
+              rolled: mods.length,
+              filters: [],
+            };
+          }
+        }
+      }
       if (!best) return { skipped: 'no listing found with any subset of its mods' };
 
       return {
@@ -352,7 +383,7 @@ async function appraiseItem({ item, rollPool, league: resolved, chaosPerDivine, 
 
     if (!best) return { skipped: 'no filterable mods recognised' };
 
-    const prices = best.total ? await fetchPrices(best.id, best.result, chaosPerDivine) : [];
+    const prices = best.total ? await fetchPrices(best.id, best.result, chaosPerDivine, resolved) : [];
     const rating = reliability(best.total);
     const byOwnMods = best.strategy === 'own-mods';
 

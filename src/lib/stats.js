@@ -127,6 +127,14 @@ export async function loadStatIndex() {
  */
 export function preferExplicit(statIndex, id) {
   if (id.startsWith('explicit.') || id.startsWith('pseudo.')) return id;
+  // Not enchantments. Fractured and crafted describe how a modifier got onto
+  // the item, so the explicit twin is the same thing more broadly; an
+  // enchantment is its own thing and the twin is a different item. A cluster
+  // jewel's "Adds 5 Passive Skills" is the case that proves it: as
+  // `enchant.stat_3086156145` it matches the whole market, and rewritten to
+  // `explicit.stat_3086156145` it matches only corrupted ones — 0 listings for
+  // every normal jewel, which is why cluster jewels never priced.
+  if (id.startsWith('enchant.')) return id;
   const twin = `explicit.${id.replace(/^[a-z]+\./, '')}`;
   return statIndex.allIds?.has(twin) ? twin : id;
 }
@@ -162,7 +170,13 @@ export function matchMod(statIndex, text, type, local = false) {
   // modifiers with no local form, we fall through to the ordinary map.
   const id =
     (local ? lookup(statIndex.localByType?.get(type), key) : null) ??
-    lookup(statIndex.byType.get(type), key);
+    lookup(statIndex.byType.get(type), key) ??
+    // Filed somewhere else than the item says. A cluster jewel reports "Adds 5
+    // Passive Skills" and its notables as enchantments, because that is how the
+    // game applies them, but trade only lists them as explicit — so looking in
+    // the enchant bucket finds nothing and the modifier that defines the jewel
+    // gets dropped. Knowing the text is what matters; where it was filed isn't.
+    (type !== 'explicit' ? lookup(statIndex.byType.get('explicit'), key) : null);
   if (!id) return null;
   return { id: preferExplicit(statIndex, id), values: valuesOf(text) };
 }

@@ -1,0 +1,769 @@
+[
+ {
+  "index": 0,
+  "anchor": null,
+  "id": "0555a627c75a438dbe3fdd378d9fb9cf3fc16cd5188cc8ca2a41e6a4fc115e43",
+  "name": "Plague Ward",
+  "typeLine": "Wolf Pelt",
+  "baseType": "Wolf Pelt",
+  "frameType": 2,
+  "ilvl": 32,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "Helm",
+  "links": 2,
+  "sockets": 2,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 228,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "+17 to Evasion Rating",
+   "36% increased Evasion Rating",
+   "+19 to maximum Life",
+   "Regenerate 10.2 Life per second",
+   "6% increased Stun and Block Recovery"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare helm"
+ },
+ {
+  "index": 1,
+  "anchor": null,
+  "id": "e2cb7bee2416ec3bdf0d5179b6197e319785be6738e391445747579be0154635",
+  "name": "Rune Veil",
+  "typeLine": "War Plate",
+  "baseType": "War Plate",
+  "frameType": 2,
+  "ilvl": 25,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "BodyArmour",
+  "links": 1,
+  "sockets": 1,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 339,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "+11 to Strength",
+   "+64 to Armour",
+   "15% increased Armour",
+   "+8% to Cold Resistance",
+   "8% increased Stun and Block Recovery",
+   "Reflects 4 Physical Damage to Melee Attackers"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare body armour"
+ },
+ {
+  "index": 2,
+  "anchor": null,
+  "id": "132faa1c35396159d4055907bb4b3d81a15e375850bca4a73cfded05026c6854",
+  "name": "Horror League",
+  "typeLine": "Chain Boots",
+  "baseType": "Chain Boots",
+  "frameType": 2,
+  "ilvl": 9,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "Boots",
+  "links": 1,
+  "sockets": 1,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 23,
+   "ev": 0,
+   "es": 9,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "+11 to Strength",
+   "+6 to Armour",
+   "15% increased Armour and Energy Shield",
+   "+4 to maximum Energy Shield",
+   "+11% to Cold Resistance",
+   "10% increased Movement Speed",
+   "11% increased Stun and Block Recovery"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare boots"
+ },
+ {
+  "index": 3,
+  "anchor": null,
+  "id": "6279870d2376d5e5bbc1f4f62ac9b09e27411a104a4f8b67d9cbe7427acca94b",
+  "name": "Ghoul Hold",
+  "typeLine": "Velvet Gloves",
+  "baseType": "Velvet Gloves",
+  "frameType": 2,
+  "ilvl": 15,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "Gloves",
+  "links": 2,
+  "sockets": 2,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 21,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "+11 to Intelligence",
+   "Adds 1 to 2 Fire Damage to Attacks",
+   "6% increased Attack Speed",
+   "+9 to maximum Energy Shield",
+   "+27 to maximum Life",
+   "+15% to Lightning Resistance"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare gloves"
+ },
+ {
+  "index": 4,
+  "anchor": null,
+  "id": "ba5a56377cce6039bdefccbeb313077d647ef5cb8552d1915bf83c360542d67b",
+  "name": "Pain Wing",
+  "typeLine": "Scarlet Round Shield",
+  "baseType": "Scarlet Round Shield",
+  "frameType": 2,
+  "ilvl": 36,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "Offhand",
+  "links": 2,
+  "sockets": 2,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 152,
+   "ev": 156,
+   "es": 0,
+   "ward": 0,
+   "block": 26
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "+6 to Armour",
+   "+9 to Evasion Rating",
+   "49% increased Armour and Evasion",
+   "+17 to maximum Life",
+   "+10% to all Elemental Resistances",
+   "+23% to Lightning Resistance"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare shield"
+ },
+ {
+  "index": 5,
+  "anchor": null,
+  "id": "27ecc2ab1b04266964881ceb43a933e9caf55b8dc7c69da9590e9905618c5aa3",
+  "name": "Maelström Turn",
+  "typeLine": "Diamond Ring",
+  "baseType": "Diamond Ring",
+  "frameType": 2,
+  "ilvl": 72,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "Ring",
+  "links": 0,
+  "sockets": 0,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [
+   "24% increased Global Critical Strike Chance"
+  ],
+  "explicitMods": [
+   "+23 to maximum Energy Shield",
+   "Regenerate 57.6 Life per second",
+   "+16 to maximum Mana",
+   "35% increased Mana Regeneration Rate",
+   "+40% to Cold Resistance"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare ring"
+ },
+ {
+  "index": 6,
+  "anchor": null,
+  "id": "3b7b75cf0265441af8fdbfda4bd3ed22638870f4f57076bf779ad3f0534cd8d5",
+  "name": "Blight Scarab",
+  "typeLine": "Agate Amulet",
+  "baseType": "Agate Amulet",
+  "frameType": 2,
+  "ilvl": 73,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "Amulet",
+  "links": 0,
+  "sockets": 0,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [
+   "+17 to Strength and Intelligence"
+  ],
+  "explicitMods": [
+   "21% increased Cold Damage",
+   "Adds 1 to 14 Lightning Damage to Attacks",
+   "+75 to Accuracy Rating",
+   "+24 to maximum Energy Shield",
+   "Regenerate 27.6 Life per second"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare amulet"
+ },
+ {
+  "index": 7,
+  "anchor": null,
+  "id": "d16de1c23c206b938d92e97ad48be7f7412e21821c0d1a7aeeafadad97ffe929",
+  "name": "Vengeance Clasp",
+  "typeLine": "Rustic Sash",
+  "baseType": "Rustic Sash",
+  "frameType": 2,
+  "ilvl": 7,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "Belt",
+  "links": 0,
+  "sockets": 0,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [
+   "18% increased Global Physical Damage"
+  ],
+  "explicitMods": [
+   "+1 to maximum Energy Shield",
+   "+5 to maximum Life",
+   "+8% to Lightning Resistance",
+   "14% increased Stun Duration on Enemies",
+   "13% increased Stun and Block Recovery"
+  ],
+  "craftedMods": [
+   "+32 to maximum Mana"
+  ],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare belt"
+ },
+ {
+  "index": 8,
+  "anchor": null,
+  "id": "8a63bb6392dc316b6f6858ba1f47a5d1b9e2044645ca3c7a2f5c5bd1275a940e",
+  "name": "Vortex Bane",
+  "typeLine": "Convoking Wand",
+  "baseType": "Convoking Wand",
+  "frameType": 2,
+  "ilvl": 80,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "Weapon",
+  "links": 2,
+  "sockets": 3,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 60,
+   "edps": 0,
+   "aps": 1.5,
+   "crit": 8
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [
+   "Minions deal 30% increased Damage"
+  ],
+  "explicitMods": [
+   "23% increased Spell Damage",
+   "+11% to Damage over Time Multiplier",
+   "Adds 25 to 54 Cold Damage to Spells",
+   "+26 to maximum Mana",
+   "31% increased Projectile Speed",
+   "Minions deal 29% increased Damage",
+   "Minions have 104% increased Critical Strike Chance"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare wand"
+ },
+ {
+  "index": 9,
+  "anchor": null,
+  "id": "de56f2e03c9a0ce34e39f652091396206226223bd01c5e737bdffe8995067bd0",
+  "name": "Golem Stinger",
+  "typeLine": "Compound Bow",
+  "baseType": "Compound Bow",
+  "frameType": 2,
+  "ilvl": 42,
+  "corrupted": true,
+  "identified": true,
+  "inventoryId": "Weapon",
+  "links": 2,
+  "sockets": 4,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 78,
+   "edps": 7.2,
+   "aps": 1.3,
+   "crit": 6
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "+22 to Dexterity",
+   "Adds 2 to 5 Physical Damage",
+   "Adds 5 to 6 Fire Damage",
+   "Adds 2 to 7 Cold Damage",
+   "18% increased Stun Duration on Enemies",
+   "+239 to Accuracy Rating"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare bow"
+ },
+ {
+  "index": 10,
+  "anchor": null,
+  "id": "cc2f360d2ef52d46ecd79b1c6099ca2e914ebd16b3cac4ba3f9ac317bcf3f299",
+  "name": "Glyph Joy",
+  "typeLine": "Cobalt Jewel",
+  "baseType": "Cobalt Jewel",
+  "frameType": 2,
+  "ilvl": 75,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "PassiveJewels",
+  "links": 0,
+  "sockets": 0,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "+6% to Damage over Time Multiplier",
+   "6% increased maximum Energy Shield",
+   "Minions have 8% increased maximum Life",
+   "11% increased Projectile Damage"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "rare jewel"
+ },
+ {
+  "index": 11,
+  "anchor": null,
+  "id": "9f7f2d2232761ff8d6984846179b0d82c28374f4d4d0f409d1022da370bf64e2",
+  "name": "Foul Lens",
+  "typeLine": "Hypnotic Eye Jewel",
+  "baseType": "Hypnotic Eye Jewel",
+  "frameType": 2,
+  "ilvl": 81,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "PassiveJewels",
+  "links": 0,
+  "sockets": 0,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "Adds 3 to 24 Lightning Damage to Spells",
+   "+23 to maximum Mana",
+   "12 to 17 Added Spell Cold Damage while holding a Shield",
+   "31% chance to Avoid Bleeding"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "abyss jewel"
+ },
+ {
+  "index": 12,
+  "anchor": null,
+  "id": "d7b88d5b16ac55e0af1ff064028abf4a15c16203bab60b00ebb214d367398daf",
+  "name": "Rapture Eye",
+  "typeLine": "Medium Cluster Jewel",
+  "baseType": "Medium Cluster Jewel",
+  "frameType": 2,
+  "ilvl": 56,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "PassiveJewels",
+  "links": 0,
+  "sockets": 0,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "Added Small Passive Skills also grant: +3% to Chaos Resistance",
+   "Added Small Passive Skills also grant: +3 to Intelligence",
+   "Added Small Passive Skills also grant: +3 to Maximum Life",
+   "1 Added Passive Skill is Astonishing Affliction"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [
+   "Adds 5 Passive Skills",
+   "1 Added Passive Skill is a Jewel Socket",
+   "Added Small Passive Skills grant: 10% increased Effect of Non-Damaging Ailments"
+  ],
+  "kind": "cluster jewel"
+ },
+ {
+  "index": 13,
+  "anchor": null,
+  "id": "e8121fd2cb88aa9c6ffda17dc4d302aef873ae359ad193ca6eb5e8694912143b",
+  "name": "Watcher's Eye",
+  "typeLine": "Prismatic Jewel",
+  "baseType": "Prismatic Jewel",
+  "frameType": 3,
+  "ilvl": 85,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "PassiveJewels",
+  "links": 0,
+  "sockets": 0,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [],
+  "explicitMods": [
+   "5% increased maximum Energy Shield",
+   "5% increased maximum Life",
+   "5% increased maximum Mana",
+   "Cannot be Blinded while affected by Precision",
+   "Immune to Freeze while affected by Purity of Ice"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "unique jewel"
+ },
+ {
+  "index": 14,
+  "anchor": null,
+  "id": "3f46e3acf364d7bc69037039a5b775b76579c925239dd0b51cabbd16d0ba4e4e",
+  "name": "Le Heup of All",
+  "typeLine": "Iron Ring",
+  "baseType": "Iron Ring",
+  "frameType": 3,
+  "ilvl": 80,
+  "corrupted": true,
+  "identified": true,
+  "inventoryId": "Ring",
+  "links": 0,
+  "sockets": 0,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [
+   "+20% to Global Critical Strike Multiplier"
+  ],
+  "explicitMods": [
+   "+17 to all Attributes",
+   "11% increased Damage",
+   "20% increased Rarity of Items found",
+   "+16% to all Elemental Resistances"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "corrupted unique"
+ },
+ {
+  "index": 15,
+  "anchor": null,
+  "id": "d5c774be9e10471aa73ea4b987830ed7798c44d8529dfec29cb4f93997753e16",
+  "name": "Foulborn Piscator's Vigil",
+  "typeLine": "Kinetic Wand",
+  "baseType": "Kinetic Wand",
+  "frameType": 3,
+  "ilvl": 83,
+  "corrupted": false,
+  "identified": true,
+  "inventoryId": "Weapon",
+  "links": 2,
+  "sockets": 2,
+  "gemLevel": null,
+  "gemQuality": 0,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 1.8,
+   "crit": 8.5
+  },
+  "mutated": true,
+  "mutatedMods": [],
+  "implicitMods": [
+   "Cannot roll Caster Modifiers"
+  ],
+  "explicitMods": [
+   "No Physical Damage",
+   "10% increased Attack Speed",
+   "+379 to Accuracy Rating",
+   "Attacks with this Weapon have 114% increased Elemental Damage",
+   "Damage with Weapons Penetrates 5% Elemental Resistances",
+   "46% increased effect of Wishes granted by Ancient Fish"
+  ],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "foulborn"
+ },
+ {
+  "index": 16,
+  "anchor": null,
+  "id": "960f82e9fa73f1decd3dfc5e0e27fcd2d2fdd1e62f76c1c944d458716c720a2e",
+  "name": "Tabula Rasa",
+  "typeLine": "Simple Robe",
+  "baseType": "Simple Robe",
+  "frameType": 3,
+  "ilvl": 80,
+  "corrupted": true,
+  "identified": true,
+  "inventoryId": "BodyArmour",
+  "links": 6,
+  "sockets": 6,
+  "gemLevel": null,
+  "gemQuality": 20,
+  "defences": {
+   "ar": 0,
+   "ev": 0,
+   "es": 0,
+   "ward": 0,
+   "block": 0
+  },
+  "weapon": {
+   "pdps": 0,
+   "edps": 0,
+   "aps": 0,
+   "crit": 0
+  },
+  "mutated": false,
+  "mutatedMods": [],
+  "implicitMods": [
+   "+1% to all maximum Resistances"
+  ],
+  "explicitMods": [],
+  "craftedMods": [],
+  "fracturedMods": [],
+  "enchantMods": [],
+  "kind": "unique"
+ }
+]
