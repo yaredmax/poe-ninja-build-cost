@@ -482,7 +482,16 @@ function closePanel() {
 
 function ensurePanel() {
   let panel = document.getElementById(PANEL_ID);
-  if (panel) return panel;
+  // Re-anchor at the end of the body every time. The panel already sits at the
+  // highest z-index there is, but so do the ad iframes, and when two elements
+  // tie the one later in the document wins. Ads are injected while the page
+  // runs, so whatever we appended at load time ends up underneath the next one.
+  if (panel) {
+    document.body.appendChild(panel);
+    const button = document.getElementById(FAB_ID);
+    if (button) document.body.appendChild(button);
+    return panel;
+  }
 
   panel = document.createElement('div');
   panel.id = PANEL_ID;

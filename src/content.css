@@ -27,7 +27,7 @@
   position: fixed;
   right: 32px;
   bottom: 32px;
-  z-index: 2147483000;
+  z-index: 2147483647; /* the maximum: ad iframes use it too */
   display: grid;
   place-items: center;
   width: 60px;
@@ -81,7 +81,7 @@
   position: fixed;
   top: 0;
   right: 0;
-  z-index: 2147482999;
+  z-index: 2147483647;
   display: flex;
   flex-direction: column;
   width: 400px;
