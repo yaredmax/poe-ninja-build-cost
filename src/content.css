@@ -324,17 +324,15 @@
   font-weight: 400;
 }
 
-/* Priced from similar items on trade rather than from the economy. */
-.pnc-badge--similar {
-  background: var(--pnc-amber-dark);
-  color: var(--pnc-on-amber);
-}
-
-/* Roll-dependent or variant-dependent: the number is a floor, not a value. */
+/*
+ * A floor rather than a value: >= or +-. Hollow instead of filled, so it reads
+ * as "at least this" at a glance without having to find the symbol.
+ */
 .pnc-badge--warn {
-  background: oklch(30% 0.01 250);
-  border: 1px solid oklch(45% 0.09 70);
-  color: oklch(75% 0.13 70);
+  background: oklch(24% 0.02 70);
+  border: 1px solid oklch(58% 0.13 70);
+  color: oklch(80% 0.14 70);
+  font-weight: 600;
 }
 
 .pnc-badge--link {

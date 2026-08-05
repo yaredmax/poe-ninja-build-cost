@@ -17,3 +17,6 @@ docs/awakened-poe-trade-analisis.md
 
 # Rate-limit state shared between tool runs (see tools/lib/shared-limits.mjs)
 tools/.limits.json
+
+# Built by tools/package.mjs, not source
+dist/

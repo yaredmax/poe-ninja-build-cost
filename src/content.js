@@ -1005,8 +1005,10 @@ function updateRareBadge(match, chaosPerDivine) {
       badge.title += ' — no listing with these mods found on trade.';
       return;
     }
+    // Grey, not amber: a question mark is not a floor, it is a number we are
+    // not putting in the total.
     badge.textContent = '?';
-    badge.classList.add('pnc-badge--warn');
+    badge.classList.add('pnc-badge--noprice');
     badge.title = a.skipped || 'The search returned no listings.';
     return;
   }
@@ -1016,7 +1018,7 @@ function updateRareBadge(match, chaosPerDivine) {
   // narrowed nothing down. The figure stays in the tooltip, not on the icon.
   if (!a.reliable) {
     badge.textContent = '?';
-    badge.classList.add('pnc-badge--warn');
+    badge.classList.add('pnc-badge--noprice');
     badge.title =
       `${a.total} similar items matched — ${a.total > 120 ? 'far too many' : 'too few'} to ` +
       `estimate from. For reference the cheapest were around ` +
@@ -1026,8 +1028,12 @@ function updateRareBadge(match, chaosPerDivine) {
   }
 
   badge.textContent = `${a.partial ? '≥' : '≈'} ${formatChaos(a.chaos, chaosPerDivine)}`;
-  badge.classList.remove('pnc-badge--warn');
-  badge.classList.add('pnc-badge--similar');
+  // Colour says how much to trust the number, not where it came from. A trade
+  // appraisal and a published price are the same solid amber when they are firm;
+  // a floor is the outlined one whichever produced it. Encoding the source meant
+  // two ambers twelve percent apart in lightness, which on a ten-pixel badge is
+  // one colour.
+  badge.classList.toggle('pnc-badge--warn', Boolean(a.partial));
   linkToSearch(badge, a.url);
   badge.title = a.variant
     ? a.mods === 0
