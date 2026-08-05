@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PoE Ninja Build Cost</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>PoE Ninja Build Cost</h1>
+      <span id="version"></span>
+    </header>
+
+    <p id="where" class="where"></p>
+
+    <section class="quick">
+      <label class="row">
+        <span>Minimum roll</span>
+        <output id="minRollValue"></output>
+      </label>
+      <input id="minRoll" type="range" min="0" max="100" step="5" />
+
+      <label class="row" for="saleMode"><span>Which listings count</span></label>
+      <select id="saleMode"></select>
+    </section>
+
+    <nav>
+      <button id="openOptions" type="button" class="primary">All settings</button>
+      <a id="report" href="#" target="_blank" rel="noopener">Report a bug</a>
+      <a id="donate" href="#" target="_blank" rel="noopener">Donate</a>
+    </nav>
+
+    <script src="settings.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

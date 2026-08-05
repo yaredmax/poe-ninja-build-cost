@@ -14,6 +14,18 @@ build would cost.
 That one button does everything: poe.ninja's economy prices land immediately,
 then the trade pass runs behind them and the panel updates item by item.
 
+## Support
+
+Found a bug, or something priced wrong?
+[Open an issue](https://github.com/yaredmax/poe-ninja-build-cost/issues/new).
+The most useful report is the build URL and which item looked wrong — the panel
+links every price to the exact trade search behind it, so that link tells me
+almost everything.
+
+<a name="support"></a>
+If this saved you time and you feel like buying me a coffee, thank you — but the
+extension is free and will stay that way.
+
 ## Options
 
 `chrome://extensions` → Details → Extension options. Three settings, all

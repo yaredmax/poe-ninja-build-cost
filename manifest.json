@@ -3,8 +3,14 @@
   "name": "PoE Ninja Build Cost",
   "version": "0.4.0",
   "description": "Estimates what a poe.ninja build costs, using poe.ninja's public economy API and the official trade site.",
-  "permissions": ["storage", "declarativeNetRequest"],
-  "host_permissions": ["https://poe.ninja/*", "https://www.pathofexile.com/*"],
+  "permissions": [
+    "storage",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "https://poe.ninja/*",
+    "https://www.pathofexile.com/*"
+  ],
   "background": {
     "service_worker": "src/background.js",
     "type": "module"
@@ -15,19 +21,33 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://poe.ninja/poe1/builds/*", "https://poe.ninja/poe1/profile/*"],
-      "js": ["src/page-bridge.js"],
+      "matches": [
+        "https://poe.ninja/poe1/builds/*",
+        "https://poe.ninja/poe1/profile/*"
+      ],
+      "js": [
+        "src/page-bridge.js"
+      ],
       "world": "MAIN",
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://poe.ninja/poe1/builds/*", "https://poe.ninja/poe1/profile/*"],
-      "js": ["src/settings.js", "src/content.js"],
-      "css": ["src/content.css"],
+      "matches": [
+        "https://poe.ninja/poe1/builds/*",
+        "https://poe.ninja/poe1/profile/*"
+      ],
+      "js": [
+        "src/settings.js",
+        "src/content.js"
+      ],
+      "css": [
+        "src/content.css"
+      ],
       "run_at": "document_idle"
     }
   ],
   "action": {
-    "default_title": "PoE Ninja Build Cost"
+    "default_title": "PoE Ninja Build Cost",
+    "default_popup": "src/popup.html"
   }
 }

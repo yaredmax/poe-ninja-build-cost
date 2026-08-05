@@ -1,0 +1,114 @@
+:root {
+  color-scheme: dark;
+}
+
+body {
+  width: 280px;
+  margin: 0;
+  padding: 14px;
+  background: hsl(204 24% 8%);
+  color: hsl(204 12% 86%);
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 14px;
+  color: hsl(43 60% 76%);
+}
+
+#version {
+  font-size: 11px;
+  color: hsl(204 10% 45%);
+  font-variant-numeric: tabular-nums;
+}
+
+.where {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: hsl(204 10% 55%);
+}
+
+.quick {
+  padding-top: 12px;
+  border-top: 1px solid hsl(204 20% 16%);
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: hsl(204 10% 62%);
+}
+
+.row + .row {
+  margin-top: 12px;
+}
+
+output {
+  color: hsl(43 65% 78%);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+input[type='range'] {
+  width: 100%;
+  accent-color: hsl(43 60% 50%);
+}
+
+select {
+  width: 100%;
+  padding: 5px 6px;
+  border: 1px solid hsl(204 20% 26%);
+  border-radius: 5px;
+  background: hsl(204 24% 12%);
+  color: hsl(204 12% 84%);
+  font: inherit;
+}
+
+nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid hsl(204 20% 16%);
+}
+
+.primary {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid hsl(43 55% 40%);
+  border-radius: 5px;
+  background: hsl(43 45% 18%);
+  color: hsl(43 70% 82%);
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary:hover {
+  background: hsl(43 45% 24%);
+}
+
+nav a {
+  color: hsl(204 25% 62%);
+  font-size: 11px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+nav a:hover {
+  color: hsl(204 40% 78%);
+  text-decoration: underline;
+}
