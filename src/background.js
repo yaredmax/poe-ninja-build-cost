@@ -126,7 +126,18 @@ const GEAR_COMBO_QUERIES = 8;
 const MAX_COMBO_MODS = 6;
 
 /** Hard ceiling on searches for one item, whatever the maths says. */
-const MAX_COMBO_QUERIES = 8;
+const MAX_COMBO_QUERIES = 4;
+
+/**
+ * How many modifiers the fallback ladder permutes, once the wide query missed.
+ *
+ * Three, because one level down is one query per modifier: at six it is six
+ * queries for that level alone, which is what made rare jewels crawl. The wide
+ * first query still asks for all of them, so nothing is lost when it hits — and
+ * when it does not, the item is being priced on a subset anyway and is marked
+ * with a >= for it.
+ */
+const LADDER_MODS = 3;
 
 /**
  * Prices an item by trying its modifiers, then every combination of one fewer,
@@ -353,7 +364,7 @@ async function appraiseItem({
         item,
         mods,
         byName: isUnique,
-        maxQueries: isUnique && distinguishing.length ? 1 : MAX_COMBO_QUERIES,
+        maxQueries: 1,
         // Rare jewels come through here too, and `rolledMods` drops resistance
         // mods on the floor expecting a pseudo to carry them. Without these a
         // jewel whose whole value is resistance was searched on whatever else
@@ -371,12 +382,24 @@ async function appraiseItem({
       // the explicits is what makes it affordable: an Architect's Hand used to
       // spend its whole budget one level below the top, on subsets that were
       // never going to differ, and never reached a single implicit.
-      if (!best && isUnique && distinguishing.length) {
+      //
+      // A rare jewel has no distinguishing subset — every modifier it rolled is
+      // its own — so it ladders over the most important few instead. That bound
+      // is what keeps it affordable: at six modifiers, one level down is six
+      // queries on its own, which is why jewels went slow. `count` cannot help
+      // here, tempting as it looks: `count min 3 of 4` answers in one query but
+      // pools every subset together, and the ten cheapest are then whichever
+      // subset is junk — 1745 listings at 1 c where the per-subset ladder found
+      // 100 c.
+      const ladder = isUnique ? distinguishing : mods.slice(0, LADDER_MODS);
+      if (!best && ladder.length) {
         const found = await priceByCombinations({
           item,
-          mods: distinguishing,
-          byName: true,
+          mods: ladder,
+          byName: isUnique,
           maxQueries: MAX_COMBO_QUERIES,
+          resistance: totalElementalResistance(item),
+          chaos: totalChaosResistance(item),
           league: resolved,
           chaosPerDivine,
           minRollPercent,
