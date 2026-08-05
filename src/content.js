@@ -549,6 +549,20 @@ function renderSummary(matches, chaosPerDivine, failed) {
   const box = document.querySelector(`#${PANEL_ID} .pnc-body`);
   if (!box) return;
 
+  // Delegated, and attached once. The summary is rebuilt after every item the
+  // trade pass finishes, so a listener per row would pile up dozens of them and
+  // open a tab per copy.
+  if (!box.dataset.rowsLinked) {
+    box.dataset.rowsLinked = '1';
+    box.addEventListener('click', (ev) => {
+      const row = ev.target.closest('.pnc-row--link');
+      if (!row?.dataset.url) return;
+      ev.preventDefault();
+      // Straight from the click, with no await in between, or Chrome blocks it.
+      window.open(row.dataset.url, '_blank', 'noopener');
+    });
+  }
+
   // Only appraisals we trust make it into the total.
   const usesAppraisal = (m) => Boolean(m.appraisal?.reliable && m.appraisal.chaos);
   const appraised = matches.filter(usesAppraisal);
@@ -571,12 +585,15 @@ function renderSummary(matches, chaosPerDivine, failed) {
       chaos: m.price.chaos,
       mark: m.price.floor ? '≥' : m.price.variantCount > 1 ? '±' : '',
       category: categoryOf(m),
+      url: m.appraisal?.url || m.searchUrl || null,
     })),
     ...appraised.map((m) => ({
       name: m.item?.name || m.price?.name || m.item?.baseType || 'Item',
       chaos: m.appraisal.chaos,
       mark: '≈',
       category: categoryOf(m),
+      // The appraisal's own search: the exact query behind this number.
+      url: m.appraisal.url || m.searchUrl || null,
     })),
   ];
 
@@ -607,6 +624,7 @@ function renderSummary(matches, chaosPerDivine, failed) {
         chaos: null,
         mark: '',
         count: 1,
+        url: m.searchUrl || null,
       })),
     });
   }
@@ -622,7 +640,9 @@ function renderSummary(matches, chaosPerDivine, failed) {
         ${s.items
           .map(
             (f) => `
-        <div class="pnc-row">
+        <div class="pnc-row${f.url ? ' pnc-row--link' : ''}"${
+          f.url ? ` data-url="${escapeHtml(f.url)}" title="Open this search on trade"` : ''
+        }>
           <span>${escapeHtml(f.name)}${f.count > 1 ? ` <em>×${f.count}</em>` : ''}</span>
           <b${f.chaos === null ? ' class="pnc-none"' : ''}>${
             f.chaos === null
@@ -915,7 +935,10 @@ async function run() {
         });
         for (const match of matches) {
           const url = urls[match.item?.index];
-          if (url && match.badge) linkToSearch(match.badge, url);
+          if (!url) continue;
+          // Kept on the match too, so the summary rows can link as well.
+          match.searchUrl = url;
+          if (match.badge) linkToSearch(match.badge, url);
         }
       } catch {
         // links are a nicety; never let them break the run

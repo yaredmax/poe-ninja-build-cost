@@ -25,6 +25,7 @@ import {
   rolledMods,
   significantMods,
   totalElementalResistance,
+  totalChaosResistance,
   totalLife,
 } from './lib/stats.js';
 
@@ -134,7 +135,7 @@ const MAX_COMBO_QUERIES = 4;
  */
 async function priceByCombinations({
   item, mods, byName, league, chaosPerDivine, minRollPercent,
-  useCategory = false, resistance = 0, maxQueries = MAX_COMBO_QUERIES,
+  useCategory = false, resistance = 0, chaos = 0, maxQueries = MAX_COMBO_QUERIES,
 }) {
   const minRoll = minRollFor(item, minRollPercent);
   let budget = maxQueries;
@@ -144,7 +145,9 @@ async function priceByCombinations({
     const hits = [];
     for (const combo of combinations(mods, size)) {
       if (budget <= 0) break;
-      const query = buildComboQuery(item, combo, { byName, minRoll, useCategory, resistance });
+      const query = buildComboQuery(item, combo, {
+        byName, minRoll, useCategory, resistance, chaos,
+      });
       if (!query) continue;
       budget--;
       const attempt = await runQuery(query, league);
@@ -306,6 +309,12 @@ async function appraiseItem({
         item,
         mods,
         byName: isUnique,
+        // Rare jewels come through here too, and `rolledMods` drops resistance
+        // mods on the floor expecting a pseudo to carry them. Without these a
+        // jewel whose whole value is resistance was searched on whatever else
+        // it happened to roll.
+        resistance: totalElementalResistance(item),
+        chaos: totalChaosResistance(item),
         league: resolved,
         chaosPerDivine,
         minRollPercent,
@@ -382,6 +391,7 @@ async function appraiseItem({
         byName: false,
         useCategory: true,
         resistance: totalElementalResistance(item),
+        chaos: totalChaosResistance(item),
         maxQueries: GEAR_COMBO_QUERIES,
         league: resolved,
         chaosPerDivine,

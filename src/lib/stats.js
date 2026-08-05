@@ -212,6 +212,33 @@ export function totalElementalResistance(item) {
   return total;
 }
 
+const RESIST_CHAOS = /^\+(-?\d+)% to Chaos Resistance$/;
+
+/**
+ * The item's total chaos resistance, the other pseudo people shop gear with.
+ *
+ * Without it a Dread Knuckle's "+22% to Chaos Resistance" implicit and its
+ * "+13% to Fire and Chaos Resistances" were both thrown away: the hybrid is
+ * skipped as a resistance mod because it says "Fire", and then contributes
+ * nothing to the elemental total, which requires both halves to be elemental.
+ * A third of the ring's defensive value simply vanished from the query.
+ *
+ * A hybrid counts its full value here, the same way it does for elemental —
+ * "+13% to Fire and Chaos" is 13 points of chaos resistance.
+ */
+export function totalChaosResistance(item) {
+  let total = 0;
+  for (const [field] of MOD_FIELDS) {
+    for (const mod of item[field] || []) {
+      let m = RESIST_CHAOS.exec(mod);
+      if (m) { total += Number(m[1]); continue; }
+      m = RESIST_DOUBLE.exec(mod);
+      if (m && /chaos/i.test(`${m[2]} ${m[3]}`)) total += Number(m[1]);
+    }
+  }
+  return total;
+}
+
 const FLAT_LIFE = /^\+(-?\d+) to maximum Life$/;
 
 export function totalLife(item) {
@@ -292,7 +319,9 @@ export const GEAR_FIELDS = [
 const IS_RESISTANCE = /^\+-?\d+% to (\w+ )?(and \w+ )?Resistances?$/i;
 
 export function isResistanceMod(text) {
-  return IS_RESISTANCE.test(text.trim()) && /fire|cold|lightning|elemental/i.test(text);
+  // Chaos included: it has its own pseudo total now, so like the elemental ones
+  // it says the same thing as the pseudo and would waste a filter slot.
+  return IS_RESISTANCE.test(text.trim()) && /fire|cold|lightning|elemental|chaos/i.test(text);
 }
 
 /**

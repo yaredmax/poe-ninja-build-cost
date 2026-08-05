@@ -345,3 +345,19 @@
 .pnc-badge--link:hover {
   filter: brightness(1.15);
 }
+
+/*
+ * A summary row that knows which trade search produced its number. Same idea as
+ * the badge on the item, for people reading the list rather than the build.
+ */
+#pnc-panel .pnc-row--link {
+  cursor: pointer;
+}
+
+#pnc-panel .pnc-row--link:hover {
+  background: var(--pnc-bg-fab);
+}
+
+#pnc-panel .pnc-row--link:hover b {
+  text-decoration: underline;
+}

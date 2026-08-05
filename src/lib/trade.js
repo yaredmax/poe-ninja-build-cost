@@ -44,7 +44,12 @@ export function buildQuery(item) {
     query.name = tradeName(item);
     query.type = item.baseType;
     const filters = {
-      misc_filters: { filters: { corrupted: { option: String(!!item.corrupted) } } },
+      misc_filters: {
+        filters: {
+          corrupted: { option: String(!!item.corrupted) },
+          mutated: { option: String(isMutated(item)) },
+        },
+      },
     };
     if (item.links >= 5) {
       filters.socket_filters = { filters: { links: { min: item.links } } };
@@ -106,7 +111,9 @@ export const SALE_MODES = [
   { id: 'any', label: 'Any' },
 ];
 
-export const DEFAULT_SALE_MODE = 'available';
+// Instant buyout only. An "In Person" listing is a message to a player who may
+// never answer, so its asking price is softer and less of a real price.
+export const DEFAULT_SALE_MODE = 'securable';
 
 /**
  * Which listing mode the queries ask for.
@@ -130,6 +137,7 @@ export function searchUrl(league, body) {
 }
 
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
+const PSEUDO_CHAOS = 'pseudo.pseudo_total_chaos_resistance';
 
 /**
  * The name trade knows the item by.
@@ -141,6 +149,20 @@ const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
  */
 export function tradeName(item) {
   return String(item.name || '').replace(/^Foulborn\s+/i, '');
+}
+
+/**
+ * Whether trade should be asked for the Foulborn variant.
+ *
+ * The name is what decides, not the flag. poe.ninja carries `mutated` on some
+ * items and not others — Tulfall had it, Lori's Lantern did not — but it always
+ * renders the name, and "Foulborn Lori's Lantern" is not a name a plain unique
+ * can have. Trusting the flag alone left the filter off entirely, and since a
+ * Foulborn and a plain copy are different items at different prices, "off" is
+ * the one answer that is always wrong.
+ */
+export function isMutated(item) {
+  return !!item.mutated || /^Foulborn\s/i.test(String(item.name || ''));
 }
 
 /** Turns a set of totals into trade filters, skipping the ones at zero. */
@@ -172,28 +194,35 @@ function weaponFilters(item, minRoll) {
 
 /** Query for one specific set of modifiers. */
 export function buildComboQuery(item, mods, opts = {}) {
-  const { byName = false, useCategory = false, minRoll = 0, resistance = 0 } = opts;
+  const {
+    byName = false, useCategory = false, minRoll = 0, resistance = 0, chaos = 0,
+  } = opts;
   const misc = {
     corrupted: { option: String(!!item.corrupted) },
     // Trade labels this flag "Foulborn". Set both ways, like corrupted: with it
     // true an Allflame mutation is priced as the ordinary unique, which it is
     // not; left unset on a plain item the search also matches Foulborn copies,
     // which are a different item at a different price.
-    mutated: { option: String(!!item.mutated) },
+    mutated: { option: String(isMutated(item)) },
   };
 
   // One pseudo filter instead of two or three individual resistances: it is how
   // people actually shop, and it frees the scarce filter slots for mods that
   // distinguish the item.
   const pseudo = [];
-  if (resistance >= 30) {
-    const filter = { id: PSEUDO_RESISTANCE };
-    // At min roll 0 the filter only asks that the item *has* resistance, the
-    // same as every other filter at that setting. Demanding the full amount
-    // there made 0% stricter than 80%, which is backwards.
-    if (minRoll > 0) filter.value = { min: Math.floor((resistance * minRoll) / 100) };
+  // At min roll 0 these only ask that the item *has* resistance, the same as
+  // every other filter at that setting. Demanding the full amount there made 0%
+  // stricter than 80%, which is backwards.
+  const pseudoTotal = (id, amount, floor) => {
+    if (amount < floor) return;
+    const filter = { id };
+    if (minRoll > 0) filter.value = { min: Math.floor((amount * minRoll) / 100) };
     pseudo.push(filter);
-  }
+  };
+  pseudoTotal(PSEUDO_RESISTANCE, resistance, 30);
+  // Lower bar than the elemental one: chaos resistance is scarce, so 15 points
+  // on a ring is already a reason someone is buying it.
+  pseudoTotal(PSEUDO_CHAOS, chaos, 15);
   const hasTotals =
     useCategory && (defenceFilters(item, minRoll) || weaponFilters(item, minRoll));
   if (!mods.length && !pseudo.length && !hasTotals) return null;
