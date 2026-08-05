@@ -36,8 +36,9 @@ Extension options. All of it is explained on the page itself:
 - **Minimum roll** (default 80%) — how good a listing has to be to count as
   comparable. Ignored for uniques, whose ranges are narrow, except timeless and
   Time-Lost jewels.
-- **Which listings count** (default "Instant Buyout and In Person") — the same
-  choice as the trade site's own dropdown.
+- **Which listings count** (default "Instant Buyout") — the same choice as the
+  trade site's own dropdown. An "In Person" listing is a message to a player who
+  may never answer, so its asking price is softer and less of a real price.
 - **Corrupted uniques** (default on) — match the implicit a corruption added. A
   Le Heup of All with "+1 to Maximum Power Charges" is worth many times a plain
   one. Turn it off if a corrupted unique finds nothing.
@@ -235,9 +236,16 @@ valuable one, the old approach would have missed it.
 | Rare weapon | The above plus dps, pdps, edps, attack rate and crit |
 
 Two things never take a filter slot, because something else already expresses
-them: elemental resistances become one pseudo total, and any modifier feeding a
-property — energy shield, armour, evasion, ward, block, damage — is covered by
-that property's own filter.
+them: resistances become one pseudo total each, elemental and chaos, and any
+modifier feeding a property — energy shield, armour, evasion, ward, block,
+damage — is covered by that property's own filter. A hybrid roll counts fully
+toward both of its halves; before the chaos pseudo existed, "+13% to Fire and
+Chaos Resistances" was dropped as a resistance mod and then counted for nothing,
+because the elemental total requires both halves to be elemental.
+
+Strength feeds the life pseudo at half a life per point, and like Awakened we
+only build that pseudo when the item has a flat life modifier: an amulet with
+Strength and no life is not a life amulet.
 
 A modifier is also searched **where it actually sits on the item**. Only
 `fractured` and `crafted` are rewritten to their explicit twin, because those
@@ -248,6 +256,33 @@ Passive Skills" matches the market as `enchant.` and nothing at all as
 an `implicit.` that no copy carries as an explicit — so the search found
 nothing, fell back to two common mods, and returned the 1 c floor of the
 commonest ring in the game.
+
+## Which uniques get searched
+
+Most do not. poe.ninja's published price *is* the answer for an ordinary unique,
+and searching all thirty in a build would multiply the pass for nothing. Four
+kinds differ from the copy they priced:
+
+| kind | why |
+| --- | --- |
+| optional modifiers, or the `floor` flag | they publish one price for every roll, and it is the cheapest |
+| several published variants (`±`) | Ralakesh's Impatience granting Power Charges is worth many times the Frenzy one |
+| Foulborn | not the unique it is named after |
+| a corruption that *added* an implicit | corrupted alone is not enough; the extra implicit is what moves the price |
+| no published price at all | including a name whose base does not match — see Stormblood below |
+
+The corrupted case has to compare implicit *texts* against poe.ninja's published
+pool, not count them. Counting was wrong on the item it most needed to be right
+about: they publish one implicit for Le Heup of All, the Iron Ring's "Adds # to
+# Physical Damage to Attacks", and a corrupted copy carries one implicit too —
+the corruption's. One is not more than one, so the ring never reached trade and
+kept the plain unique's 7 c instead of the 9 div it was worth.
+
+**A unique is its name and its base.** Two can share a name: poe.ninja publishes
+"Stormblood" only as a Sapphire Flask, at 20 c, and matching on the name alone
+handed that price to a Stormblood Topaz Flask, which is a different item they do
+not price at all. When the base does not match we admit we have no number and
+let the trade pass find one.
 
 ## Rare appraisal
 
