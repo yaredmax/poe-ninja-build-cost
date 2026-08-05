@@ -42,8 +42,9 @@ Extension options. All of it is explained on the page itself:
 - **Corrupted uniques** (default on) — match the implicit a corruption added. A
   Le Heup of All with "+1 to Maximum Power Charges" is worth many times a plain
   one. Turn it off if a corrupted unique finds nothing.
-- **Clear cached prices** — appraisals are kept for two hours, keyed on the item,
-  the league and the settings above.
+- **Clear cached prices** — appraisals are kept for two hours, keyed on what the
+  item *is* rather than which copy it is: two identical jewels are one lookup,
+  and so is the same item met again on another character.
 
 They live in `chrome.storage.sync`, so they follow you between machines, and the
 content script re-reads them at the start of every run.
@@ -324,6 +325,46 @@ boxes Awakened PoE Trade shows: `dps`, `pdps`, `edps`, `aps`, `crit`, and
 attack speed and crit are all expressed by those, so they cost no filter slot
 and the combinations start from a much shorter list.
 
+### Two shortcuts that cost more than they saved
+
+The wide query hits on nine items in ten, at one search and one fetch. When it
+misses, the fallback is where the time goes: dropping one modifier from six is
+six queries, one per modifier. Both attempts to make that cheaper were measured
+and both were reverted, so here is why, to save the next attempt.
+
+**Descending instead of permuting** — keep the most important N, drop the tail —
+looks strictly better: same query count, more modifiers pinned. But the order
+`rolledMods` returns is field order, not what the market pays for, so the tail it
+drops is not the cheap part.
+
+```
+gloves, permuting     4 filters   130 listings   10 c
+gloves, descending    2 filters  4267 listings    1 c
+```
+
+**Narrowing the wide query** from six modifiers to five caps the worst case at
+six searches instead of seven. But the wide query is the one that *hits*, so a
+filter comes off nine items to save a query on the tenth.
+
+```
+cluster jewel, six filters   3 listings   56 c
+cluster jewel, five filters 25 listings   40 c
+pass total: 36 requests either way
+```
+
+**A `count` stat group** is the operation the ladder emulates by hand, and trade
+supports it. At full minimum it is exactly equivalent. One level down it pools
+every subset into one result set, and since we take the ten cheapest, they all
+come from whichever subset is junk:
+
+```
+and, all 4          15 listings   median 100 c
+count min 4 of 4    15 listings   median 100 c
+count min 3 of 4  1745 listings   median   1 c
+```
+
+Separating the subsets is the entire point of the ladder.
+
 **2. Pseudo life and resistances plus one priority mod.** Deliberately broad —
 step 1 already tried the specific route. This is the better answer for plain
 defensive gear whose individual mods are all common.
@@ -407,12 +448,32 @@ Cluster jewels are the only thing left out: they're worth the notables they
 grant, and those aren't modifiers we can filter on. Ordinary rare jewels are
 priced like uniques, by their own mods — see below.
 
+## What the colours mean
+
+Colour says how far to trust the number, not where it came from:
+
+| | | counts toward the total? |
+| --- | --- | --- |
+| **solid amber** | a firm number | yes |
+| **hollow amber** | a floor — `≥` or `±` | yes, as a minimum |
+| **grey** | `?`, or no price at all | no |
+| *pulsing* | still queued for trade; what you see is provisional | — |
+
+The symbol says why: `≈` priced on everything the item has, `≥` on fewer
+modifiers than it has, `±` poe.ninja publishes several variants and we could not
+tell which one this is, `?` too many lookalikes to mean anything.
+
+They used to encode the *source* — economy or trade — in two ambers twelve
+percent apart in lightness, which on a ten-pixel badge is one colour and needed
+explaining every time. A trade appraisal that pinned every modifier is as firm as
+a published price, so it gets the same solid amber now.
+
 ## Clicking a price
 
 Every appraised badge remembers the id of the search that produced its number
 and opens exactly that search on the trade site. GGG's search ids are durable,
 so you see the very listings the median came from — not a fresh query that might
-disagree with what's on screen.
+disagree with what's on screen. Summary rows link the same way.
 
 Corner badges are `pointer-events: none` so they don't cover poe.ninja's item
 tooltip; a clickable one opts back in, which costs the tooltip on that corner.
@@ -495,8 +556,9 @@ node tools/collect-fixture.mjs
 
 One that needs no network, and catches what the others cannot — a script the
 page never loads, a helper the caller never passes, a parameter a function reads
-but never declares, an element id nothing touches. Every one of those has
-shipped here at least once:
+but never declares, a name passed to a function that nothing declares, an element
+id nothing touches. Every one of those has shipped here at least once, and the
+last two shipped on the same day:
 
 ```bash
 node tools/check-wiring.mjs
@@ -509,6 +571,27 @@ pncDiagnose()
 ```
 
 dumps the candidate texts and icons so you can see what changed.
+
+**What the tests do not cover, and it matters.** Every item in the fixture hits
+on the wide query, so the fallback ladder — the slow path, and the one three
+separate "improvements" were judged on — is never exercised by a run. That is
+why two of them measured as free when they were not. A fixture item that misses
+the wide query would make those decisions measurable instead of arguable.
+
+## Giving it to someone else
+
+```bash
+node tools/package.mjs
+```
+
+Builds `dist/poe-ninja-build-cost-<version>.zip` with an INSTALL.txt, for
+"Load unpacked". Chrome will not install a bare `.crx` from outside the Web
+Store, so an unzipped folder is the only route that works without publishing.
+
+It ships what the manifest names, what the HTML pages pull in, and what the
+service worker imports. That last one is not optional: the first zip was built
+without it and shipped a `background.js` that could not resolve `./lib/trade.js`
+— an extension that installs cleanly and does nothing.
 
 ## Files
 
@@ -529,6 +612,7 @@ dumps the candidate texts and icons so you can see what changed.
 | `icons/` | Extension icons, generated by `tools/make-icons.mjs` |
 | `tools/background-test.mjs` | Drives the real service worker over every kind of item |
 | `tools/collect-fixture.mjs` | Rebuilds that fixture from real trade listings |
+| `tools/package.mjs` | Builds the zip you hand a tester |
 | `tools/check-wiring.mjs` | Static checks: scripts load, symbols resolve, files exist |
 | `tools/preview.html` | The panel rendered against sample data, no extension needed |
 | `tools/fixtures/` | Real texts, icons, items and mods from a character page |
