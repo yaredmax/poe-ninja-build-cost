@@ -70,6 +70,8 @@ const referenced = [
   manifest.options_ui?.page,
   ...(manifest.content_scripts || []).flatMap((c) => [...(c.js || []), ...(c.css || [])]),
   manifest.action?.default_popup,
+  ...Object.values(manifest.icons || {}),
+  ...Object.values(manifest.action?.default_icon || {}),
 ].filter(Boolean);
 for (const path of referenced) {
   let exists = true;
