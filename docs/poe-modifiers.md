@@ -150,6 +150,29 @@ Una cluster lleva, en listas distintas: el número de pasivas que añade y el
 encantamiento base (`enchantMods`), los notables que concede y los "Added Small
 Passive Skills also grant: …" (`explicitMods`).
 
+**Los sockets vienen con el tamaño, así que no se filtran.** Lo que puede llevar
+cada tipo es fijo:
+
+| tipo | nodos significativos | pasivas que añade |
+| --- | --- | --- |
+| Small | 1 notable | 2-3 |
+| Medium | 1 socket + 2 notables | 4-6 |
+| Large | 2 sockets + 3 notables | 8-12 |
+
+O sea que "1 Added Passive Skill is a Jewel Socket" lo lleva toda Medium y
+"2 Added Passive Skills are Jewel Sockets" toda Large: no estrecha nada y solo
+gastaría una de las seis ranuras que necesitan los notables y el número de
+pasivas. Excluido en `stats.js` — mismo principio que los explícitos fijos de un
+único.
+
+De paso quita un falso positivo: el singular que usa el juego cuando es uno,
+"1 Added Passive Skill is a Jewel Socket", **no existe en la lista de trade**
+(solo indexan el plural), así que el diagnóstico lo cantaba como fallo de
+traducción igual que a un modificador que sí importa.
+
+El número de pasivas (`Adds 5 Passive Skills`) **sí** varía dentro del tipo y es
+lo que se compra, así que va con valor exacto (ver arriba).
+
 Lo que se compra son **los notables y el número de pasivas**. Medido sobre una
 Glyph Splinter real, con la misma joya y variando solo los filtros:
 

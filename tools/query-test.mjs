@@ -30,7 +30,8 @@ globalThis.fetch = (url, init = {}) =>
 
 const { buildPriceIndex, fetchLeagues, normalizeName } = await import('../src/lib/economy.js');
 const {
-  GEAR_FIELDS, loadStatIndex, corruptedImplicits, isAnointment, isCoveredByTotals, isResistanceMod,
+  GEAR_FIELDS, loadStatIndex, corruptedImplicits, isAnointment, isClusterSocket,
+  isCoveredByTotals, isResistanceMod,
   matchMod, modTemplate, mutatedMods, rolledMods, totalElementalResistance,
   totalChaosResistance, wantsLocalStats,
 } = await import('../src/lib/stats.js');
@@ -109,9 +110,14 @@ for (const item of items) {
       if (chosen.has(text)) continue;
       const inPool = price?.rollPool?.length
         ? price.rollPool.includes(modTemplate(text)) : null;
-      const why = !matchMod(statIndex, text, type, local) ? 'NO STAT ID — nothing in trade matches this text'
+      // Deliberate exclusions first. Whether a modifier we do not want happens
+      // to translate is not interesting, and asking that question first is what
+      // made "1 Added Passive Skill is a Jewel Socket" — a modifier every
+      // medium cluster carries — read as a translation failure.
+      const why = isAnointment(text, type) ? 'an anointment, left out on purpose — see stats.js'
+        : isClusterSocket(text, item) ? 'a jewel socket, fixed by the cluster size — left out on purpose'
+        : !matchMod(statIndex, text, type, local) ? 'NO STAT ID — nothing in trade matches this text'
         : isResistanceMod(text) ? 'the resistance pseudo carries it'
-        : isAnointment(text, type) ? 'an anointment, left out on purpose — see stats.js'
         : local && isCoveredByTotals(text) ? 'a property filter carries it'
         : inPool === false ? 'not in the published roll pool, so every copy has it'
         : 'translated fine, but the six-filter cap cut it';

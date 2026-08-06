@@ -81,14 +81,18 @@ exigirlo tira casi todos los listados comparables. Excluido a propósito en
 "Allocates X if you have the matching modifier on…" como explícito y ahí ese
 modificador *es* el ítem.
 
-## 5. "1 Added Passive Skill is a Jewel Socket" no traduce
+## 5. ~~"1 Added Passive Skill is a Jewel Socket" no traduce~~ RESUELTO AL REVÉS
 
-El singular. Trade solo indexa el plural, `# Added Passive Skills are Jewel
-Sockets`, así que en las cluster medianas con un socket el modificador se cae.
-Las grandes con dos aciertan, porque ahí el texto ya va en plural.
+No hacía falta el alias: **ese modificador no debe filtrarse**. Los sockets
+vienen con el tamaño de la cluster — una Medium siempre trae uno y una Large
+siempre dos — así que lo lleva toda copia de la base y no estrecha nada, igual
+que los explícitos fijos de un único.
 
-Un alias explícito lo arregla. **Pero ojo**: mete un filtro más en una consulta
-que ya falla, así que puede salir más lento. Medir con las 4 cluster del fixture.
+Comprobado gratis con `query-test.mjs` antes y después: ninguna consulta cambia,
+porque hoy no llegaba a ninguna (en las Large lo cortaba el tope, en las Medium
+no traducía). Lo que sí cambia es el diagnóstico, que ya no lo canta como fallo
+de traducción — y con eso el fixture entero se queda **sin un solo NO STAT ID**,
+que es lo que hace que el próximo sí signifique algo.
 
 ## 6. Persistir la caché de consultas
 

@@ -438,6 +438,26 @@ export function isAnointment(text, type) {
   return type === 'enchant' && /^Allocates\s/i.test(String(text));
 }
 
+/**
+ * The jewel sockets a cluster jewel grants.
+ *
+ * Never filtered on, for the same reason a unique's fixed explicit modifiers
+ * are not: every copy of the base has it. The count comes with the size — a
+ * Medium Cluster Jewel always grants one socket and a Large always grants two —
+ * so asking for it narrows nothing and only spends one of the six filter slots
+ * that the notables and the passive count need.
+ *
+ * It also silences a false alarm. The singular wording the game uses at one,
+ * "1 Added Passive Skill is a Jewel Socket", has no entry in trade's stat list
+ * at all — trade only indexes the plural "# Added Passive Skills are Jewel
+ * Sockets" — so query-test.mjs reported it as a translation failure, which is
+ * the same thing it reports for modifiers that genuinely matter.
+ */
+export function isClusterSocket(text, item) {
+  return isClusterJewel(item)
+    && /Added Passive Skills? (is|are) (a )?Jewel Sockets?$/i.test(String(text));
+}
+
 /** Reorders a cluster jewel's modifiers so the notables come first. */
 function clusterFirst(entries) {
   const rank = (text) => {
@@ -526,6 +546,7 @@ export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIE
       if (isResistanceMod(mod)) continue;
       if (local && isCoveredByTotals(mod)) continue;
       if (isAnointment(mod, type)) continue;
+      if (isClusterSocket(mod, item)) continue;
       candidates.push({ mod, type });
     }
   }
