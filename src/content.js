@@ -507,9 +507,21 @@ function setFabPhase(phase) {
  */
 let runToken = 0;
 
+/**
+ * The "waiting N s" tickers, so cancelling can stop them.
+ *
+ * Checking the token inside each one is not enough: the item in flight when the
+ * panel closed keeps its interval until its own request resolves, which is
+ * minutes away. Reopening then starts a second ticker and the two write to the
+ * same status line in turn — the counter flickering between 54 s and 11 s.
+ */
+const tickers = new Set();
+
 function cancelRun() {
   runToken++;
   running = false;
+  for (const id of tickers) clearInterval(id);
+  tickers.clear();
 }
 
 function closePanel() {
@@ -1109,6 +1121,7 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index, token
       setStatus(`Pricing on trade… ${done}/${pending.length} — ${label}`
         + `  ·  waiting ${waited} s for GGG's rate limit`);
     }, 1000);
+    tickers.add(ticking);
 
     try {
       match.appraisal = await send('appraise', {
@@ -1124,18 +1137,25 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index, token
         saleMode: settings.saleMode,
         matchCorruptedImplicits: settings.matchCorruptedImplicits,
       });
+      // Cancelled while this one was in the air. Its answer belongs to a panel
+      // that is gone, so painting a badge or rebuilding the summary now would
+      // write stale numbers into whatever is on screen instead.
+      if (token !== runToken) return;
+
       if (!match.appraisal.cached) live++;
       logAppraisal(match, Date.now() - askedAt);
       updateRareBadge(match, chaosPerDivine);
       renderSummary(matches, chaosPerDivine, failed);
     } catch (err) {
+      if (token !== runToken) return;
       logAppraisal(match, Date.now() - askedAt, err);
       setStatus(`Stopped after ${done - 1} of ${pending.length}: ${err.message}`, 'pnc-warn');
       return;
     } finally {
-      // Including on the way out of that `return`, or the timer would keep
-      // rewriting a status line that has already said the run stopped.
+      // Including on the way out of both returns, or the timer would keep
+      // rewriting a status line that has already moved on.
       clearInterval(ticking);
+      tickers.delete(ticking);
     }
   }
   runLog.finishedAt = Date.now();
@@ -1145,6 +1165,7 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index, token
   // limiter that had never seen a response, which says nothing about the pass
   // that just ran.
   runLog.limits = await send('limits').catch((err) => ({ error: String(err.message) }));
+  if (token !== runToken) return;
 
   const cached = pending.length - live;
   setStatus(
