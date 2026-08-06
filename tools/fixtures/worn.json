@@ -562,6 +562,99 @@
    "enchantMods": [
     "Allocates Disciple of the Slaughter"
    ]
+  },
+  {
+   "kind": "worn corrupted, fixed mods",
+   "index": 11,
+   "anchor": null,
+   "id": "631148ad3aeeacb38e617974da23f75ad9328e9a0ee96b92311114cd5f2ec720",
+   "name": "Winterweave",
+   "typeLine": "Coral Ring",
+   "baseType": "Coral Ring",
+   "frameType": 3,
+   "ilvl": 77,
+   "corrupted": true,
+   "identified": true,
+   "inventoryId": "Ring",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [
+    "+1 to Maximum Power Charges"
+   ],
+   "explicitMods": [
+    "Adds 14 to 25 Fire Damage to Attacks",
+    "Adds 12 to 29 Cold Damage to Attacks",
+    "+31 to maximum Life",
+    "+30% to Cold Resistance",
+    "10% increased Movement Speed while Ignited",
+    "The Effect of Chill on you is reversed"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": []
+  },
+  {
+   "kind": "worn variant unique",
+   "index": 12,
+   "anchor": null,
+   "id": "ea7117b6a962dc589586762ac195279491feaae4f280d3370459a39c997ed990",
+   "name": "Ralakesh's Impatience",
+   "typeLine": "Riveted Boots",
+   "baseType": "Riveted Boots",
+   "frameType": 3,
+   "ilvl": 85,
+   "corrupted": false,
+   "identified": true,
+   "inventoryId": "Boots",
+   "links": 4,
+   "sockets": 4,
+   "gemLevel": null,
+   "gemQuality": 20,
+   "defences": {
+    "ar": 82,
+    "ev": 0,
+    "es": 18,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [],
+   "explicitMods": [
+    "+21% to Cold Resistance",
+    "+16% to Chaos Resistance",
+    "18% increased Movement Speed",
+    "Corrupted Blood cannot be inflicted on you",
+    "Count as having maximum number of Frenzy Charges"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": []
   }
  ]
 }

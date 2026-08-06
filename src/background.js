@@ -361,8 +361,8 @@ const handlers = {
    * plus one fetch per item; the spacing is enforced by `runQuery`.
    */
   async appraise({
-    item, rollPool, implicitPool, basePool, league, chaosPerDivine, minRollPercent, saleMode,
-    matchCorruptedImplicits,
+    item, rollPool, implicitPool, basePool, variantCount, league, chaosPerDivine, minRollPercent,
+    saleMode, matchCorruptedImplicits,
   }) {
     setSaleMode(saleMode);
     await installUserAgentRule();
@@ -379,8 +379,8 @@ const handlers = {
     if (hit) return hit;
 
     const result = await appraiseItem({
-      item, rollPool, implicitPool, basePool, league: resolved, chaosPerDivine, minRollPercent,
-      matchCorruptedImplicits,
+      item, rollPool, implicitPool, basePool, variantCount, league: resolved, chaosPerDivine,
+      minRollPercent, matchCorruptedImplicits,
     });
     await cacheAppraisal(key, result);
     return result;
@@ -430,8 +430,8 @@ async function appraiseItem(args) {
 }
 
 async function runAppraisal({
-  item, rollPool, implicitPool, basePool, league: resolved, chaosPerDivine, minRollPercent,
-  matchCorruptedImplicits, spend,
+  item, rollPool, implicitPool, basePool, variantCount, league: resolved, chaosPerDivine,
+  minRollPercent, matchCorruptedImplicits, spend,
 }) {
   {
     const index = await loadStatIndex();
@@ -479,11 +479,32 @@ async function runAppraisal({
         .concat(corrupted, rolledArePool ? rolled : [])
         .filter((m) => mods.includes(m));
 
+      // What the widest query actually asks for.
+      //
+      // For a unique, a modifier every copy carries cannot narrow a search by
+      // its name: the market either has that unique or it does not. Asking for
+      // it anyway can only turn a hit into a miss, if the text happens to
+      // translate to an id the listings are not indexed under. Measured on a
+      // corrupted Winterweave, whose five fixed explicits are the kind of
+      // modifier that looks essential:
+      //
+      //   every modifier       6 filters -> 3 listings
+      //   its corruption alone 1 filter  -> 3 listings
+      //
+      // The exception is a unique poe.ninja publishes several variants of.
+      // There the explicit modifiers ARE what tells the variants apart —
+      // Ralakesh's Impatience granting Power Charges is a different item from
+      // the Frenzy one, and only its explicits say which — so it keeps them.
+      const variantsDiffer = (variantCount ?? 0) > 1;
+      const asked = isUnique && distinguishing.length && !variantsDiffer
+        ? distinguishing
+        : mods;
+
       // One query with everything first: it is the precise one and it usually
       // hits, which is why a typical item costs one search and one fetch.
       let best = await priceByCombinations({
         item,
-        mods,
+        mods: asked,
         byName: isUnique,
         maxQueries: 1,
         // Rare jewels come through here too, and `rolledMods` drops resistance
@@ -529,7 +550,7 @@ async function runAppraisal({
           // so it starts at the top. Laddering the same set is not: that query
           // has been asked and answered, and repeating it spends a budget slot
           // to be told the same thing.
-          maxSize: ladder === mods ? mods.length - 1 : null,
+          maxSize: ladder === asked ? ladder.length - 1 : null,
           maxQueries: MAX_COMBO_QUERIES,
           resistance: totalElementalResistance(item),
           chaos: totalChaosResistance(item),
@@ -540,9 +561,10 @@ async function runAppraisal({
           // one makes belongs to the fallback, including its own top level.
           spend, wide: false,
         });
-        // Still a floor: the copy carries the explicits too, which this did not
-        // ask for, so `rolled` stays the item's full count.
-        if (found) best = { ...found, rolled: mods.length };
+        // Measured against what the widest query asked for, so "2 of 2" means
+        // the search pinned everything that distinguishes this copy — not a
+        // floor — while "1 of 2" still marks it as one.
+        if (found) best = { ...found, rolled: asked.length };
       }
 
       // Nobody is selling this combination. For a unique there is still a
