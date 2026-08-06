@@ -529,7 +529,55 @@ async function runAppraisal({
         minRollPercent,
         spend,
       });
-      // Nothing sells with all of it. Ladder the distinguishing modifiers alone
+      // Nothing sells with all of it — and when the reason is the corruption,
+      // permuting is the wrong tool. Ask the same question once more without
+      // the corruption implicits and with the corrupted filter off altogether,
+      // which is trade's "any": every modifier the item rolled is still pinned,
+      // and only "and it was corrupted this way" is relaxed.
+      //
+      // That is one query where the ladder spends six, and it keeps *more*
+      // filters than any rung of the ladder does. A corrupted cluster jewel had
+      // been spending seven searches and 160 seconds to arrive at nothing.
+      //
+      // It is a floor with a caveat rather than a floor: a corruption usually
+      // adds value but it can subtract it, since a corrupted item cannot be
+      // crafted further. Marked partial, like every other answer built from
+      // less than the item has.
+      //
+      // **Not for uniques.** There the corruption implicit is the entire reason
+      // the item came to trade at all — a Le Heup of All with "+1 to Maximum
+      // Power Charges" against one without is 9 div against 7 c — so relaxing
+      // it asks for the plain unique and lands on the floor this whole path
+      // exists to beat. A unique keeps laddering its corruption implicits, and
+      // the plain-unique query stays where it is, last.
+      if (!best && !isUnique && corrupted.length && corrupted.length < mods.length) {
+        const withoutCorruption = mods.filter((mod) => !corrupted.includes(mod));
+        spend.broad.searches++;
+        const query = buildComboQuery(item, withoutCorruption, {
+          byName: isUnique,
+          minRoll: minRollFor(item, minRollPercent),
+          resistance: totalElementalResistance(item),
+          chaos: totalChaosResistance(item),
+          anyCorrupted: true,
+        });
+        const attempt = query ? await runQuery(query, resolved) : null;
+        if (attempt?.total) {
+          spend.broad.fetches++;
+          const prices = await fetchPrices(attempt.id, attempt.result, chaosPerDivine, resolved);
+          const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
+          if (median != null) {
+            best = {
+              ...attempt,
+              query,
+              chaos: median,
+              mods: withoutCorruption.length,
+              rolled: mods.length,
+            };
+          }
+        }
+      }
+
+      // Still nothing. Ladder the distinguishing modifiers alone
       // — for a double corruption that is two implicits which are each common
       // and together almost unheard of, so the pair finds nothing and each one
       // alone is a real answer. Dropping straight to these instead of permuting
