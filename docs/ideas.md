@@ -167,15 +167,32 @@ entera, así que esto solo gana en el caso de pasadas seguidas de builds
 distintas que comparten ítems. Barato de hacer, ganancia pequeña y medible:
 contar `answered from the query cache` en dos ejecuciones seguidas.
 
-## 7. El tercio reservado al jugador podría ser una opción
+## 7. ~~El tercio reservado al jugador~~ BAJADO A UN SEXTO
 
-`USER_RESERVE = 1/3` convierte 30 búsquedas por ventana en 20, o sea **un 50%
-más de reloj**. Existe por una buena razón: sin él, una pasada te bloquea tus
-propias búsquedas en la web de trade. Pero si estás tasando una build y no
-jugando, no hay a quién reservarle nada.
+Simulado con el propio `estimate()` de la extensión sobre las políticas reales,
+para las 46 búsquedas que manda una pasada medida:
 
-Un selector en las opciones ("estoy jugando" / "solo tasando") es honesto y
-convierte 6:27 en algo más cerca de 4:20. No cambia ni un precio.
+```
+reserve   10s  60s  300s     46 búsquedas
+1/3         3   10    20        10:13
+1/6         4   12    25         6:24
+1/12        4   13    27         6:13
+ninguno     4   14    29         6:02
+```
+
+Casi cuatro minutos el primer escalón y veinte segundos todo lo demás. Un sexto
+se lleva la ganancia entera y aún deja al jugador cinco búsquedas cada cinco
+minutos. Regalar el cubo entero no compensa el riesgo de comerse un 429 propio.
+
+**Lo que queda de aquí, y es otra cosa:** el cubo de *fetch* tiene un acantilado
+en vez de una curva. Una pasada real hizo 42 fetches: contra 41 usables a 1/6
+cuesta 5:01, contra 45 a 1/12 cuesta 0:31. Ajustar el reserve para caer justo por
+debajo de un acantilado no es un arreglo, es una casualidad que la siguiente
+build deshace. **El arreglo es hacer menos fetches** — la escalera hace uno por
+cada combinación que devuelve listados, tres por cluster. Eso sí merece medirse.
+
+Un selector en las opciones ("estoy jugando" / "solo tasando") sigue teniendo
+sentido para quien no esté jugando, pero ya no es donde está el dinero.
 
 ## 8. El service worker puede morirse a media pasada
 

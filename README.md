@@ -462,6 +462,13 @@ policy has room. Two details matter more than the arithmetic:
 
 - **Start pessimistic.** Until the first response teaches us the real numbers we
   assume one request per 5 s.
+- **Leave a sixth of every bucket alone.** The buckets are per IP, so a pass and
+  the player's own trade tab spend the same allowance, and filling it hands them
+  the 429. It used to be a third; simulated over the real policies for the 46
+  searches a measured pass sends, a third costs 10:13 and a sixth 6:24, while
+  giving the whole bucket away saves only twenty seconds more than that. Past
+  the opening burst the pace is set by the 300 s bucket, where 25 usable and 29
+  are much the same.
 - **Sync with `-state` on every response.** The buckets are per IP, so the trade
   website open in another tab spends the same budget. If the server's count is
   higher than ours, the difference is recorded as if we had spent it. A fixed
@@ -472,7 +479,7 @@ pass went from about 70 s to **23.8 s**, and the limiter now knows about traffic
 it didn't cause.
 
 **What it cannot do is beat the policy.** 30 searches per 300 s is one search
-every 10 s sustained, and reserving a third for the player makes it 15. No
+every 10 s sustained, and reserving a sixth for the player makes it 12. No
 client is faster than that — Awakened PoE Trade spends one search per item and
 checks one item at a time, which is why it never feels slow; a whole build at
 once is a different shape of problem. The only real lever is asking fewer

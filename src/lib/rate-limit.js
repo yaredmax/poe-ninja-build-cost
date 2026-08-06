@@ -39,11 +39,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * open are spending the same allowance. Filling it means their manual search
  * gets the 429 — which is exactly what happened: a build was being priced, the
  * player searched something themselves, and both got blocked for two minutes.
+ * At least one slot always stays free, even on the small buckets where a share
+ * would round down to nothing.
  *
- * Reserving a third costs us about a third of the throughput and guarantees
- * there is always room for a person who is actually playing.
+ * **A sixth, not a third.** Simulated with `estimate()` below, over the real
+ * policies, for the 46 searches a measured pass actually sent:
+ *
+ *   reserve   10s  60s  300s     46 searches
+ *   1/3         3   10    20        10:13
+ *   1/6         4   12    25         6:24
+ *   1/12        4   13    27         6:13
+ *   none        4   14    29         6:02
+ *
+ * Nearly four minutes for the first step and twenty seconds for everything
+ * after it: past the opening burst the pace is set by the 300 s bucket, and 25
+ * usable against 29 barely moves it. So a sixth takes the whole win and still
+ * leaves the player five searches every five minutes, which is a person
+ * browsing rather than a person locked out.
+ *
+ * The fetch policy has a cliff rather than a curve — 42 fetches against 41
+ * usable at a sixth costs five minutes, against 45 at a twelfth costs thirty
+ * seconds — but tuning a reserve to sit just under a cliff is not a fix, it is
+ * a coincidence that the next build undoes. The fix is fetching less; see
+ * docs/ideas.md.
  */
-const USER_RESERVE = 1 / 3;
+const USER_RESERVE = 1 / 6;
 
 /** One `hits per period` bucket. */
 class Bucket {
