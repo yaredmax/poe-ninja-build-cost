@@ -742,6 +742,102 @@
    "craftedMods": [],
    "fracturedMods": [],
    "enchantMods": []
+  },
+  {
+   "kind": "worn corrupted cluster",
+   "index": 15,
+   "anchor": null,
+   "id": "63d84038d0cb1c1c5ab7343fd46e650e1c9d104060601e27d92303c430aef659",
+   "name": "Gale Splinter",
+   "typeLine": "Medium Cluster Jewel",
+   "baseType": "Medium Cluster Jewel",
+   "frameType": 2,
+   "ilvl": 84,
+   "corrupted": true,
+   "identified": true,
+   "inventoryId": "PassiveJewels",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [
+    "2% increased Reservation Efficiency of Skills"
+   ],
+   "explicitMods": [
+    "Added Small Passive Skills also grant: +8 to Dexterity",
+    "Added Small Passive Skills also grant: Regenerate 0.15% of Life per Second",
+    "1 Added Passive Skill is Guerilla Tactics",
+    "1 Added Passive Skill is Surprise Sabotage"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": [
+    "Adds 4 Passive Skills",
+    "1 Added Passive Skill is a Jewel Socket",
+    "Added Small Passive Skills grant: 12% increased Trap Damage\nAdded Small Passive Skills grant: 12% increased Mine Damage"
+   ]
+  },
+  {
+   "kind": "worn rare flask",
+   "index": 16,
+   "anchor": null,
+   "id": "8640c339fb377852321bef5c05ccf4fe4daf89b266697748b99ed38e5136a4bb",
+   "name": "",
+   "typeLine": "Diamond Flask",
+   "baseType": "Diamond Flask",
+   "frameType": 1,
+   "ilvl": 85,
+   "corrupted": false,
+   "identified": true,
+   "inventoryId": "Flask",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [],
+   "explicitMods": [
+    "23% reduced Duration",
+    "25% increased effect",
+    "55% increased Critical Strike Chance during Effect"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": [
+    "70% increased effect",
+    "Gains no Charges during Effect"
+   ]
   }
  ]
 }

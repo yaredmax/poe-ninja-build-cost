@@ -577,6 +577,48 @@ async function runAppraisal({
         if (found) best = { ...found, rolled: asked.length };
       }
 
+      // The ladder's budget is one level wide and no deeper. Six queries is
+      // exactly the six subsets of a six-modifier item at one fewer, so an item
+      // whose market only exists two levels down spends everything and comes
+      // back with nothing at all — a corrupted cluster jewel did precisely
+      // that: seven searches, 160 seconds, no price.
+      //
+      // Rather than widen the budget for every item to rescue the rare one, ask
+      // one deliberately small question at the end. Half the modifiers, in the
+      // order they were already sorted into — which for a cluster jewel is its
+      // notables and passive count first, the two things people actually shop
+      // for. It is a floor and it is marked as one, and a floor beats the badge
+      // saying nothing.
+      //
+      // Built from `rolled` and not from `mods`, and that distinction is the
+      // whole thing. `mods` puts the corruption implicit first, so it survives
+      // into every reduced set — and a cluster jewel with a corruption implicit
+      // is exactly what nobody is selling. `rolled` is the jewel's own
+      // modifiers in cluster order: notables, then the passive count. Asking
+      // for the corruption here returned zero a second time; asking for the
+      // notables is asking what a buyer would.
+      if (!best && !isUnique && rolled.length > 2) {
+        const few = rolled.slice(0, Math.ceil(rolled.length / 2));
+        spend.broad.searches++;
+        const query = buildComboQuery(item, few, {
+          minRoll: minRollFor(item, minRollPercent),
+          resistance: totalElementalResistance(item),
+          chaos: totalChaosResistance(item),
+        });
+        const attempt = query ? await runQuery(query, resolved) : null;
+        if (attempt?.total) {
+          spend.broad.fetches++;
+          const prices = await fetchPrices(attempt.id, attempt.result, chaosPerDivine, resolved);
+          const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
+          if (median != null) {
+            best = {
+              ...attempt, query, chaos: median, mods: few.length, rolled: mods.length,
+            };
+          }
+
+        }
+      }
+
       // Nobody is selling this combination. For a unique there is still a
       // sensible answer — what the plain item goes for — and it is a true floor,
       // since the copy we are pricing has extra on top. Without this a corrupted
