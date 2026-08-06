@@ -118,6 +118,8 @@ const fmt = (c) => (c == null ? '—'
 console.log(`League ${league}   ${items.length} items\n`);
 
 const failures = [];
+// Items the code deliberately refused to trust. Reported, not failed — see below.
+const untrusted = [];
 
 // --------------------------------------------------------------- accounting
 //
@@ -242,7 +244,13 @@ for (const item of items) {
     console.log(`${head} ${fmt(r.chaos).padStart(8)}  ${String(r.total).padStart(5)} listings  ${flags}`);
     console.log(`${' '.repeat(20)} ${(r.filters || []).join(', ') || '(no filters)'}`);
     console.log(`${' '.repeat(20)} ${cost}`);
-    if (!r.reliable) failures.push(`${label}: unreliable, ${r.total} listings`);
+    // Not a failure. An item matched by two hundred listings is the code
+    // declining to trust a number it should not trust, which is the behaviour
+    // we want — the README's own position is that three reliable out of seven
+    // is the honest answer. Counted and listed, so a run that suddenly stops
+    // trusting half the build is still visible, but the exit code is for
+    // things that went wrong.
+    if (!r.reliable) untrusted.push(`${label}: ${r.total} listings, ${r.reliability}`);
   }
 }
 
@@ -294,10 +302,14 @@ if (!outcome.fallback) {
     + '         about the slow path. Add an item that misses the wide query.',
   );
 }
+if (untrusted.length) {
+  console.log(`\n${untrusted.length} item(s) priced but not trusted, and shown outside the total:`);
+  for (const u of untrusted) console.log(`  ${u}`);
+}
 if (failures.length) {
   console.log(`\n${failures.length} item(s) did not price cleanly:`);
   for (const f of failures) console.log(`  ${f}`);
   process.exitCode = 1;
 } else {
-  console.log('every item priced');
+  console.log('\nevery item priced');
 }

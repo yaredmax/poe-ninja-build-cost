@@ -759,8 +759,15 @@ async function runAppraisal({
           chaos: found.chaos,
           reliability: reliability(found.total),
           // Built from this item's own modifiers, so it is precise by
-          // construction and one listing is a real answer.
-          reliable: true,
+          // construction and one listing is a real answer — the "too few
+          // results" gate guards the lookalike search, not this one.
+          //
+          // That waives the bottom of the table and it was waiving the top too.
+          // A rare belt matched by two hundred listings, or a flask by
+          // eighteen hundred, is filters that narrowed nothing however they
+          // were built, and it was being counted into the build total at 5 c.
+          // `low` means low here as much as anywhere.
+          reliable: reliability(found.total) !== 'low',
           partial: found.mods < found.rolled,
           mods: found.mods,
           rolled: found.rolled,
@@ -789,6 +796,12 @@ async function runAppraisal({
     if (best.total) spend.broad.fetches++;
     const prices = best.total ? await fetchPrices(best.id, best.result, chaosPerDivine, resolved) : [];
     const rating = reliability(best.total);
+    // Always the pseudo lookalike by the time we get here: the own-mods search
+    // returns above when it finds anything, and `consider()` — the only thing
+    // that sets `best` — is only ever called with 'pseudo'. Kept as a named
+    // constant rather than inlined because the two strategies genuinely differ
+    // in how much a result is worth, and the next person to add a third one
+    // needs to see that.
     const byOwnMods = best.strategy === 'own-mods';
 
     return {
@@ -802,7 +815,14 @@ async function runAppraisal({
       // listing can be a fluke. A search built from the item's own modifiers is
       // precise, so one listing means "an item like this is on sale for X" —
       // which is exactly what we want to know.
-      reliable: byOwnMods ? best.total > 0 : RELIABLE.has(rating),
+      //
+      // But only that end of the scale. The bypass was written for `thin` and
+      // quietly took `low` with it, so a rare flask matched by 1875 listings
+      // was counted into the build total at 5 c — and 1875 listings is the
+      // definition of filters that narrowed nothing, own modifiers or not. Both
+      // ends of the table now mean what the table says; only the bottom is
+      // waived.
+      reliable: byOwnMods ? best.total > 0 && rating !== 'low' : RELIABLE.has(rating),
       // We always filter on a subset of the item's mods, so whatever we find is
       // a floor rather than a valuation.
       partial: byOwnMods,
