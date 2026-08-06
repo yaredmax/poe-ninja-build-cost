@@ -158,6 +158,9 @@ export function searchUrl(league, body) {
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
 const PSEUDO_CHAOS = 'pseudo.pseudo_total_chaos_resistance';
 
+/** Trade files a timeless jewel's seed under one stat per historic figure. */
+const TIMELESS_SEED = /^explicit\.pseudo_timeless_jewel_/;
+
 /**
  * The name trade knows the item by.
  *
@@ -259,6 +262,14 @@ export function buildComboQuery(item, mods, opts = {}) {
     // for 80% of five is asking for four, and a four-passive jewel is a
     // different, cheaper item. We were pricing five-passive jewels off them.
     if (typeof value === 'number' && !isOption && mod.id.startsWith('enchant.')) {
+      filter.value = { min: value, max: value };
+      return filter;
+    }
+    // A timeless jewel's number is its seed, and the seed is not a magnitude:
+    // it is which passives the jewel rewrites. Seed 4240 and seed 5301 are two
+    // unrelated jewels, so asking for "at least 80% of 5301" prices one off the
+    // other. The seed is matched exactly or not at all.
+    if (typeof value === 'number' && TIMELESS_SEED.test(mod.id)) {
       filter.value = { min: value, max: value };
       return filter;
     }

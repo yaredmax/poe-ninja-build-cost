@@ -186,6 +186,27 @@ function increasedForm(text) {
   return REDUCED.test(text) ? text.replace(REDUCED, '$1increased$2') : null;
 }
 
+/**
+ * Some modifiers arrive as two lines, where the second is a consequence of the
+ * first rather than a modifier of its own. A timeless jewel reads:
+ *
+ *   Carved to glorify 5301 new faithful converted by High Templar Dominus
+ *   Passives in radius are Conquered by the Templars
+ *
+ * and trade indexes only the first line, as
+ * `explicit.pseudo_timeless_jewel_dominus` with the seed as its value. Matching
+ * the whole thing found nothing, so every timeless jewel came back "none of its
+ * mods could be translated" and went unpriced — on an item that is worth
+ * divines and whose entire identity is that number.
+ *
+ * Only tried once the literal text has failed, so it can add matches and never
+ * change one.
+ */
+function firstLine(text) {
+  const line = String(text).split('\n')[0];
+  return line !== text ? line : null;
+}
+
 /** Finds a modifier's stat id. Returns null when we don't recognise it. */
 export function matchMod(statIndex, text, type, local = false) {
   const key = norm(text);
@@ -205,9 +226,14 @@ export function matchMod(statIndex, text, type, local = false) {
   // Only now, with the literal wording exhausted, is "reduced" worth reading as
   // a negative "increased".
   const increased = increasedForm(text);
-  if (!increased) return null;
-  const flipped = matchMod(statIndex, increased, type, local);
-  return flipped ? { ...flipped, values: flipped.values.map((v) => -v) } : null;
+  if (increased) {
+    const flipped = matchMod(statIndex, increased, type, local);
+    if (flipped) return { ...flipped, values: flipped.values.map((v) => -v) };
+  }
+
+  // And last, the leading line on its own.
+  const lead = firstLine(text);
+  return lead ? matchMod(statIndex, lead, type, local) : null;
 }
 
 const RESIST_SINGLE = /^\+(-?\d+)% to (Fire|Cold|Lightning) Resistance$/;

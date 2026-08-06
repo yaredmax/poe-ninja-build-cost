@@ -655,6 +655,50 @@
    "craftedMods": [],
    "fracturedMods": [],
    "enchantMods": []
+  },
+  {
+   "kind": "worn timeless jewel",
+   "index": 13,
+   "anchor": null,
+   "id": "e1be4ca28db77b7a3d30fa6385587b1eb6f22e067fba7bb54a9c73ead6056de6",
+   "name": "Militant Faith",
+   "typeLine": "Timeless Jewel",
+   "baseType": "Timeless Jewel",
+   "frameType": 3,
+   "ilvl": 84,
+   "corrupted": false,
+   "identified": true,
+   "inventoryId": "PassiveJewels",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [],
+   "explicitMods": [
+    "Carved to glorify 5301 new faithful converted by High Templar Dominus\nPassives in radius are Conquered by the Templars",
+    "4% increased Area Damage per 10 Devotion",
+    "4% increased Elemental Damage per 10 Devotion",
+    "Historic"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": []
   }
  ]
 }
