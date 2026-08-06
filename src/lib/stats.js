@@ -388,6 +388,21 @@ export const GEAR_FIELDS = [
 ];
 
 /**
+ * Flasks, where the enchantment is half the item.
+ *
+ * An Instilling or Enkindling Orb is what separates a five chaos flask from one
+ * people queue up for — "70% increased effect" with "Gains no Charges during
+ * Effect" is the enchant, not a roll — and the gear list does not read
+ * `enchantMods` at all, so it never reached the query. A rare flask was
+ * therefore searched as "any Diamond Flask with these three rolls", which is
+ * three hundred and fifty listings of anything.
+ */
+export const FLASK_FIELDS = [
+  ...GEAR_FIELDS,
+  ['enchantMods', 'enchant'],
+];
+
+/**
  * Elemental resistances are searched as one pseudo total, never individually.
  *
  * Nobody shops for "+46% fire and +43% lightning" — they shop for enough

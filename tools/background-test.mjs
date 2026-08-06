@@ -85,9 +85,12 @@ const read = (name) => {
 // version is in tools/fixtures/worn.json.
 const raw = [...read('kinds.json'), ...read('worn.json')];
 const all = raw
-  // Gems and flasks are priced from the economy index and never appraised, the
-  // same filter content.js applies before it starts the trade pass.
-  .filter((i) => i.frameType !== 4 && i.inventoryId !== 'Flask' && i.inventoryId);
+  // Gems only. Flasks used to be excluded here on the grounds that content.js
+  // prices them from the economy index and never appraises them — which is
+  // simply not true, and a real report showed two of them going to trade. The
+  // filter meant every flask bug was invisible to this test, including an
+  // enchantment that never reached the query.
+  .filter((i) => i.frameType !== 4 && i.inventoryId);
 
 const kind = (item) => item.kind || item.inventoryId;
 

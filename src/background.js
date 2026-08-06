@@ -23,6 +23,7 @@ import {
 } from './lib/trade.js';
 import {
   GEAR_FIELDS,
+  FLASK_FIELDS,
   loadStatIndex,
   corruptedImplicits,
   mutatedMods,
@@ -685,7 +686,10 @@ async function runAppraisal({
     //    increased physical damage, attack speed and crit are already expressed
     //    by dps / pdps / edps / aps / crit, so they cost no filter slot and the
     //    combinatorics start from a much shorter list.
-    const geared = rolledMods(index, item, GEAR_MAX_MODS, null, GEAR_FIELDS);
+    const geared = rolledMods(
+      index, item, GEAR_MAX_MODS, null,
+      item.inventoryId === 'Flask' ? FLASK_FIELDS : GEAR_FIELDS,
+    );
     if (geared.length) {
       const found = await priceByCombinations({
         item,
