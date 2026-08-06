@@ -361,7 +361,7 @@ const handlers = {
    * plus one fetch per item; the spacing is enforced by `runQuery`.
    */
   async appraise({
-    item, rollPool, implicitPool, basePool, variantCount, league, chaosPerDivine, minRollPercent,
+    item, rollPool, implicitPool, basePool, league, chaosPerDivine, minRollPercent,
     saleMode, matchCorruptedImplicits,
   }) {
     setSaleMode(saleMode);
@@ -379,7 +379,7 @@ const handlers = {
     if (hit) return hit;
 
     const result = await appraiseItem({
-      item, rollPool, implicitPool, basePool, variantCount, league: resolved, chaosPerDivine,
+      item, rollPool, implicitPool, basePool, league: resolved, chaosPerDivine,
       minRollPercent, matchCorruptedImplicits,
     });
     await cacheAppraisal(key, result);
@@ -435,7 +435,7 @@ async function appraiseItem(args) {
 }
 
 async function runAppraisal({
-  item, rollPool, implicitPool, basePool, variantCount, league: resolved, chaosPerDivine,
+  item, rollPool, implicitPool, basePool, league: resolved, chaosPerDivine,
   minRollPercent, matchCorruptedImplicits, spend,
 }) {
   {
@@ -484,26 +484,31 @@ async function runAppraisal({
         .concat(corrupted, rolledArePool ? rolled : [])
         .filter((m) => mods.includes(m));
 
-      // What the widest query actually asks for.
+      // The widest query asks for everything, uniques included.
       //
-      // For a unique, a modifier every copy carries cannot narrow a search by
-      // its name: the market either has that unique or it does not. Asking for
-      // it anyway can only turn a hit into a miss, if the text happens to
-      // translate to an id the listings are not indexed under. Measured on a
-      // corrupted Winterweave, whose five fixed explicits are the kind of
-      // modifier that looks essential:
+      // It briefly did not. The argument was that a modifier every copy of a
+      // unique carries cannot narrow a search by its name, so the fixed
+      // explicits could come out and only the corruption, the mutation and the
+      // pool-rolled modifiers needed asking for. A corrupted Winterweave
+      // measured that way — six filters and one filter both returned the same
+      // three listings — and `variantCount` was meant to protect the uniques
+      // that are told apart by their explicits.
       //
-      //   every modifier       6 filters -> 3 listings
-      //   its corruption alone 1 filter  -> 3 listings
+      // A corrupted Grand Spectrum broke it. poe.ninja publishes no variants
+      // for that jewel at all (`variantCount: 0`, and it does not even get the
+      // base right), so the guard never fired, and "+1 to Minimum Power Charges
+      // per Grand Spectrum" — the entire difference between one Grand Spectrum
+      // and another — was dropped in favour of the corruption implicit alone.
+      // It priced against every corrupted Grand Spectrum on the market,
+      // including the cheap ones: 1297 c for a jewel whose uncorrupted twin
+      // came out at 6118 c.
       //
-      // The exception is a unique poe.ninja publishes several variants of.
-      // There the explicit modifiers ARE what tells the variants apart —
-      // Ralakesh's Impatience granting Power Charges is a different item from
-      // the Frenzy one, and only its explicits say which — so it keeps them.
-      const variantsDiffer = (variantCount ?? 0) > 1;
-      const asked = isUnique && distinguishing.length && !variantsDiffer
-        ? distinguishing
-        : mods;
+      // The lesson is not about that guard. It is that one item is not a
+      // measurement: "no published pool" does not mean "every copy carries
+      // it", and there is no field in the economy data that reliably says
+      // which it is. So everything the item has goes in, and the saving that
+      // came from leaving some out goes away with it.
+      const asked = mods;
 
       // One query with everything first: it is the precise one and it usually
       // hits, which is why a typical item costs one search and one fetch.

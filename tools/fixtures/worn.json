@@ -699,6 +699,49 @@
    "craftedMods": [],
    "fracturedMods": [],
    "enchantMods": []
+  },
+  {
+   "kind": "worn corrupted variant",
+   "index": 14,
+   "anchor": null,
+   "id": "9124510d4ea20d6381172374f17f6683bf76ac6519dc88caf86ff985c3bd25cb",
+   "name": "Grand Spectrum",
+   "typeLine": "Cobalt Jewel",
+   "baseType": "Cobalt Jewel",
+   "frameType": 3,
+   "ilvl": 80,
+   "corrupted": true,
+   "identified": true,
+   "inventoryId": "PassiveJewels",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [
+    "2% increased Reservation Efficiency of Skills"
+   ],
+   "explicitMods": [
+    "+1 to Minimum Power Charges per Grand Spectrum"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": []
   }
  ]
 }

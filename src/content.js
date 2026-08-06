@@ -1080,11 +1080,6 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
         // The plain unique behind a Foulborn, so the mutation can be deduced by
         // subtraction when poe.ninja's page data does not name it.
         basePool: basePoolFor(match, index),
-        // How many variants poe.ninja publishes of this unique. Above one, its
-        // explicit modifiers are what tells them apart and the search has to
-        // keep them; otherwise they are the same on every copy and only make
-        // the query fragile. See the comment in background.js.
-        variantCount: match.price?.variantCount ?? 0,
         league,
         chaosPerDivine,
         minRollPercent: settings.minRollPercent,
