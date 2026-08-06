@@ -155,6 +155,13 @@ export function searchUrl(league, body) {
   return `${WEB}/${encodeURIComponent(league)}?q=${encodeURIComponent(JSON.stringify(body))}`;
 }
 
+/**
+ * How many listings one `/fetch` call reads. GGG accepts ten ids per request,
+ * and it doubles as the line between "the whole market" and "its cheap tail":
+ * at or below this we have seen every listing there is.
+ */
+const FETCH_PAGE = 10;
+
 const PSEUDO_RESISTANCE = 'pseudo.pseudo_total_elemental_resistance';
 const PSEUDO_CHAOS = 'pseudo.pseudo_total_chaos_resistance';
 
@@ -485,7 +492,7 @@ async function loadCurrencyRates(league) {
  * read the two we know by name, which is what the standalone tools do.
  */
 export async function fetchPrices(queryId, resultIds, chaosPerDivine, league = null) {
-  const ids = resultIds.slice(0, 10);
+  const ids = resultIds.slice(0, FETCH_PAGE);
   if (!ids.length) return [];
 
   let rates = null;
@@ -591,7 +598,7 @@ export async function runQuery(body, league) {
  * silly number and on nothing else: over that amulet's real listings —
  * 250, 280, 285, 320, 320, 390 divine — it leaves the answer where it was.
  */
-export function medianPrice(prices) {
+export function medianPrice(prices, total = Infinity) {
   if (!prices.length) return null;
   // The lower of the two middles is the anchor, because on a very short list
   // the ordinary median can *be* the outlier: two listings at 250 divine and
@@ -599,6 +606,19 @@ export function medianPrice(prices) {
   // all. The lower middle is 250 there, and the mirror goes.
   const anchor = prices[Math.floor((prices.length - 1) / 2)];
   const kept = prices.filter((p) => p <= anchor * 5);
+
+  // With ten listings or fewer we are not looking at the cheap tail of a
+  // market, we are looking at the whole market: `/fetch` reads ten ids and
+  // there were never more than ten. Six amulets like yours are on sale and you
+  // would buy the cheapest, so the median of the six — the fourth cheapest —
+  // is not a price anybody pays. The second cheapest instead, which is one
+  // step of protection against a single mistake or somebody fishing, and the
+  // cheapest when there are not even three.
+  //
+  // Above ten the reasoning inverts and the median stays: those ten are the
+  // bottom of a much larger pool, and their cheapest is the 1 c of junk that
+  // put the median here in the first place.
+  if (total <= FETCH_PAGE) return kept.length >= 3 ? kept[1] : kept[0];
   return kept[Math.floor(kept.length / 2)];
 }
 

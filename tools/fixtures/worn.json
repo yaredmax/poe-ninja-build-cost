@@ -838,6 +838,55 @@
     "70% increased effect",
     "Gains no Charges during Effect"
    ]
+  },
+  {
+   "kind": "worn thin market",
+   "index": 17,
+   "anchor": null,
+   "id": "187fb77159b59869edbc5e52693d5ac1a70cb1aaeeeaedac2e54d6ae4de42f89",
+   "name": "Rune Collar",
+   "typeLine": "Simplex Amulet",
+   "baseType": "Simplex Amulet",
+   "frameType": 2,
+   "ilvl": 84,
+   "corrupted": false,
+   "identified": true,
+   "inventoryId": "Amulet",
+   "links": 0,
+   "sockets": 0,
+   "gemLevel": null,
+   "gemQuality": 0,
+   "defences": {
+    "ar": 0,
+    "ev": 0,
+    "es": 0,
+    "ward": 0,
+    "block": 0
+   },
+   "weapon": {
+    "dps": 0,
+    "pdps": 0,
+    "edps": 0,
+    "aps": 0,
+    "crit": 0
+   },
+   "mutated": false,
+   "mutatedMods": [],
+   "implicitMods": [
+    "-2 Prefix Modifiers allowed",
+    "-1 Suffix Modifier allowed",
+    "Implicit Modifiers Cannot Be Changed",
+    "100% increased Explicit Modifier magnitudes"
+   ],
+   "explicitMods": [
+    "+85% to Global Critical Strike Multiplier",
+    "108% increased Rarity of Items found"
+   ],
+   "craftedMods": [],
+   "fracturedMods": [],
+   "enchantMods": [
+    "Allocates Arcane Capacitor"
+   ]
   }
  ]
 }

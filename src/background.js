@@ -225,7 +225,7 @@ async function priceByCombinations({
     for (const hit of hits) {
       if (spend) spend[phase].fetches++;
       const prices = await fetchPrices(hit.id, hit.result, chaosPerDivine, league);
-      const median = medianPrice(prices);
+      const median = medianPrice(prices, hit.total);
       if (median != null && (!best || median > best.chaos)) best = { ...hit, chaos: median };
     }
     if (best) return { ...best, mods: size, rolled: widest, queriesUsed: maxQueries - budget };
@@ -565,7 +565,7 @@ async function runAppraisal({
         if (attempt?.total) {
           spend.broad.fetches++;
           const prices = await fetchPrices(attempt.id, attempt.result, chaosPerDivine, resolved);
-          const median = medianPrice(prices);
+          const median = medianPrice(prices, attempt.total);
           if (median != null) {
             best = {
               ...attempt,
@@ -659,7 +659,7 @@ async function runAppraisal({
         if (attempt?.total) {
           spend.broad.fetches++;
           const prices = await fetchPrices(attempt.id, attempt.result, chaosPerDivine, resolved);
-          const median = medianPrice(prices);
+          const median = medianPrice(prices, attempt.total);
           if (median != null) {
             best = {
               ...attempt, query, chaos: median, mods: few.length, rolled: mods.length,
@@ -684,7 +684,7 @@ async function runAppraisal({
             return {
               url: webUrl(resolved, attempt.id),
               total: attempt.total,
-              chaos: medianPrice(prices),
+              chaos: medianPrice(prices, attempt.total),
               reliability: 'variant',
               reliable: true,
               variant: true,
@@ -818,7 +818,7 @@ async function runAppraisal({
       total: best.total,
       // Median of the ten cheapest: the single cheapest listing is nearly always
       // a joke price or a mislisted item.
-      chaos: medianPrice(prices),
+      chaos: medianPrice(prices, best.total),
       reliability: rating,
       // The "too few results" gate guards the lookalike search, where a single
       // listing can be a fluke. A search built from the item's own modifiers is
