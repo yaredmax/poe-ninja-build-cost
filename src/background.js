@@ -758,17 +758,25 @@ async function runAppraisal({
           total: found.total,
           chaos: found.chaos,
           reliability: reliability(found.total),
-          // Built from this item's own modifiers, so it is precise by
-          // construction and one listing is a real answer — the "too few
-          // results" gate guards the lookalike search, not this one.
+          // Built from this item's own modifiers, so the reliability table does
+          // not apply at either end, and it counts.
           //
-          // That waives the bottom of the table and it was waiving the top too.
-          // A rare belt matched by two hundred listings, or a flask by
-          // eighteen hundred, is filters that narrowed nothing however they
-          // were built, and it was being counted into the build total at 5 c.
-          // `low` means low here as much as anywhere.
-          reliable: reliability(found.total) !== 'low',
-          partial: found.mods < found.rolled,
+          // I briefly stopped trusting the loose end of it — a belt matched by
+          // two hundred listings looked like filters that had narrowed nothing.
+          // That reasoning belongs to the lookalike search below, which asks
+          // for life and resistances and never mentions what the item is good
+          // at, so its cheapest result says nothing. This search asks for the
+          // item's own modifiers at 80% of its own rolls, so every one of those
+          // two hundred is comparable or worse and the cheapest of them is a
+          // genuine floor. Dropping it made the total *less* honest as a
+          // minimum, which is what the total claims to be — and a build at
+          // league start is mostly items like that.
+          reliable: true,
+          // Loose enough to be a floor rather than a price, though. The median
+          // of the ten cheapest out of six hundred is the bottom of that pool,
+          // not this item's worth, so it gets the `≥` that says so even when
+          // every modifier made it into the query.
+          partial: found.mods < found.rolled || reliability(found.total) === 'low',
           mods: found.mods,
           rolled: found.rolled,
           queries: found.queriesUsed,

@@ -244,12 +244,11 @@ for (const item of items) {
     console.log(`${head} ${fmt(r.chaos).padStart(8)}  ${String(r.total).padStart(5)} listings  ${flags}`);
     console.log(`${' '.repeat(20)} ${(r.filters || []).join(', ') || '(no filters)'}`);
     console.log(`${' '.repeat(20)} ${cost}`);
-    // Not a failure. An item matched by two hundred listings is the code
-    // declining to trust a number it should not trust, which is the behaviour
+    // Not a failure. An appraisal the code declines to trust is the behaviour
     // we want — the README's own position is that three reliable out of seven
-    // is the honest answer. Counted and listed, so a run that suddenly stops
-    // trusting half the build is still visible, but the exit code is for
-    // things that went wrong.
+    // is the honest answer — so these are counted and listed under their own
+    // heading, and the exit code stays for things that went wrong. A run that
+    // suddenly stops trusting half the build is still visible at a glance.
     if (!r.reliable) untrusted.push(`${label}: ${r.total} listings, ${r.reliability}`);
   }
 }

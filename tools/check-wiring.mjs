@@ -11,6 +11,11 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(root, p), 'utf8');
 
+/** Source with comments removed, for checks that scan for identifiers. */
+const withoutComments = (src) => src
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .replace(/^[ \t]*\/\/.*$/gm, ' ');
+
 let failures = 0;
 const check = (ok, label, detail = '') => {
   console.log(`${ok ? '  ok   ' : '  FAIL '}${label}${detail ? ` — ${detail}` : ''}`);
@@ -104,7 +109,12 @@ for (const cls of used) {
   for (const m of backgroundJs.matchAll(/async function (\w+)\(\{([\s\S]*?)\}\)\s*\{/g)) {
     const [, name, sig] = m;
     const bound = new Set(params(sig));
-    const body = bodyOf(backgroundJs, m.index + m[0].length - 1);
+    // Prose stripped first. This scans for a bare identifier, and a comment
+    // explaining what the code does is full of the words the code uses: the
+    // sentence "a build at league start is mostly items like that" reported
+    // runAppraisal() as reading `items`. The same trap already bit the slim()
+    // comparison below, for the same reason.
+    const body = withoutComments(bodyOf(backgroundJs, m.index + m[0].length - 1));
     for (const key of payload) {
       // Used as a bare identifier, not as `obj.key` or `key:` in a literal.
       const used = new RegExp(`(?<![.\\w])${key}(?![\\w:])`).test(body);
