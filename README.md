@@ -441,21 +441,42 @@ A confident wrong number would be worse than no number.
 ### Rate limiting
 
 `src/lib/rate-limit.js` drives the pace from GGG's own response headers rather
-than a fixed delay. Measured policies:
+than a fixed delay. **There is no single policy to write down here**, and that is
+not a documentation gap — GGG's own docs say so:
+
+> Common rules are: ip, account, and client.
+
+Several rules apply to one request, each with its own numbers, and which ones you
+get depends on the caller. Two observations of the same endpoint, in the same
+league, minutes apart:
 
 ```
-POST /api/trade/search   trade-search-request-limit
-    5:10:60,  15:60:300,  30:300:1800,  600:21600:3600
+POST /api/trade/search    trade-search-request-limit
 
-GET  /api/trade/fetch    trade-fetch-request-limit
-    12:4:10,  16:12:300,  50:300:300,   1000:21600:1800
+  rule ip        5:10:60,  15:60:300,  30:300:1800,  600:21600:3600
+  ip + account   3:5,  8:10,  15:60,  60:300,  600:10800
+```
 
-GET  /api/trade/data/*   no limit headers at all (static data)
+The second is the extension running in a browser that is signed in to
+pathofexile.com; the first is a bare script that is not. Signing in **doubles the
+sustained budget** — 60 per 300 s against 30 — at the cost of a stricter opening
+burst. So the fast path is the logged-in one, which is the opposite of the folk
+wisdom, and neither number is safe to hard-code.
+
+```
+GET  /api/trade/fetch     trade-fetch-request-limit
+GET  /api/trade/data/*    no limit headers at all (static data)
 ```
 
 Each triplet is `hits:period:penalty`. **The penalty is deliberately ignored** —
 it only applies if you exceed the limit, and the point is never to. Awakened PoE
 Trade ignores it too; its parser reads only the first two fields.
+
+Every bucket remembers which rule it came from. Two rules can publish the same
+shape — both had a 15-per-60 s one — and without the rule as part of a bucket's
+identity they collapse into one object that then sits twice in the array and is
+charged twice for a single request. `pncReport()` prints the rules verbatim, so
+a slow pass can be explained rather than guessed at.
 
 One bucket per triplet, per policy. A request waits until every bucket for its
 policy has room. Two details matter more than the arithmetic:

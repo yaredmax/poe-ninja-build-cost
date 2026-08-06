@@ -254,6 +254,18 @@ for (const phase of PHASES) {
 }
 console.log(row('total', sum('searches'), sum('fetches')));
 console.log(`\n${requests} trade requests over the wire`);
+// Which of GGG's rules were in force. A bare script gets `ip`; a client
+// carrying the player's session also gets `account`, and the two do not
+// publish the same numbers — so a run that does not say which it had cannot be
+// compared with one that had the other.
+{
+  const { search, fetch } = await send('limits');
+  for (const [name, side] of [['search', search], ['fetch', fetch]]) {
+    for (const rule of side.rules || []) {
+      console.log(`  ${name} ${rule.rule.padEnd(8)} ${rule.limit}`);
+    }
+  }
+}
 console.log(
   `${seconds(time.total)} appraising: ${seconds(time.waiting)} held by our own limiter, `
   + `${seconds(time.network)} waiting on GGG`,

@@ -67,18 +67,26 @@ const USER_RESERVE = 1 / 6;
 
 /** One `hits per period` bucket. */
 class Bucket {
-  constructor(max, windowSeconds) {
+  constructor(max, windowSeconds, rule = 'ip') {
     this.max = max;
     // Never take the whole bucket. At least one slot stays free even on the
-    // small ones, where a third would round down to nothing.
+    // small ones, where a share would round down to nothing.
     this.usable = Math.max(1, max - Math.max(1, Math.ceil(max * USER_RESERVE)));
     this.windowSeconds = windowSeconds;
     this.windowMs = (windowSeconds + DESYNC_PAD) * 1000;
+    // Which of GGG's rules this came from — `ip`, `account`, `client`. Several
+    // apply at once and they are not the same numbers, so a bucket is only the
+    // same bucket if it came from the same rule. Without this, two rules that
+    // happen to publish the same shape (both have a 15-per-60s one) collapse
+    // into a single object that then appears twice in the array and gets
+    // charged twice for one request.
+    this.rule = rule;
     this.hits = [];
   }
 
   matches(spec) {
-    return this.max === spec.max && this.windowSeconds === spec.window;
+    return this.max === spec.max && this.windowSeconds === spec.window
+      && this.rule === spec.rule;
   }
 
   prune(now) {
@@ -109,28 +117,46 @@ class Bucket {
   }
 }
 
-/** Parses the header pair into `{ max, window }` specs plus their used counts. */
+/**
+ * Parses the header pair into `{ max, window, rule }` specs plus their used
+ * counts, and keeps the raw strings.
+ *
+ * **Several rules apply at once and they are not the same numbers.** GGG's docs
+ * name three — `ip`, `account`, `client` — and which of them you get depends on
+ * the request. Measured on the same league within a minute: the extension in
+ * the browser was told `60:300` for search while a bare script was told
+ * `30:300`, because one of them was carrying the player's session and picked up
+ * the account rule as well.
+ *
+ * So there is no such thing as "the" rate limit to hard-code, and the raw
+ * strings are kept for the report: after a slow pass the first question is
+ * which rules were in force, and until now that had to be guessed.
+ */
 function parsePolicy(headers) {
   const rules = headers.get('x-rate-limit-rules');
   if (!rules) return null;
 
   const specs = [];
   const used = [];
+  const seen = [];
   for (const rule of rules.split(',')) {
     const name = rule.trim().toLowerCase();
     const limit = headers.get(`x-rate-limit-${name}`);
     if (!limit) continue;
     const state = headers.get(`x-rate-limit-${name}-state`) || '';
     const stateParts = state.split(',');
+    seen.push({ rule: name, limit, state });
 
     limit.split(',').forEach((triplet, i) => {
       const [max, window] = triplet.split(':').map(Number);
       if (!Number.isFinite(max) || !Number.isFinite(window)) return;
-      specs.push({ max, window });
+      specs.push({ max, window, rule: name });
       used.push(Number(stateParts[i]?.split(':')[0]) || 0);
     });
   }
-  return specs.length ? { specs, used } : null;
+  return specs.length
+    ? { specs, used, rules: seen, policy: headers.get('x-rate-limit-policy') || null }
+    : null;
 }
 
 /**
@@ -147,6 +173,11 @@ export class RateLimiter {
     // GGG is slow or because we are holding requests back, and those are
     // opposite problems with opposite fixes — so they are counted apart.
     this.waitedMs = 0;
+    // The last policy GGG reported, verbatim. Which rules apply is not ours to
+    // decide and it changes with the request, so the answer is recorded rather
+    // than assumed.
+    this.policy = null;
+    this.rules = [];
     // Serialises callers: without it two concurrent takes could both see the
     // last free slot and use it twice.
     this.chain = Promise.resolve();
@@ -188,7 +219,11 @@ export class RateLimiter {
     return this.buckets.map((b) => {
       b.prune(now);
       return {
-        max: b.max, usable: b.usable, windowSeconds: b.windowSeconds, spent: b.hits.length,
+        rule: b.rule,
+        max: b.max,
+        usable: b.usable,
+        windowSeconds: b.windowSeconds,
+        spent: b.hits.length,
       };
     });
   }
@@ -199,8 +234,11 @@ export class RateLimiter {
     if (!policy) return;
     const now = Date.now();
 
+    this.policy = policy.policy;
+    this.rules = policy.rules;
     this.buckets = policy.specs.map((spec, i) => {
-      const bucket = this.buckets.find((b) => b.matches(spec)) || new Bucket(spec.max, spec.window);
+      const bucket = this.buckets.find((b) => b.matches(spec))
+        || new Bucket(spec.max, spec.window, spec.rule);
       bucket.syncTo(policy.used[i], now);
       return bucket;
     });

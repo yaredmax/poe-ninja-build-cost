@@ -399,11 +399,16 @@ const handlers = {
    * player's own searches?
    */
   async limits() {
-    return {
-      search: { buckets: searchLimit.state(), waitedMs: searchLimit.waitedMs },
-      fetch: { buckets: fetchLimit.state(), waitedMs: fetchLimit.waitedMs },
-      networkMs: network.ms,
-    };
+    // `rules` is the raw header, kept verbatim. Which of GGG's rules apply —
+    // ip, account, client — depends on the request rather than on us, and a
+    // report that does not say which ones were in force cannot explain a wait.
+    const view = (limiter) => ({
+      policy: limiter.policy,
+      rules: limiter.rules,
+      buckets: limiter.state(),
+      waitedMs: limiter.waitedMs,
+    });
+    return { search: view(searchLimit), fetch: view(fetchLimit), networkMs: network.ms };
   },
 };
 
