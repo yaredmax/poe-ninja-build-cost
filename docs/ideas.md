@@ -10,8 +10,10 @@ hay herramientas para no repetirlo:
 - `pncReport()` en la consola de la página — qué costó de verdad, en la build
   real, con el reparto entre espera y red.
 
-El presupuesto es el techo de todo esto: **30 búsquedas por 300 s**, de las que
-nos dejamos 20 usables. Cualquier idea se juzga en búsquedas por ítem.
+El presupuesto es el techo de todo esto, y **depende de quién llame**: la regla
+`ip` da 30 búsquedas por 300 s y una sesión iniciada suma la regla `account`, que
+sube el mismo cubo a 60. De ahí nos dejamos un sexto. Cualquier idea se juzga en
+búsquedas por ítem, no en segundos.
 
 ---
 
@@ -30,10 +32,27 @@ internos de GGG** con sus stats y valores exactos:
              "stats":{"local_affliction_notable_guerilla_tactics":1}}]
 ```
 
-**Lo que NO resuelve, y conviene decirlo primero:** estos ids no casan con
-`/api/trade/data/stats`, que usa `explicit.stat_2048747572`. Son dos
-nomenclaturas distintas de GGG y no hay endpoint público que las una, así que el
-emparejamiento por texto se queda donde está.
+**Qué son exactamente.** Comprobado: `/api/trade/data/stats` tiene 17.947
+entradas y **ninguna** con esa forma — todas son `explicit.stat_2048747572` o
+`pseudo.pseudo_total_cold_resistance`. Estos otros son los nombres del **fichero
+de datos del juego**: `V2MinPowerChargesCorrupted` es un id de `Mods.dat` y
+`base_minimum_frenzy_charges` un stat de `Stats.dat`. Dos nomenclaturas de GGG
+sin puente público entre ellas, así que el emparejamiento por texto para *buscar*
+se queda donde está.
+
+**Y una advertencia que hay que verificar antes de fiarse.** El objeto de ítem
+viene de poe.ninja, y la API pública de GGG (personaje, stash) no devuelve ids de
+mod: solo texto. O sea que **poe.ninja los está resolviendo**, probablemente
+contra un volcado tipo RePoE. Si los resuelve por texto, fiarse de ellos es mover
+nuestro problema de emparejamiento al suyo — mejor que el nuestro, seguramente,
+pero no es una fuente primaria. Antes de construir nada encima, confirmar de
+dónde salen.
+
+**Lo que NO resuelve, y lo dije mal en su momento:** no distingue un modificador
+*fijo* de uno *tirado*. En un Watcher's Eye conviven `MaximumLifeUnique__9`
+(fijo) y `PrecisionIncreasedAttackDamage` (tirado) y nada en la forma del id los
+separa. O sea que **esto no habría evitado el fallo del Grand Spectrum**, que fue
+exactamente ese problema.
 
 **Lo que sí resuelve.** El id dice literalmente de dónde viene el modificador.
 Comprobado sobre los once ítems corruptos de la build de prueba, sin excepción:
@@ -90,8 +109,11 @@ diferencia entre una y otra. Salió a 1297 c en vez de 35.5 div.
 
 **La lección no es sobre la guarda.** Un ítem no es una medición, "sin pool
 publicado" no significa "lo lleva toda copia", y no hay ningún campo en los datos
-de economía que diga cuál de las dos cosas es. Si alguien retoma esto, necesita
-una señal de verdad — y la hay: los ids internos de la idea 0.
+de economía que diga cuál de las dos cosas es. Los ids internos de la idea 0
+**tampoco** lo dicen — lo comprobé después y me había precipitado al sugerirlo.
+Quien retome esto necesita una fuente que separe fijo de tirado, y ahora mismo la
+única que tenemos es el pool `optional` de poe.ninja, que para el Grand Spectrum
+no existe.
 
 ## 2. Un modificador que es un inconveniente no debería gastar filtro
 
@@ -109,30 +131,6 @@ que ya usamos con las resistencias: si un modificador no distingue, que no ocupe
 ranura. Empezar por medir cuántos ítems del fixture llevan uno y qué le pasa a la
 cuenta de búsquedas al excluirlos — un `--exclude-drawbacks` en `query-test.mjs`
 lo enseña gratis antes de gastar nada.
-
-## 3. La escalera podría subir en vez de bajar, solo en las cluster
-
-**La idea.** Sobre una Glyph Splinter real, con la misma joya y solo cambiando
-filtros:
-
-```
-los seis filtros                    0 listados
-sin los "also grant" pequeños     832
-solo notables + nº de pasivas     832
-```
-
-Bajar desde seis cuesta 6 consultas. Subir desde los cuatro que sí aciertan
-—añadiendo un "small passive" cada vez— cuesta 2 y llega al mismo sitio: la
-escalera acabó ganando con uno de los dos puesto (19 listados, 1376 c).
-
-**Por qué no está hecho.** Porque es exactamente la forma de la idea que ya se
-revirtió una vez ("descending instead of permuting"), y una cluster no es la
-prueba. En la pasada real **5 de 9 cluster acertaron la consulta ancha a la
-primera**: para esas, subir sería empezar por una pregunta peor.
-
-**Cómo comprobarlo.** Implementarlo detrás de una constante, correr
-`background-test.mjs` sobre las 4 cluster del fixture y comparar precio *y*
-búsquedas, ítem a ítem. Si el precio baja en alguna, se descarta.
 
 ## 4. ~~El anointment se está cayendo por el tope~~ RESUELTO AL REVÉS
 
