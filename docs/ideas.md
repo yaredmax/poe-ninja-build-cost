@@ -15,6 +15,67 @@ nos dejamos 20 usables. Cualquier idea se juzga en búsquedas por ítem.
 
 ---
 
+## 0. poe.ninja manda los ids de GGG en un campo que no estábamos leyendo
+
+**El hallazgo.** El objeto de ítem que guarda poe.ninja en React tiene un campo
+`mods` que `page-bridge.js` no captura. No son ids de trade, son los **ids
+internos de GGG** con sus stats y valores exactos:
+
+```json
+"implicit":[{"id":"V2MinPowerChargesCorrupted","stats":{"base_minimum_frenzy_charges":1}}]
+"enchant": [{"id":"JewelExpansionPassiveNodes",
+             "stats":{"local_jewel_expansion_passive_node_index":33,
+                      "local_jewel_expansion_passive_node_count":5}}]
+"explicit":[{"id":"AfflictionNotableGuerillaTactics",
+             "stats":{"local_affliction_notable_guerilla_tactics":1}}]
+```
+
+**Lo que NO resuelve, y conviene decirlo primero:** estos ids no casan con
+`/api/trade/data/stats`, que usa `explicit.stat_2048747572`. Son dos
+nomenclaturas distintas de GGG y no hay endpoint público que las una, así que el
+emparejamiento por texto se queda donde está.
+
+**Lo que sí resuelve.** El id dice literalmente de dónde viene el modificador.
+Comprobado sobre los once ítems corruptos de la build de prueba, sin excepción:
+
+```
+V2MaxPowerChargesCorrupted                       Heatshiver, Winterweave
+V2SocketedDurationGemCorrupted, V2AllResistancesCorrupted   Architect's Hand
+V2SocketedTrapOrMineGemCorrupted, V2GemLevelCorrupted       Dialla's
+V2MinPowerChargesCorrupted, V2IncreasedAllAttributesCorrupted  Badge
+```
+
+Y los corruptos **sin** implícito añadido — Impossible Escape, Forbidden Flame,
+Forbidden Flesh — llegan con la lista de implícitos vacía.
+
+Eso es una respuesta directa a la pregunta que hoy contestamos comparando textos
+contra el pool publicado de poe.ninja, que es el mecanismo detrás del peor bug
+que ha tenido este proyecto (el Le Heup a 7 c en vez de 9 div).
+
+**Por qué no está hecho ya.** Porque hoy no arregla nada medible: sobre este
+fixture, la comparación por texto acierta en los once. Sería cambiar un mecanismo
+que funciona por otro mejor **sin un caso que lo demuestre**, que es justo lo que
+este documento existe para no hacer. El caso que lo demostraría es un único cuyo
+pool de implícitos publicado esté presente pero equivocado; el pool *vacío* ya lo
+cubre `corruptedImplicits` con un caso especial.
+
+**Ojo con el orden.** Los ids **no** vienen alineados con los textos: el Badge
+lista `["4% increased Attributes", "+1 to Minimum Frenzy Charges"]` y
+`["V2MinPowerChargesCorrupted", "V2IncreasedAllAttributesCorrupted"]`, o sea al
+revés. Así que no vale con emparejar por índice; o se empareja por el valor del
+stat, o se usa en bloque ("si todos los implícitos están marcados Corrupted,
+todos lo son"), que cubre los once casos observados.
+
+**Cómo hacerlo.** `page-bridge.js` captura `modIds` por grupo, `collect-fixture`
+emite el campo vacío (trade no lo da, y `check-wiring` compara las dos listas de
+campos), `corruptedImplicits` prefiere la señal y cae al texto si no está. Volver
+a capturar `worn.json` con el campo y comprobar con `query-test.mjs` que ningún
+filtro cambia.
+
+**Y de regalo:** `local_jewel_expansion_passive_node_count: 5` es el número de
+pasivas de una cluster sin parsear texto, y `local_affliction_notable_*` nombra
+el notable. Las dos cosas que se compran en una cluster, estructuradas.
+
 ## 1. ~~Los modificadores fijos de un único no deberían ir en la consulta~~ HECHO
 
 Hecho en `a3a2c1c`. Se comprobó primero con búsquedas reales, y el resultado no

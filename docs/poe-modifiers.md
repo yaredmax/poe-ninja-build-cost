@@ -189,6 +189,28 @@ cluster. Pero **quitarlos no es la respuesta**: la escalera acaba encontrando 19
 listados conservando uno de los dos, y esos 19 valen 1376 c mientras que los 832
 son basura de 1 c. La escalera está haciendo exactamente su trabajo.
 
+## Las dos nomenclaturas de GGG, que no se juntan
+
+Hay **dos** formas de nombrar un modificador y no hay puente público entre ellas:
+
+| | ejemplo | quién la usa |
+| --- | --- | --- |
+| id interno | `PrecisionIncreasedAttackDamage` | el objeto de ítem de poe.ninja |
+| stat de trade | `explicit.stat_2048747572` | `/api/trade/data/stats`, las búsquedas |
+
+Y una tercera cosa, el nombre del stat: `attack_damage_+%_while_affected_by_precision`.
+
+Por eso el emparejamiento es **por texto**: el índice de precios de poe.ninja
+publica plantillas (`"(40-60)% increased Attack Damage while affected by
+Precision"`, con `optional: true/false`) y trade publica textos con `#`. Unirlos
+por el texto normalizado es el único puente que existe sin una tabla de terceros.
+
+Lo que **sí** da el objeto de ítem, y no estamos leyendo, es el campo `mods` con
+el id interno y los valores exactos por stat. Ahí el id dice de dónde viene el
+modificador — `V2MinPowerChargesCorrupted` se identifica solo como corrupción —
+que es la pregunta que hoy contestamos comparando textos. Ver la idea 0 en
+[ideas.md](ideas.md), con la evidencia y por qué no está hecho todavía.
+
 ## Dónde mirar cuando algo salga raro
 
 `node tools/query-test.mjs <nombre>` enseña, sin gastar una sola búsqueda de
