@@ -213,27 +213,54 @@ visto pasar —la pasada de 30 ítems terminó entera— pero si pasa, el
 ver si el worker sobrevive. Si no, la respuesta conocida es un puerto abierto o
 `chrome.alarms` para trocear la espera.
 
-## 9. Una cluster corrupta puede irse sin precio y costar 160 segundos
+## 9. ~~Una cluster corrupta puede irse sin precio~~ HECHO
 
-Medido en una pasada real: una Gale Splinter, cluster mediana corrupta de 8
-modificadores, gastó **7 búsquedas y 160 segundos** y acabó en
-`"no listing found with any subset of its mods"`. Ni precio ni nada, y es el
-peor caso de la escalera que hemos visto.
+La Gale Splinter gastaba 7 búsquedas y 160 segundos para acabar en
+`"no listing found with any subset of its mods"`. Dos causas encadenadas.
 
-Que no exista mercado para esa joya es posible y legítimo. Lo que no está
-comprobado es si el problema es ese o es que la corrupción mete un implícito que
-no aparece en ninguna cluster listada, en cuyo caso los 7 subconjuntos que
-probamos lo llevaban todos y ninguno podía acertar.
+El presupuesto de la escalera (`MAX_COMBO_QUERIES = 6`) cubre **exactamente un
+nivel** para un ítem de 6 mods: seis subconjuntos de tamaño cinco y se acabó. Un
+ítem cuyo mercado solo existe dos niveles más abajo lo gasta todo y vuelve sin
+nada.
 
-**Cómo comprobarlo, gratis:** meterla en `worn.json` y pasarle `query-test.mjs`.
-Si el implícito de corrupción está en los 6 filtros, la escalera nunca lo suelta
-—- baja de tamaño pero `distinguishing` lo conserva — y ese es el bug.
+Y la corrupción estaba en todos los subconjuntos, porque `mods` la pone la
+primera y ningún peldaño la suelta.
 
-## 10. Las flasks
+**El arreglo no fue permutar mejor sino no permutar.** Idea del usuario: cuando
+la ancha falla y el ítem está corrupto, preguntar lo mismo sin los mods de
+corrupción y con `corrupted` fuera del todo (el "any" de trade). Se conservan
+todos los mods que la joya tiró y solo se relaja "y estaba corrupta así".
 
-`background-test.mjs` las filtra diciendo que `content.js` no las tasa, y el
-informe real enseña un Diamond Flask y un Cinderswallow tasados. Uno de los dos
-miente. Además la wiki dice que **todos** los modificadores de una flask son
-locales, y las estamos tratando como globales.
+```
+antes (permutando)        8 búsquedas   1.7 div    4 listados   3 filtros
+después (relajando)       2 búsquedas   8.7 div   11 listados   5 filtros
+```
 
-**Cómo comprobarlo.** Gratis con `query-test.mjs` sobre una flask.
+**No se aplica a únicos**, y ese límite importa: ahí el implícito de corrupción
+es la razón de ir a trade, así que relajarlo pide el único normal y aterriza en
+el suelo que este camino existe para batir.
+
+Queda el último recurso que se metió antes (media docena de mods de la joya, una
+búsqueda) para los **no corruptos** que agotan la escalera. Ese caso no está
+medido todavía.
+
+## 10. Las flasks — a medias
+
+**Hecho:** el encantamiento de Enkindling ya entra en la búsqueda (`FLASK_FIELDS`),
+que llevó una Diamond Flask rara de 20 c sobre 358 listados a 186 c sobre 82. El
+trigger de Instilling se deja fuera a propósito, porque lo pone el comprador.
+Y `background-test.mjs` ya las ve: las excluía con un comentario que decía que
+no se tasaban, y sí se tasan.
+
+**Sin resolver, y son dos cosas distintas:**
+
+La wiki dice que **todos** los modificadores de una flask son locales, y las
+tratamos como globales. No sabemos qué efecto tiene eso; ninguna medición lo ha
+tocado.
+
+Y las flasks raras salían con 300-1900 listados —`low`, o sea basura por
+definición nuestra— y aun así `reliable: true`, sumando al total. La regla de
+"construida con sus propios mods, luego es precisa" se pensó para el extremo de
+*pocos* resultados y se aplica también al de *muchos*. Con el encantamiento
+dentro ya no se da en los datos que tenemos, así que no se ha tocado — pero la
+regla sigue diciendo que mil listados son fiables.
