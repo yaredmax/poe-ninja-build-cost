@@ -498,7 +498,22 @@ function setFabPhase(phase) {
       : "Calculate this build's cost";
 }
 
+/**
+ * Bumped whenever a run should stop. The trade pass checks it between items.
+ *
+ * Without it, closing the panel left `running` true until the pass finished on
+ * its own — so the button did nothing for the next six minutes, and the pass
+ * carried on spending GGG's budget filling in a panel that was no longer there.
+ */
+let runToken = 0;
+
+function cancelRun() {
+  runToken++;
+  running = false;
+}
+
 function closePanel() {
+  cancelRun();
   clearBadges();
   document.getElementById(PANEL_ID)?.remove();
   setFabPhase('idle');
@@ -1045,13 +1060,15 @@ window.pncReport = async function pncReport() {
  * Cached items come back instantly, so a second run on the same build — or a
  * page refresh — costs no requests at all.
  */
-async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
+async function tradePass(matches, { league, chaosPerDivine, failed, index, token }) {
   // Same order the panel lists them in — equipment, flasks, jewels, gems — so
   // watching the run makes sense against what you are reading.
   const pending = matches
     .filter((m) => needsTradeLookup(m))
     .sort((a, b) => SECTION_ORDER.indexOf(categoryOf(a)) - SECTION_ORDER.indexOf(categoryOf(b)));
-  if (!pending.length) return;
+  // Closed while the economy was loading, before a single trade request went
+  // out. Nothing to mark and nothing to ask for.
+  if (!pending.length || token !== runToken) return;
 
   // Mark every one of them up front. Until its search comes back the badge is
   // showing poe.ninja's price for the plain unique, which for a corrupted Le
@@ -1067,6 +1084,11 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
   runLog.league = league;
 
   for (const match of pending) {
+    // The user closed the panel. Stop asking GGG for prices nobody is waiting
+    // for — the appraisals already done are cached for two hours, so reopening
+    // picks them straight back up.
+    if (token !== runToken) return;
+
     done++;
     const label = match.item.name || match.item.baseType;
     setStatus(`Pricing on trade… ${done}/${pending.length} — ${label}`);
@@ -1258,6 +1280,9 @@ function updateRareBadge(match, chaosPerDivine) {
 async function run() {
   if (running) return;
   running = true;
+  // Claimed for this run. Closing the panel bumps it, and everything below
+  // that takes time checks whether it is still the current one.
+  const token = ++runToken;
   clearBadges();
   ensurePanel();
   setFabPhase('loading');
@@ -1316,12 +1341,17 @@ async function run() {
 
     // Straight on into the trade pass. Everything above is already on screen, so
     // the slow part runs behind numbers the user can already read.
-    await tradePass(matches, { league, chaosPerDivine, failed, index });
+    await tradePass(matches, { league, chaosPerDivine, failed, index, token });
   } catch (err) {
-    setStatus(`Error: ${err.message}`, 'pnc-warn');
+    if (token === runToken) setStatus(`Error: ${err.message}`, 'pnc-warn');
   } finally {
-    running = false;
-    setFabPhase('done');
+    // Only if this run is still the current one. If the panel was closed,
+    // `cancelRun` has already released the flag and a newer run may hold it —
+    // clearing it here would let two passes run at once.
+    if (token === runToken) {
+      running = false;
+      setFabPhase('done');
+    }
   }
 }
 
