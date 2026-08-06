@@ -8,7 +8,7 @@
 //   30 per 300 s (1800 s ban), 600 per 21600 s (3600 s ban)
 
 import { RateLimiter } from './rate-limit.js';
-import { fetchCurrencyRates } from './economy.js';
+import { fetchCurrencyRates, fetchExchangeRates } from './economy.js';
 
 const API = 'https://www.pathofexile.com/api/trade/search';
 const FETCH = 'https://www.pathofexile.com/api/trade/fetch';
@@ -28,6 +28,13 @@ export const fetchLimit = new RateLimiter('fetch');
  * limit and is loaded once.
  */
 export const network = { ms: 0 };
+
+/**
+ * Currencies a listing was priced in that we could not convert, so the listing
+ * was dropped. Empty is the expected state; anything in here is a price the
+ * player can see on the trade site and we cannot.
+ */
+export const unconverted = new Set();
 
 /** `fetch`, timed. */
 async function timedFetch(url, init) {
@@ -468,9 +475,12 @@ let currencyLeague = null;
 async function loadCurrencyRates(league) {
   if (currencyChaos && currencyLeague === league) return currencyChaos;
 
-  const [statics, rates] = await Promise.all([
+  const [statics, rates, exchange] = await Promise.all([
     fetch(STATIC).then((r) => (r.ok ? r.json() : { result: [] })),
     fetchCurrencyRates(league),
+    // Gaps only, and a failure here must not cost us the 53 currencies the
+    // other two already cover.
+    fetchExchangeRates(league).catch(() => ({})),
   ]);
 
   const map = new Map();
@@ -480,6 +490,17 @@ async function loadCurrencyRates(league) {
       if (entry.id && chaos > 0) map.set(entry.id, chaos);
     }
   }
+
+  // Fill what the stash overview does not carry, from the exchange, which is
+  // keyed by these ids directly. Additive on purpose: a currency already
+  // priced keeps the rate it had, so no price the extension shows today moves
+  // — the two sources disagree by 15% on the Divine Orb alone and this is not
+  // the change that decides between them. What it does fix is a listing
+  // disappearing because nobody could put a number on a Mirror of Kalandra.
+  for (const [id, chaos] of Object.entries(exchange)) {
+    if (!map.has(id) && chaos > 0) map.set(id, chaos);
+  }
+
   currencyChaos = map;
   currencyLeague = league;
   return map;
@@ -527,6 +548,12 @@ export async function fetchPrices(queryId, resultIds, chaosPerDivine, league = n
         : price.currency === 'divine' ? chaosPerDivine
         : null);
     if (rate > 0) chaos.push(price.amount * rate);
+    // A listing we cannot put a number on is a listing that vanishes, and it
+    // used to vanish without a word: the mirror-priced item a player could see
+    // on the trade site and not in our prices. Recorded so the next one is a
+    // question somebody can answer rather than a discrepancy nobody can
+    // explain.
+    else unconverted.add(price.currency);
   }
   return chaos.sort((a, b) => a - b);
 }

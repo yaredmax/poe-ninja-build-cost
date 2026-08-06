@@ -21,6 +21,7 @@ import {
   searchLimit,
   fetchLimit,
   network,
+  unconverted,
 } from './lib/trade.js';
 import {
   GEAR_FIELDS,
@@ -410,7 +411,14 @@ const handlers = {
       buckets: limiter.state(),
       waitedMs: limiter.waitedMs,
     });
-    return { search: view(searchLimit), fetch: view(fetchLimit), networkMs: network.ms };
+    return {
+      search: view(searchLimit),
+      fetch: view(fetchLimit),
+      networkMs: network.ms,
+      // Expected to be empty. Anything here is a listing the player can see
+      // priced on the trade site and we threw away.
+      unconverted: [...unconverted],
+    };
   },
 };
 

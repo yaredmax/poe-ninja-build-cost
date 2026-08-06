@@ -151,6 +151,37 @@ export async function fetchCurrencyRates(league) {
   return rates;
 }
 
+/**
+ * The same thing from poe.ninja's bulk exchange, keyed by **trade's own
+ * currency id** rather than by display name.
+ *
+ * Used only to fill gaps. The stash overview above covers 66 currencies and
+ * trade lets a seller price in 103, and the difference is not filtered out —
+ * `fetchPrices` drops a listing it cannot convert without saying so. Mirror of
+ * Kalandra is one of the missing ones, which is how a four-mirror listing came
+ * to be visible on the trade site and absent from our prices.
+ *
+ * **Never used to override a rate the stash overview has.** The two are
+ * different markets and they disagree: of the 64 currencies both carry, 18
+ * agree within a quarter, the stash appears to floor cheap currency at 1 chaos,
+ * and the Divine Orb differs by 15%. Preferring this one wholesale would move
+ * every price the extension shows, and the item index those prices are added to
+ * is denominated with the other. So it fills holes and touches nothing else.
+ *
+ * `primaryValue` is in chaos. Checked against poe.ninja's own page: a mirror at
+ * 115685 chaos over a divine at 216.5 is 534 divine, which is the number the
+ * site prints.
+ */
+export async function fetchExchangeRates(league) {
+  const url = `${BASE}/exchange/current/overview?league=${encodeURIComponent(league)}&type=Currency`;
+  const data = await getJson(url, `exch:${league}`);
+  const rates = {};
+  for (const line of data.lines || []) {
+    if (line.id && line.primaryValue > 0) rates[line.id] = line.primaryValue;
+  }
+  return rates;
+}
+
 /** Overview of one item category for a league. */
 async function fetchOverview(league, type) {
   const url = `${BASE}/stash/current/item/overview?league=${encodeURIComponent(league)}&type=${encodeURIComponent(type)}`;
