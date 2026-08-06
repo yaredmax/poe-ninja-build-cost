@@ -1072,6 +1072,22 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
     setStatus(`Pricing on trade… ${done}/${pending.length} — ${label}`);
 
     const askedAt = Date.now();
+    // Most items take three seconds and one in five takes thirty, because the
+    // slow one is whichever happened to arrive when GGG's bucket was full.
+    // Nothing is wrong when that happens, but a status line frozen on a name
+    // for half a minute says the opposite, so it counts instead.
+    //
+    // Pacing the pass evenly was the other idea and it is worse: the sustained
+    // rate works out at about eight seconds an item, so a gap short enough not
+    // to hurt does not prevent the blocking, and one long enough to prevent it
+    // makes every item as slow as the slowest.
+    const ticking = setInterval(() => {
+      const waited = Math.round((Date.now() - askedAt) / 1000);
+      if (waited < 3) return;
+      setStatus(`Pricing on trade… ${done}/${pending.length} — ${label}`
+        + `  ·  waiting ${waited} s for GGG's rate limit`);
+    }, 1000);
+
     try {
       match.appraisal = await send('appraise', {
         item: match.item,
@@ -1094,6 +1110,10 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
       logAppraisal(match, Date.now() - askedAt, err);
       setStatus(`Stopped after ${done - 1} of ${pending.length}: ${err.message}`, 'pnc-warn');
       return;
+    } finally {
+      // Including on the way out of that `return`, or the timer would keep
+      // rewriting a status line that has already said the run stopped.
+      clearInterval(ticking);
     }
   }
   runLog.finishedAt = Date.now();
