@@ -76,20 +76,22 @@ filtro cambia.
 pasivas de una cluster sin parsear texto, y `local_affliction_notable_*` nombra
 el notable. Las dos cosas que se compran en una cluster, estructuradas.
 
-## 1. ~~Los modificadores fijos de un único no deberían ir en la consulta~~ HECHO
+## 1. ~~Los modificadores fijos de un único no deberían ir en la consulta~~ REVERTIDO
 
-Hecho en `a3a2c1c`. Se comprobó primero con búsquedas reales, y el resultado no
-deja lugar a dudas: un Winterweave corrupto con seis filtros da 3 listados, y con
-solo su implícito de corrupción da **los mismos 3**. Los cinco explícitos fijos no
-estrechaban nada.
+Hecho en `a3a2c1c` y **deshecho en `0670f5d`**, y la historia vale más que la
+idea. La regla se comprobó con búsquedas reales sobre un Winterweave corrupto —
+seis filtros y un filtro daban los mismos 3 listados — y llevaba `variantCount`
+como guarda para los únicos que sí se distinguen por sus explícitos.
 
-`content.js` pasa `variantCount` y por encima de una variante publicada se
-conservan los explícitos, porque ahí *son* lo que distingue (Ralakesh's, medido
-sin cambios en 1280 listados). Winterweave y Ralakesh's están en `worn.json`
-justo por eso: son los dos ítems que deciden si la regla es correcta.
+Un Grand Spectrum corrupto se coló por debajo: poe.ninja **no publica variantes**
+para esa joya (`variantCount: 0`, y encima da mal la base), así que la guarda no
+saltó y se tiró "+1 to Minimum Power Charges per Grand Spectrum", que es toda la
+diferencia entre una y otra. Salió a 1297 c en vez de 35.5 div.
 
-Ganancia: el Badge pasó de 4 búsquedas a 3, y el Winterweave de 7 filtros a 2
-perdiendo el `≥` — porque ahora la búsqueda fija todo lo que varía.
+**La lección no es sobre la guarda.** Un ítem no es una medición, "sin pool
+publicado" no significa "lo lleva toda copia", y no hay ningún campo en los datos
+de economía que diga cuál de las dos cosas es. Si alguien retoma esto, necesita
+una señal de verdad — y la hay: los ids internos de la idea 0.
 
 ## 2. Un modificador que es un inconveniente no debería gastar filtro
 
@@ -213,7 +215,23 @@ visto pasar —la pasada de 30 ítems terminó entera— pero si pasa, el
 ver si el worker sobrevive. Si no, la respuesta conocida es un puerto abierto o
 `chrome.alarms` para trocear la espera.
 
-## 9. Las flasks
+## 9. Una cluster corrupta puede irse sin precio y costar 160 segundos
+
+Medido en una pasada real: una Gale Splinter, cluster mediana corrupta de 8
+modificadores, gastó **7 búsquedas y 160 segundos** y acabó en
+`"no listing found with any subset of its mods"`. Ni precio ni nada, y es el
+peor caso de la escalera que hemos visto.
+
+Que no exista mercado para esa joya es posible y legítimo. Lo que no está
+comprobado es si el problema es ese o es que la corrupción mete un implícito que
+no aparece en ninguna cluster listada, en cuyo caso los 7 subconjuntos que
+probamos lo llevaban todos y ninguno podía acertar.
+
+**Cómo comprobarlo, gratis:** meterla en `worn.json` y pasarle `query-test.mjs`.
+Si el implícito de corrupción está en los 6 filtros, la escalera nunca lo suelta
+—- baja de tamaño pero `distinguishing` lo conserva — y ese es el bug.
+
+## 10. Las flasks
 
 `background-test.mjs` las filtra diciendo que `content.js` no las tasa, y el
 informe real enseña un Diamond Flask y un Cinderswallow tasados. Uno de los dos
