@@ -115,6 +115,52 @@ Quien retome esto necesita una fuente que separe fijo de tirado, y ahora mismo l
 única que tenemos es el pool `optional` de poe.ninja, que para el Grand Spectrum
 no existe.
 
+## 1b. La mitad de las monedas en las que se puede vender se nos caen
+
+**Medido:** trade permite poner precio en **103 monedas** y nosotros solo sabemos
+convertir **53**. Las otras 50 no es que las filtremos — es que
+`fetchPrices` descarta el listado en silencio cuando no encuentra tasa. Entre las
+que faltan hay basura (Rogue's Marker, Cartographer's Chisel) y hay
+`Mirror of Kalandra`.
+
+Lo encontró el usuario: en su búsqueda veía un listado a 4 mirrors y en nuestros
+precios no aparecía. Hoy nos beneficia por accidente — es un outlier — pero el
+mecanismo es "no sé convertirlo, luego no existe", y eso se lleva por delante
+listados legítimos en cualquier moneda poco común.
+
+**Hay una fuente mejor y es tentadora:**
+
+```
+stash/current/currency/overview      66 monedas, indexadas por nombre visible
+exchange/current/overview            102 monedas, indexadas por el id de trade
+```
+
+La segunda viene **indexada por el id que usa trade** (`"id": "mirror"`), o sea
+que el cruce con `/api/trade/data/static` por nombre visible que hace hoy
+`loadCurrencyRates` sobraría entero. Más completa y más simple.
+
+**Por qué no está hecho.** Porque las dos fuentes no miden lo mismo, y eso solo
+se ve comparándolas:
+
+```
+en ambas: 64 monedas          coinciden (±25%): 18
+Orb of Alchemy    stash 1.0    exchange 0.1
+Blessed Orb       stash 1.0    exchange 0.1
+Orb of Annulment  stash 4.1    exchange 11.3
+Divine Orb        stash 187    exchange 216.5
+```
+
+El stash parece redondear las monedas baratas a 1 chaos; el exchange es el
+mercado de intercambio a granel. **Cambiar de fuente movería todos los precios
+de la extensión** — el divine solo ya es un 15% — y además el índice de ítems de
+poe.ninja viene tasado con la primera, así que mezclarlas descuadraría el total
+consigo mismo.
+
+**Cómo decidirlo.** No es "cuál es mejor" sino "cuál corresponde": convertimos
+precios de listados de trade, así que la pregunta es qué vale un divine para
+quien está comprando ese ítem. Antes de tocarlo, comparar el total de una build
+entera con las dos fuentes y mirar cuál se parece más a lo que pide la gente.
+
 ## 2. Un modificador que es un inconveniente no debería gastar filtro
 
 **La idea.** Desde que "reduced" traduce, "23% reduced Trap Throwing Speed" entra
