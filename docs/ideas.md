@@ -169,16 +169,24 @@ contar `answered from the query cache` en dos ejecuciones seguidas.
 
 ## 7. ~~El tercio reservado al jugador~~ BAJADO A UN SEXTO
 
-Simulado con el propio `estimate()` de la extensión sobre las políticas reales,
-para las 46 búsquedas que manda una pasada medida:
+Simulado con el propio `estimate()` de la extensión, para las 46 búsquedas que
+manda una pasada medida. **Con las dos políticas**, porque resultó que no hay
+una: GGG aplica sus reglas por llamante y una sesión iniciada suma la regla
+`account` a la de `ip`.
 
 ```
-reserve   10s  60s  300s     46 búsquedas
-1/3         3   10    20        10:13
-1/6         4   12    25         6:24
-1/12        4   13    27         6:13
-ninguno     4   14    29         6:02
+46 búsquedas      1/3     1/6    1/12       0
+  solo ip        10:13   6:24    6:13    6:02
+  ip + account    5:13   3:27    3:21    3:09
 ```
+
+La forma es la misma en las dos: el escalón de 1/3 a 1/6 se lleva la ganancia
+(un 37% y un 34%) y lo de después son segundos. O sea que la decisión era
+correcta aunque la tomé con la política equivocada delante.
+
+Y de paso: **logueado se va al doble de velocidad.** La extensión lo detecta y lo
+dice al terminar la pasada, porque si no nada en pantalla explica por qué la
+misma build tarda el doble para una persona que para otra.
 
 Casi cuatro minutos el primer escalón y veinte segundos todo lo demás. Un sexto
 se lleva la ganancia entera y aún deja al jugador cinco búsquedas cada cinco

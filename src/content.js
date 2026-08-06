@@ -933,6 +933,18 @@ function logAppraisal(match, elapsedMs, error = null) {
 
 const PHASES = ['wide', 'fallback', 'broad'];
 
+/**
+ * Whether GGG rated this pass by IP alone, i.e. the caller was not signed in.
+ *
+ * Cautious on purpose: an empty or missing rule list means we never learned
+ * anything, and guessing "not signed in" there would nag someone who is.
+ */
+function onlyIpRule(limits) {
+  const rules = limits?.search?.rules;
+  return Array.isArray(rules) && rules.length > 0
+    && rules.every((r) => r.rule === 'ip');
+}
+
 function reportTotals() {
   const totals = { searches: 0, fetches: 0, waitingMs: 0, networkMs: 0 };
   for (const phase of PHASES) totals[phase] = { searches: 0, fetches: 0 };
@@ -1100,7 +1112,17 @@ async function tradePass(matches, { league, chaosPerDivine, failed, index }) {
   const cached = pending.length - live;
   setStatus(
     `Done. ${pending.length} item(s) priced on trade` +
-      (cached ? `, ${cached} from cache.` : '.'),
+      (cached ? `, ${cached} from cache.` : '.') +
+      // GGG applies its rules per caller, and a signed-in one picks up the
+      // account rule on top of the ip rule: sixty searches per five minutes
+      // instead of thirty. Measured, the same pass takes 3:27 signed in and
+      // 6:24 signed out. Worth saying once, since nothing on screen would
+      // otherwise explain why the same build takes twice as long for one
+      // person as for another.
+      (onlyIpRule(runLog.limits)
+        ? ' Signing in to pathofexile.com would roughly halve this: GGG gives a'
+          + ' signed-in client twice the searches per five minutes.'
+        : ''),
   );
 }
 
