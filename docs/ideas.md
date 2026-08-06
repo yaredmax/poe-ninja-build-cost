@@ -15,28 +15,20 @@ nos dejamos 20 usables. Cualquier idea se juzga en búsquedas por ítem.
 
 ---
 
-## 1. Los modificadores fijos de un único no deberían ir en la consulta
+## 1. ~~Los modificadores fijos de un único no deberían ir en la consulta~~ HECHO
 
-**La idea.** Buscando "Le Heup of All" por nombre, el mercado te da Le Heups.
-Añadir "+8 a todos los atributos" no quita ni un listado, porque todos lo llevan.
-Solo puede romper la consulta si el texto no traduce igual del otro lado. Lo que
-distingue una copia de otra es la corrupción, la mutación y el pool `optional`.
+Hecho en `a3a2c1c`. Se comprobó primero con búsquedas reales, y el resultado no
+deja lugar a dudas: un Winterweave corrupto con seis filtros da 3 listados, y con
+solo su implícito de corrupción da **los mismos 3**. Los cinco explícitos fijos no
+estrechaban nada.
 
-**Por qué no está hecho ya.** Lo probé y me eché atrás con razón: no todos los
-"explícitos fijos" son fijos. Un único con **varias variantes publicadas** —
-Ralakesh's Impatience — se distingue justo por sus explícitos, y ahí quitarlos
-sería tasar la variante equivocada. `content.js` sí sabe cuál es el caso
-(`match.price?.variantCount > 1`), pero no se lo pasa al service worker.
+`content.js` pasa `variantCount` y por encima de una variante publicada se
+conservan los explícitos, porque ahí *son* lo que distingue (Ralakesh's, medido
+sin cambios en 1280 listados). Winterweave y Ralakesh's están en `worn.json`
+justo por eso: son los dos ítems que deciden si la regla es correcta.
 
-**Cómo comprobarlo.** Pasar `variantCount` en el mensaje `appraise`, y solo
-soltar los explícitos cuando `variantCount <= 1` y haya algo que distinga.
-Después, con `query-test.mjs`, mirar que la consulta de Ralakesh's no cambia y la
-del Badge baja de 6 filtros a 2. Luego una pasada de `background-test.mjs` sobre
-los únicos corruptos del fixture.
-
-**Lo que ya sé:** en el Badge no habría acertado igualmente (con los dos
-implícitos corruptos solos también da 0 listados, porque la doble corrupción es
-rara de por sí). O sea que ahorra una búsqueda por único corrupto, no cuatro.
+Ganancia: el Badge pasó de 4 búsquedas a 3, y el Winterweave de 7 filtros a 2
+perdiendo el `≥` — porque ahora la búsqueda fija todo lo que varía.
 
 ## 2. Un modificador que es un inconveniente no debería gastar filtro
 
@@ -79,15 +71,15 @@ primera**: para esas, subir sería empezar por una pregunta peor.
 `background-test.mjs` sobre las 4 cluster del fixture y comparar precio *y*
 búsquedas, ítem a ítem. Si el precio baja en alguna, se descarta.
 
-## 4. El anointment se está cayendo por el tope
+## 4. ~~El anointment se está cayendo por el tope~~ RESUELTO AL REVÉS
 
-`Allocates Disciple of the Slaughter` traduce perfectamente
-(`enchant.stat_2954116742|58921`) y aun así no llega a la consulta: el tope de
-seis lo corta porque va detrás de cinco explícitos fijos. En un amuleto el
-anointment es caro y es de lo poco que distingue una copia.
-
-**Cómo comprobarlo.** Es la idea 1 vista por el otro lado: si los fijos salen, el
-anointment entra solo. Medir las dos juntas.
+Traduce bien (`enchant.stat_2954116742|58921`) y lo cortaba el tope, sí. Pero la
+respuesta no era rescatarlo: **no hay que filtrar por el anointment nunca**. Lo
+aplica quien se pone el amuleto, así que uno dropeado se vende sin anointar y
+exigirlo tira casi todos los listados comparables. Excluido a propósito en
+`stats.js`, solo en la ranura de encantamiento — Forbidden Flame y Flesh llevan
+"Allocates X if you have the matching modifier on…" como explícito y ahí ese
+modificador *es* el ítem.
 
 ## 5. "1 Added Passive Skill is a Jewel Socket" no traduce
 
