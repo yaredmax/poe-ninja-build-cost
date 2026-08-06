@@ -12,6 +12,7 @@ import {
   DEFAULT_SALE_MODE,
   SALE_MODES,
   fetchPrices,
+  medianPrice,
   RELIABLE,
   isBetter,
   reliability,
@@ -224,7 +225,7 @@ async function priceByCombinations({
     for (const hit of hits) {
       if (spend) spend[phase].fetches++;
       const prices = await fetchPrices(hit.id, hit.result, chaosPerDivine, league);
-      const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
+      const median = medianPrice(prices);
       if (median != null && (!best || median > best.chaos)) best = { ...hit, chaos: median };
     }
     if (best) return { ...best, mods: size, rolled: widest, queriesUsed: maxQueries - budget };
@@ -564,7 +565,7 @@ async function runAppraisal({
         if (attempt?.total) {
           spend.broad.fetches++;
           const prices = await fetchPrices(attempt.id, attempt.result, chaosPerDivine, resolved);
-          const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
+          const median = medianPrice(prices);
           if (median != null) {
             best = {
               ...attempt,
@@ -658,7 +659,7 @@ async function runAppraisal({
         if (attempt?.total) {
           spend.broad.fetches++;
           const prices = await fetchPrices(attempt.id, attempt.result, chaosPerDivine, resolved);
-          const median = prices.length ? prices[Math.floor(prices.length / 2)] : null;
+          const median = medianPrice(prices);
           if (median != null) {
             best = {
               ...attempt, query, chaos: median, mods: few.length, rolled: mods.length,
@@ -683,7 +684,7 @@ async function runAppraisal({
             return {
               url: webUrl(resolved, attempt.id),
               total: attempt.total,
-              chaos: prices[Math.floor(prices.length / 2)],
+              chaos: medianPrice(prices),
               reliability: 'variant',
               reliable: true,
               variant: true,
@@ -817,7 +818,7 @@ async function runAppraisal({
       total: best.total,
       // Median of the ten cheapest: the single cheapest listing is nearly always
       // a joke price or a mislisted item.
-      chaos: prices.length ? prices[Math.floor(prices.length / 2)] : null,
+      chaos: medianPrice(prices),
       reliability: rating,
       // The "too few results" gate guards the lookalike search, where a single
       // listing can be a fluke. A search built from the item's own modifiers is

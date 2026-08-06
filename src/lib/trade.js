@@ -568,6 +568,41 @@ export async function runQuery(body, league) {
 }
 
 /**
+ * The price to quote from a sorted list of the cheapest listings.
+ *
+ * The median rather than the cheapest, because on a wide search the cheapest is
+ * reliably 1 c of junk or a mislisted item — that is why it is the median and
+ * the reason has not changed.
+ *
+ * What has changed is that a median over a handful of listings is dragged by
+ * anything absurd at the top of it. A Simplex Amulet with seven listings, six of
+ * them between 250 and 390 divine and one priced at four mirrors, has a median
+ * that says more about the person fishing than about the amulet. So the extreme
+ * top comes off first.
+ *
+ * **Measured against the median and not against the cheapest**, which is the
+ * whole trick. Trimming at five times the cheapest looks equivalent and is not:
+ * on a wide search the cheapest is the 1 c of junk we do not believe, so
+ * anchoring there throws away every real price above it. Ten listings at
+ * 1, 1, 2, 3, 5, 8, 10, 12, 15, 20 chaos would have gone from 8 c to 2 c —
+ * turning the guard against junk into a way of guaranteeing it.
+ *
+ * Five times the median is deliberately far out. It fires on somebody asking a
+ * silly number and on nothing else: over that amulet's real listings —
+ * 250, 280, 285, 320, 320, 390 divine — it leaves the answer where it was.
+ */
+export function medianPrice(prices) {
+  if (!prices.length) return null;
+  // The lower of the two middles is the anchor, because on a very short list
+  // the ordinary median can *be* the outlier: two listings at 250 divine and
+  // four mirrors have a median of four mirrors, and nothing gets trimmed at
+  // all. The lower middle is 250 there, and the mirror goes.
+  const anchor = prices[Math.floor((prices.length - 1) / 2)];
+  const kept = prices.filter((p) => p <= anchor * 5);
+  return kept[Math.floor(kept.length / 2)];
+}
+
+/**
  * How much to trust an appraisal, judged by the number of results.
  *
  * Many results means the filters narrowed nothing down: the median of the ten
