@@ -30,8 +30,8 @@ globalThis.fetch = (url, init = {}) =>
 
 const { buildPriceIndex, fetchLeagues, normalizeName } = await import('../src/lib/economy.js');
 const {
-  GEAR_FIELDS, loadStatIndex, corruptedImplicits, isAnointment, isClusterSocket,
-  isCoveredByTotals, isResistanceMod,
+  GEAR_FIELDS, FLASK_FIELDS, loadStatIndex, corruptedImplicits, isAnointment, isClusterSocket,
+  isCoveredByTotals, isInstilling, isResistanceMod,
   matchMod, modTemplate, mutatedMods, rolledMods, totalElementalResistance,
   totalChaosResistance, wantsLocalStats,
 } = await import('../src/lib/stats.js');
@@ -80,9 +80,16 @@ for (const item of items) {
   // Exactly what background.js builds, in the same order.
   const corrupted = corruptedImplicits(statIndex, item, price?.implicitPool);
   const mutated = mutatedMods(statIndex, item, price?.basePool);
+  // The same three branches background.js takes. A flask reads its enchantment
+  // and other gear does not, and this tool is only worth anything while it
+  // mirrors the real thing — it briefly did not, and reported a flask's
+  // enchantment as cut by the filter cap when the real query had it.
   const rolled = isUnique || isJewel
     ? rolledMods(statIndex, item, MAX_COMBO_MODS, price?.rollPool)
-    : rolledMods(statIndex, item, GEAR_MAX_MODS, null, GEAR_FIELDS);
+    : rolledMods(
+      statIndex, item, GEAR_MAX_MODS, null,
+      item.inventoryId === 'Flask' ? FLASK_FIELDS : GEAR_FIELDS,
+    );
 
   const dedupe = new Set();
   const mods = mutated.concat(corrupted, rolled)
@@ -116,6 +123,7 @@ for (const item of items) {
       // medium cluster carries — read as a translation failure.
       const why = isAnointment(text, type) ? 'an anointment, left out on purpose — see stats.js'
         : isClusterSocket(text, item) ? 'a jewel socket, fixed by the cluster size — left out on purpose'
+        : isInstilling(text, type) ? 'an Instilling trigger, left out on purpose — the buyer applies it'
         : !matchMod(statIndex, text, type, local) ? 'NO STAT ID — nothing in trade matches this text'
         : isResistanceMod(text) ? 'the resistance pseudo carries it'
         : local && isCoveredByTotals(text) ? 'a property filter carries it'

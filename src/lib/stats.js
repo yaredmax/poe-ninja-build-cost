@@ -499,6 +499,23 @@ export function isClusterSocket(text, item) {
     && /Added Passive Skills? (is|are) (a )?Jewel Sockets?$/i.test(String(text));
 }
 
+/**
+ * An Instilling enchantment on a flask: "Used when Charges reach full".
+ *
+ * Same reasoning as the anointment, and the same person pointed it out: an
+ * Instilling Orb is cheap and the buyer applies whichever trigger suits their
+ * build, so a listed flask usually does not carry one. Filtering by it throws
+ * away comparable listings to insist on a step that costs the buyer nothing.
+ *
+ * The Enkindling enchantment is a different matter and stays in. "70% increased
+ * effect" with "Gains no Charges during Effect" is most of what a good flask is
+ * worth, and searching by it took a rare Diamond Flask from 20 c on 358
+ * listings to 186 c on 82.
+ */
+export function isInstilling(text, type) {
+  return type === 'enchant' && /^Used when\b/i.test(String(text));
+}
+
 /** Reorders a cluster jewel's modifiers so the notables come first. */
 function clusterFirst(entries) {
   const rank = (text) => {
@@ -588,6 +605,7 @@ export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIE
       if (local && isCoveredByTotals(mod)) continue;
       if (isAnointment(mod, type)) continue;
       if (isClusterSocket(mod, item)) continue;
+      if (isInstilling(mod, type)) continue;
       candidates.push({ mod, type });
     }
   }
