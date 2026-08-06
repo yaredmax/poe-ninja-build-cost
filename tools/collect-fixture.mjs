@@ -27,7 +27,7 @@ globalThis.chrome = { storage: { local: {
   async get(k) { return store.has(k) ? { [k]: store.get(k) } : {}; },
   async set(o) { for (const [k, v] of Object.entries(o)) store.set(k, v); } } } };
 
-const UA = 'poe-ninja-build-cost/0.4 (personal build pricing extension)';
+const UA = 'poe-ninja-build-cost/0.5 (personal build pricing extension)';
 const realFetch = globalThis.fetch;
 globalThis.fetch = (url, init = {}) =>
   realFetch(url, { ...init, headers: { ...(init.headers || {}), 'User-Agent': UA } });

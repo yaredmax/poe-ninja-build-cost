@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PoE Ninja Build Cost",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Estimates what a poe.ninja build costs, using poe.ninja's public economy API and the official trade site.",
   "permissions": [
     "storage",

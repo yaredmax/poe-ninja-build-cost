@@ -38,7 +38,7 @@ globalThis.chrome = {
   },
 };
 
-const UA = 'poe-ninja-build-cost/0.4 (personal build pricing extension)';
+const UA = 'poe-ninja-build-cost/0.5 (personal build pricing extension)';
 const realFetch = globalThis.fetch;
 let requests = 0;
 globalThis.fetch = (url, init = {}) => {

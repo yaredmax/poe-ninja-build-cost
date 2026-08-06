@@ -189,6 +189,29 @@ cluster. Pero **quitarlos no es la respuesta**: la escalera acaba encontrando 19
 listados conservando uno de los dos, y esos 19 valen 1376 c mientras que los 832
 son basura de 1 c. La escalera está haciendo exactamente su trabajo.
 
+## Joyas atemporales: el número es el ítem
+
+Una atemporal (Militant Faith, Elegant Hubris, Brutal Restraint…) trae su
+modificador en **dos líneas**:
+
+```
+Carved to glorify 5301 new faithful converted by High Templar Dominus
+Passives in radius are Conquered by the Templars
+```
+
+Trade solo indexa la primera, con un stat por personaje histórico
+(`explicit.pseudo_timeless_jewel_dominus`) y el **seed** como valor. La segunda
+línea es consecuencia de la primera, no un modificador aparte. Emparejar el
+texto entero no encontraba nada, así que todas las atemporales salían sin
+precio.
+
+Y el seed **no es una magnitud**: el 4240 y el 5301 reescriben pasivas distintas
+y son joyas sin relación. Pedir "al menos el 80% de 5301" tasaría una con la
+otra. Va exacto, como los encantamientos.
+
+Un solo listado aquí es la respuesta correcta y no una respuesta débil: es una
+joya con ese seed, que es lo único que busca quien la compra.
+
 ## Las dos nomenclaturas de GGG, que no se juntan
 
 Hay **dos** formas de nombrar un modificador y no hay puente público entre ellas:
