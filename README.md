@@ -4,6 +4,11 @@ A Chrome extension (Manifest V3) that puts a price next to every item on a
 [poe.ninja](https://poe.ninja/poe1/builds) character page and works out what the
 build would cost.
 
+> **Path of Exile 1 for now — a Path of Exile 2 version is coming.**
+> The content script only runs on poe.ninja's PoE 1 build and profile pages, so
+> on a PoE 2 character nothing appears at all. That is the current state, not a
+> failure worth reporting.
+
 ## Install
 
 1. `chrome://extensions` → turn on **Developer mode**.
@@ -33,7 +38,7 @@ almost everything.
 If this saved you time and you feel like buying me a Scroll, thank you — but the
 extension is free and will stay that way.
 
-<a href="https://ko-fi.com/yaredmax/?hidefeed=true&amp;widget=true&amp;embed=true&amp;preview=true"><img src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" alt="Buy Me a Coffee at ko-fi.com" height="36"></a>
+[![Buy me a Scroll on Ko-fi](https://img.shields.io/badge/Buy%20me%20a%20Scroll-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/yaredmax/?hidefeed=true&widget=true&embed=true&preview=true)
 
 ## Options
 
