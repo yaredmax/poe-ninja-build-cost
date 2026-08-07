@@ -13,6 +13,10 @@ node_modules/
 # Notes taken while reading that clone; its file paths only resolve locally.
 docs/awakened-poe-trade-analisis.md
 
+# Positioning notes to self, including what not to claim. Useful internally,
+# odd in a public repo.
+docs/resumen-producto.md
+
 # Rate-limit state shared between tool runs (see tools/lib/shared-limits.mjs)
 tools/.limits.json
 
