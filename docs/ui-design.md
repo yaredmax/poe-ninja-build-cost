@@ -393,7 +393,7 @@ All of this is a restyle of what already renders. No new data, no new trade requ
 
 320px, `#12151b`, `1px solid #2b313d`, radius 5px.
 
-- **Header** `#161a21`: mark at 10px, `PoE Ninja Build Cost`, `v0.5.0` in 10.5px
+- **Header** `#161a21`: mark at 10px, `Build Cost for poe.ninja`, `v0.5.1` in 10.5px
   mono on the right. Below it the status line, mirroring the panel: a 6px `#6fa15c`
   dot and *"Ready — press the button on the page"*, or an amber pulsing dot with
   `Pricing — 12/25, ~3 min left` and a 3px progress bar. The popup has to answer
