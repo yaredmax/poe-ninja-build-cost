@@ -944,6 +944,23 @@ without it and shipped a `background.js` that could not resolve `./lib/trade.js`
 
 MIT. See [LICENSE](LICENSE).
 
-Not affiliated with, endorsed by or connected to poe.ninja or Grinding Gear
-Games. It reads two public APIs and the page you already have open; the names
-are theirs.
+## Disclaimer
+
+**This is an independent, unofficial tool. It is not affiliated with, endorsed
+by, sponsored by or approved by Grinding Gear Games, and it is not affiliated
+with or endorsed by poe.ninja either.** Neither has reviewed it, and neither is
+answerable for anything it says.
+
+Path of Exile is a trademark of Grinding Gear Games. Item names, item art, game
+data and every other piece of game content belong to them. The extension owns
+none of it: it reads what is already on the page you have open and what two
+public APIs return, and it redistributes nothing.
+
+poe.ninja is a separate third party with no involvement in this. Only its
+[documented public economy API](https://poe.ninja/docs/api) is used; the builds
+and profile endpoints are marked internal there and are never called.
+
+Prices are an **estimate with a floor**, produced by comparing your items
+against listings other players wrote. They are not a valuation, not financial
+advice, and not a promise that anything can be bought or sold at that number.
+
