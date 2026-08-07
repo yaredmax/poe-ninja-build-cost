@@ -944,6 +944,12 @@ without it and shipped a `background.js` that could not resolve `./lib/trade.js`
 
 MIT. See [LICENSE](LICENSE).
 
+## Privacy
+
+Nothing is collected. No account, no analytics, no telemetry, nothing sent to
+the developer. See [PRIVACY.md](PRIVACY.md) for what is read, what leaves the
+browser and where it goes.
+
 ## Disclaimer
 
 **This is an independent, unofficial tool. It is not affiliated with, endorsed
