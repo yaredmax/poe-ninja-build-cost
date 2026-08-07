@@ -3,31 +3,62 @@
   <head>
     <meta charset="utf-8" />
     <title>PoE Ninja Build Cost</title>
+    <link rel="stylesheet" href="ui.css" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <header>
-      <h1>PoE Ninja Build Cost</h1>
-      <span id="version"></span>
+      <div class="title">
+        <i class="mark"></i>
+        <h1>PoE Ninja Build Cost</h1>
+        <div class="spacer"></div>
+        <span id="version"></span>
+      </div>
+      <!-- The same status line as the panel, so the popup answers "is it still
+           working?" without switching back to the tab. -->
+      <div class="status">
+        <span id="statusDot" class="dot"></span>
+        <span id="statusText"></span>
+      </div>
+      <div id="statusBar" class="bar" hidden><div id="statusFill"></div></div>
     </header>
 
-    <p id="where" class="where"></p>
+    <section class="body">
+      <div class="setting">
+        <div class="row">
+          <span>Minimum roll</span>
+          <div class="spacer"></div>
+          <output id="minRollValue"></output>
+        </div>
+        <input id="minRoll" type="range" min="0" max="100" step="5" />
+        <p class="hint">How much of a rare's own roll a listing must match to count.</p>
+      </div>
 
-    <section class="quick">
-      <label class="row">
-        <span>Minimum roll</span>
-        <output id="minRollValue"></output>
-      </label>
-      <input id="minRoll" type="range" min="0" max="100" step="5" />
+      <div class="setting">
+        <label class="row" for="saleMode"><span>Which listings count</span></label>
+        <select id="saleMode"></select>
+      </div>
 
-      <label class="row" for="saleMode"><span>Which listings count</span></label>
-      <select id="saleMode"></select>
+      <div class="rule"></div>
+
+      <div class="cache">
+        <span id="cacheStatus"></span>
+        <div class="spacer"></div>
+        <a id="clearCache" href="#">Clear</a>
+      </div>
+
+      <!-- Never restart a four-minute pass behind the user's back. -->
+      <p id="applies" class="hint applies" hidden>Applies to the next run.</p>
     </section>
 
     <nav>
-      <button id="openOptions" type="button" class="primary">All settings</button>
-      <a id="report" href="#" target="_blank" rel="noopener">Report a bug</a>
-      <a id="donate" href="#" target="_blank" rel="noopener">Donate</a>
+      <!-- "Settings", not "All settings": the panel's own link says Settings and
+           goes to the same page, and the two words it saves are what let the
+           coffee button keep a visible gap in a 320px footer. -->
+      <button id="openOptions" type="button" class="primary">Settings</button>
+      <div class="spacer"></div>
+      <a id="report" class="muted" href="#" target="_blank" rel="noopener">Report a bug</a>
+      <a id="donate" class="donate" href="#" target="_blank" rel="noopener">Buy me a coffee</a>
     </nav>
 
     <script src="settings.js"></script>

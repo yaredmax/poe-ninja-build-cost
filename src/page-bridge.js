@@ -116,6 +116,9 @@
       typeLine: item.typeLine || '',
       baseType: item.baseType || '',
       frameType: item.frameType, // 0 normal, 1 magic, 2 rare, 3 unique, 4 gem, 10 foil
+      // GGG's own flag, so the panel can say "Support gem" without deciding it
+      // from a name ending in " Support" — which is a guess, and an English one.
+      support: !!item.support,
       ilvl: item.ilvl ?? null,
       corrupted: !!item.corrupted,
       identified: item.identified !== false,

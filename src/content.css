@@ -1,78 +1,320 @@
 /*
- * Design tokens from the handoff. Everything is scoped under our own ids and
- * classes: poe.ninja's stylesheet is not ours to fight with.
+ * Design tokens from docs/ui-brief.md, verbatim.
+ *
+ * Hex rather than oklch this time: the handoff specifies exact values and the
+ * badge sits on top of poe.ninja's loot art, where "close enough" is the
+ * difference between a number you can read and one you cannot.
+ *
+ * Everything is scoped under our own ids and classes, and every property that
+ * poe.ninja could plausibly set is stated rather than inherited: we are a guest
+ * in their stylesheet, not the other way round.
  */
 #pnc-fab,
 #pnc-panel,
 .pnc-badge {
-  --pnc-bg-page: oklch(15% 0.012 250);
-  --pnc-bg-panel: oklch(19% 0.015 250);
-  --pnc-bg-row: oklch(22% 0.013 250);
-  --pnc-bg-fab: oklch(24% 0.02 250);
-  --pnc-line: oklch(26% 0.014 250);
-  --pnc-line-strong: oklch(35% 0.02 250);
-  --pnc-text: oklch(85% 0.006 250);
-  --pnc-text-bright: oklch(94% 0.005 250);
-  --pnc-text-dim: oklch(60% 0.01 250);
-  --pnc-text-faint: oklch(55% 0.01 250);
-  --pnc-amber: oklch(72% 0.16 70);
-  --pnc-amber-dark: oklch(60% 0.13 70);
-  --pnc-on-amber: oklch(18% 0.02 70);
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --pnc-bg: #12151b;
+  --pnc-raised: #161a21;
+  --pnc-hover: #181c24;
+  --pnc-input: #1b202a;
+  --pnc-chip: #232935;
+  --pnc-border: #272c37;
+  --pnc-border-subtle: #21262f;
+  --pnc-border-input: #2f3542;
+  --pnc-border-strong: #343a46;
+  --pnc-border-hover: #4a5262;
+  --pnc-text: #d8dce4;
+  --pnc-text-2: #c3cad6;
+  --pnc-muted: #a4abb9;
+  --pnc-dim: #8b93a3;
+  --pnc-faint: #6d7482;
+  --pnc-deco: #5f6674;
+  --pnc-amber: #e0a53c;
+  --pnc-amber-bright: #e8b04a;
+  --pnc-amber-pale: #f0bc5c;
+  --pnc-amber-deep: #c9962f;
+  --pnc-amber-dark: #8a6a2c;
+  --pnc-amber-border: #6b5426;
+  --pnc-badge-fill: #c8912e;
+  --pnc-badge-ink: #14100a;
+  --pnc-warn-bg: #241d12;
+  --pnc-warn-border: #3a2e19;
+  --pnc-warn-text: #c9b48c;
+  --pnc-error-bg: #241414;
+  --pnc-error-border: #3a1e1e;
+  --pnc-error-text: #d0a8a8;
+  --pnc-error-accent: #d98a8a;
+  --pnc-ok: #6fa15c;
+  --pnc-ok-text: #9db892;
+  --pnc-pending-text: #8b7a52;
+  --pnc-pending-border: #4a4230;
+
+  /* No web fonts anywhere: the extension CSP forbids loading them. */
+  --pnc-ui: "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  --pnc-mono: ui-monospace, Consolas, monospace;
+
+  font-family: var(--pnc-ui);
+  color: var(--pnc-text);
 }
 
-/* ------------------------------------------------------------------- the FAB */
-
-#pnc-fab {
-  position: fixed;
-  right: 32px;
-  bottom: 32px;
-  z-index: 2147483647; /* the maximum: ad iframes use it too */
-  display: grid;
-  place-items: center;
-  width: 60px;
-  height: 60px;
-  padding: 0;
-  border: 1px solid var(--pnc-line-strong);
-  border-radius: 50%;
-  background: var(--pnc-bg-fab);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
-  cursor: pointer;
+/* The badge itself and not only its children: `fitBadge()` compares its width
+   against a tile's, and the two have to be measuring the same thing. */
+#pnc-fab *,
+#pnc-panel *,
+.pnc-badge,
+.pnc-badge * {
+  box-sizing: border-box;
 }
 
-#pnc-fab:hover {
-  border-color: var(--pnc-amber-dark);
-}
-
-/* The brand mark: an amber diamond with a darker one cut out of it. */
-#pnc-fab .pnc-mark {
-  width: 22px;
-  height: 22px;
-  background: var(--pnc-amber);
-  transform: rotate(45deg);
-}
-
-#pnc-fab .pnc-mark::after {
-  content: '';
-  display: block;
-  position: relative;
-  inset: 5px;
-  width: 12px;
-  height: 12px;
-  background: oklch(18% 0.02 70);
-}
-
-#pnc-fab .pnc-spinner {
-  width: 26px;
-  height: 26px;
-  border: 2.5px solid oklch(40% 0.02 250);
-  border-top-color: var(--pnc-amber);
-  border-radius: 50%;
-  animation: pnc-spin 0.7s linear infinite;
+/*
+ * The only keyframe animation in the design, and it is deliberately slow. With
+ * fifteen provisional rows pulsing at once, anything quicker is nausea.
+ */
+@keyframes pnc-blink {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.35; }
 }
 
 @keyframes pnc-spin {
   to { transform: rotate(360deg); }
+}
+
+/* What the spinner becomes on a shape it cannot spin around. */
+@keyframes pnc-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes pnc-rise {
+  from { transform: translateY(8px); opacity: 0; }
+}
+
+@keyframes pnc-slide-in {
+  from { transform: translateX(20px); opacity: 0; }
+}
+
+/* ------------------------------------------------------------- the icon mark */
+/*
+ * Two stacked diamonds: a pile of currency rather than a single divine orb, so
+ * it reads as "a total", which is what the extension produces. Pure geometry, so
+ * it survives 16px without a bitmap.
+ *
+ * Sized by `--pnc-mark`, the height; the container is 1.27 times as wide and
+ * each diamond 0.72 of it, which is the ratio the handoff specifies.
+ */
+.pnc-mark {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: calc(var(--pnc-mark, 11px) * 1.27);
+  height: var(--pnc-mark, 11px);
+}
+
+.pnc-mark::before,
+.pnc-mark::after {
+  content: '';
+  position: absolute;
+  width: calc(var(--pnc-mark, 11px) * 0.72);
+  height: calc(var(--pnc-mark, 11px) * 0.72);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+
+.pnc-mark::before {
+  left: 0;
+  bottom: 0;
+  background: var(--pnc-amber-dark);
+}
+
+.pnc-mark::after {
+  right: 0;
+  top: 0;
+  background: var(--pnc-amber-bright);
+}
+
+/* On the filled amber button the mark reads as a hole punched in the circle. */
+.pnc-mark--hole::before { background: #8a5f14; }
+.pnc-mark--hole::after { background: var(--pnc-bg); }
+
+/* Nothing to price, or paused: the mark goes quiet rather than disappearing. */
+.pnc-mark--idle { opacity: 0.55; }
+.pnc-mark--idle::before { background: #5c5238; }
+.pnc-mark--idle::after { background: #7a6a4a; }
+
+.pnc-mark--error::before { background: #5c3232; }
+.pnc-mark--error::after { background: #a35c5c; }
+
+/* --------------------------------------------------------------- the scrollbar */
+
+.pnc-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #3a4250 transparent;
+}
+
+.pnc-scroll::-webkit-scrollbar { width: 9px; }
+.pnc-scroll::-webkit-scrollbar-track { background: var(--pnc-bg); }
+
+.pnc-scroll::-webkit-scrollbar-thumb {
+  background: #333a48;
+  border: 2px solid var(--pnc-bg);
+  border-radius: 5px;
+}
+
+.pnc-scroll:hover::-webkit-scrollbar-thumb { background: var(--pnc-border-hover); }
+.pnc-scroll::-webkit-scrollbar-thumb:active { background: var(--pnc-amber-dark); }
+
+/* ------------------------------------------------------------- the FAB */
+
+#pnc-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147483647; /* the maximum: ad iframes use it too */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 48px;
+  height: 48px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #3a4250;
+  /*
+   * 24px, which on a 48px box is the same circle `50%` drew — but it survives
+   * being animated. `50%` on a box whose width is growing is an *ellipse*: at
+   * 120px wide the bottom of the shape pinches to a single point at the centre,
+   * so a cursor resting near the bottom edge fell outside the button halfway
+   * through the transition. Hover lost, button shrinks, cursor inside again,
+   * hover, expand — a flutter that only ended when you moved the mouse away.
+   */
+  border-radius: 24px;
+  background: #1d2129;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  font-family: var(--pnc-ui);
+  cursor: pointer;
+  animation: pnc-rise 0.22s ease both;
+  transition: width 0.15s ease, border-radius 0.15s ease, padding 0.15s ease,
+    gap 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+/*
+ * And a halo of dead space around it, so the shape changing under the pointer
+ * cannot drop the hover on its own. It belongs to the button, so hovering it is
+ * hovering the button, and the click target grows with it.
+ */
+#pnc-fab::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 32px;
+}
+
+/*
+ * Hover grows it into a pill that says what it does. A floating amber diamond
+ * means nothing to someone who has never used the extension.
+ */
+#pnc-fab:hover:not(.pnc-fab--collapsed) {
+  width: auto;
+  gap: 10px;
+  padding: 0 18px 0 16px;
+  border-color: var(--pnc-amber-border);
+}
+
+/*
+ * Width and opacity rather than `display`, so folding back up is the same
+ * movement as opening rather than the label vanishing and the button then
+ * catching up with it.
+ */
+.pnc-fab-label {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: var(--pnc-amber-bright);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: max-width 0.15s ease, opacity 0.12s ease;
+}
+
+#pnc-fab:hover:not(.pnc-fab--collapsed) .pnc-fab-label {
+  max-width: 220px;
+  opacity: 1;
+}
+
+/*
+ * Panel open. The button does not move — the panel opens to its left and stops
+ * 80px short of the bottom — so it stays exactly where the cursor left it.
+ */
+#pnc-fab.pnc-fab--active {
+  background: var(--pnc-amber);
+  border-color: transparent;
+}
+
+#pnc-fab.pnc-fab--active:hover { border-color: var(--pnc-amber-pale); }
+#pnc-fab.pnc-fab--active .pnc-fab-label { color: var(--pnc-bg); }
+
+/* Turns only while the trade pass is actually running. */
+.pnc-fab-ring {
+  position: absolute;
+  inset: -5px;
+  border: 2px solid rgba(224, 165, 60, 0.25);
+  border-top-color: var(--pnc-amber-pale);
+  /* 29px is 50% of the 58px box this inset makes — a circle that stays one. */
+  border-radius: 29px;
+  animation: pnc-spin 1.1s linear infinite;
+  pointer-events: none;
+  transition: border-color 0.15s ease;
+}
+
+/*
+ * Hover stretches the button into a pill, and a spinner cannot follow it: the
+ * ring stayed a 50% radius on a 160px-wide box, so the "arc" became an ellipse
+ * sweeping around the label. A rotating pill outline is no better. So while the
+ * pointer is on it the ring stops turning and becomes a plain outline that
+ * breathes — still "working", and it fits whatever shape the button is.
+ */
+#pnc-fab:hover:not(.pnc-fab--collapsed) .pnc-fab-ring {
+  border-color: rgba(224, 165, 60, 0.45);
+  animation: pnc-breathe 1.4s ease-in-out infinite;
+}
+
+/* Collapsed: the panel folds into the button, which then carries the total. */
+#pnc-fab.pnc-fab--collapsed {
+  width: auto;
+  height: 44px;
+  padding: 0 14px;
+  gap: 9px;
+  border-radius: 22px;
+  border-color: #33394a;
+  background: var(--pnc-raised);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55);
+}
+
+.pnc-fab-total {
+  color: var(--pnc-amber-bright);
+  font-family: var(--pnc-mono);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Still running: the total is not final yet, so it is the dimmer amber. */
+.pnc-fab-total.pnc-fab-total--live { color: var(--pnc-amber-deep); }
+
+.pnc-fab-meta {
+  color: var(--pnc-faint);
+  font-family: var(--pnc-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.pnc-spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #3a4250;
+  border-top-color: var(--pnc-amber);
+  border-radius: 50%;
+  animation: pnc-spin 0.8s linear infinite;
 }
 
 /* ----------------------------------------------------------------- the panel */
@@ -81,258 +323,1006 @@
   position: fixed;
   top: 0;
   right: 0;
-  z-index: 2147483647;
+  /* The 80px the button occupies, so the two never overlap. */
+  bottom: 80px;
+  z-index: 2147483646;
   display: flex;
   flex-direction: column;
-  width: 400px;
+  width: 360px;
   max-width: 100vw;
-  height: 100vh;
-  background: var(--pnc-bg-panel);
-  border-left: 1px solid oklch(28% 0.015 250);
+  border: 1px solid var(--pnc-border);
+  border-radius: 6px 0 0 6px;
+  background: var(--pnc-bg);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
   color: var(--pnc-text);
+  font-family: var(--pnc-ui);
   font-size: 13px;
   line-height: 1.45;
-  animation: pnc-slide-in 0.28s ease both;
+  animation: pnc-slide-in 0.22s ease both;
 }
 
-@keyframes pnc-slide-in {
-  from { transform: translateX(24px); opacity: 0; }
-}
-
-#pnc-panel .pnc-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--pnc-line);
-}
-
-#pnc-panel .pnc-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--pnc-text-bright);
-}
-
-#pnc-panel .pnc-brand i {
-  width: 18px;
-  height: 18px;
-  background: var(--pnc-amber);
-  transform: rotate(45deg);
-}
-
-#pnc-panel .pnc-close {
-  padding: 0 4px;
-  border: 0;
-  background: none;
-  color: var(--pnc-text-dim);
-  font-size: 20px;
-  line-height: 1;
+#pnc-panel a {
+  color: #d9a544;
+  text-decoration: none;
   cursor: pointer;
 }
 
-#pnc-panel .pnc-close:hover {
-  color: var(--pnc-text-bright);
+#pnc-panel a:hover {
+  color: var(--pnc-amber-pale);
+  text-decoration: underline;
 }
 
-#pnc-panel .pnc-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 18px;
-}
+/* ------ header */
 
-/* Loading, while the slow half of the work runs. */
-#pnc-panel .pnc-loading {
-  display: grid;
-  place-items: center;
-  gap: 14px;
-  padding: 48px 0;
-  text-align: center;
-  color: var(--pnc-text-dim);
-  animation: pnc-pulse 1.4s ease-in-out infinite;
-}
-
-#pnc-panel .pnc-loading i {
-  width: 36px;
-  height: 36px;
-  border: 3px solid oklch(40% 0.02 250);
-  border-top-color: var(--pnc-amber);
-  border-radius: 50%;
-  animation: pnc-spin 0.8s linear infinite;
-}
-
-@keyframes pnc-pulse {
-  50% { opacity: 0.55; }
-}
-
-/* The headline figure. */
-#pnc-panel .pnc-total {
-  margin-bottom: 18px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--pnc-line);
-}
-
-#pnc-panel .pnc-total-label {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--pnc-text-dim);
-}
-
-#pnc-panel .pnc-total-value {
-  margin: 4px 0 2px;
-  font-size: 34px;
-  font-weight: 800;
-  line-height: 1.1;
-  color: var(--pnc-amber);
-  font-variant-numeric: tabular-nums;
-}
-
-#pnc-panel .pnc-total-cover {
-  font-size: 12.5px;
-  color: oklch(58% 0.01 250);
-}
-
-#pnc-panel .pnc-cat {
-  margin-bottom: 18px;
-}
-
-#pnc-panel .pnc-cat-head {
+#pnc-panel .pnc-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 700;
-  color: oklch(65% 0.01 250);
+  flex: none;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--pnc-border-subtle);
+  border-radius: 5px 0 0 0;
+  background: var(--pnc-raised);
 }
 
-#pnc-panel .pnc-cat-head em {
-  font-style: normal;
-  font-weight: 400;
-  color: var(--pnc-text-faint);
+#pnc-panel .pnc-brand {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
-#pnc-panel .pnc-cat-head strong {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--pnc-amber);
-  font-variant-numeric: tabular-nums;
-}
-
-#pnc-panel .pnc-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 3px;
-  padding: 6px 10px;
-  border-radius: 6px;
-  background: var(--pnc-bg-row);
-}
-
-#pnc-panel .pnc-row span {
+/*
+ * Always the same count and the same item name as the status line below it. Two
+ * places showing the same thing that disagree is worse than one place.
+ */
+#pnc-panel .pnc-head-meta {
   overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--pnc-faint);
+  font-family: var(--pnc-mono);
+  font-size: 11px;
   white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#pnc-panel .pnc-spacer { flex: 1; }
+
+/*
+ * There is no close button in the header. It sat one glyph away from a floating
+ * button that only folds the panel, so the destructive one — stop the pass,
+ * throw the badges away — was the easier of the two to hit by accident. Folding
+ * is the floating button's job; leaving for good is "Clear prices" in the
+ * footer, spelled out and next to nothing you press in a hurry.
+ */
+
+/*
+ * The three regions the script rewrites independently — banners, progress and
+ * total. `display: contents` so their children are flex items of the panel
+ * itself: an empty region then takes up nothing at all, rather than leaving a
+ * gap where a banner is not showing.
+ */
+#pnc-panel .pnc-banners,
+#pnc-panel .pnc-progress-slot,
+#pnc-panel .pnc-total-slot {
+  display: contents;
+}
+
+/* ------ banners: not signed in, rate limited, trade unreachable */
+
+#pnc-panel .pnc-banner {
+  display: flex;
+  flex: none;
+  gap: 9px;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--pnc-warn-border);
+  background: var(--pnc-warn-bg);
+}
+
+#pnc-panel .pnc-banner-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  border: 1.5px solid #d9a544;
+  border-radius: 50%;
+  color: #d9a544;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+#pnc-panel .pnc-banner-body {
+  color: var(--pnc-warn-text);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+#pnc-panel .pnc-banner-body b {
+  color: var(--pnc-amber-bright);
+  font-family: var(--pnc-mono);
+  font-weight: 400;
+}
+
+#pnc-panel .pnc-banner-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 7px;
+}
+
+#pnc-panel .pnc-banner--error {
+  border-bottom-color: var(--pnc-error-border);
+  background: var(--pnc-error-bg);
+}
+
+#pnc-panel .pnc-banner--error .pnc-banner-icon {
+  border-color: var(--pnc-error-accent);
+  color: var(--pnc-error-accent);
+}
+
+#pnc-panel .pnc-banner--error .pnc-banner-body { color: var(--pnc-error-text); }
+
+/* ------ small outlined buttons, used by the progress block and the banners */
+
+#pnc-panel .pnc-btn {
+  padding: 2px 7px;
+  border: 1px solid var(--pnc-border-strong);
+  border-radius: 3px;
+  background: none;
+  color: var(--pnc-muted);
+  font-family: var(--pnc-ui);
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#pnc-panel .pnc-btn:hover {
+  border-color: var(--pnc-border-hover);
   color: var(--pnc-text);
 }
 
-#pnc-panel .pnc-row em {
-  font-style: normal;
-  font-size: 11px;
-  color: var(--pnc-text-faint);
+#pnc-panel .pnc-btn--wide { padding: 3px 9px; font-size: 11px; }
+
+#pnc-panel .pnc-btn--stop:hover {
+  border-color: #6b3a3a;
+  color: #e08a8a;
 }
 
-#pnc-panel .pnc-row b {
+#pnc-panel .pnc-btn--danger {
+  border-color: #6b3a3a;
+  color: #e08a8a;
+  font-weight: 600;
+}
+
+#pnc-panel .pnc-btn--danger:hover {
+  border-color: var(--pnc-error-accent);
+  color: var(--pnc-error-accent);
+}
+
+/*
+ * The controls the script binds to by name. Each carries only the little that
+ * is genuinely its own; the look comes from .pnc-btn and the link rules above.
+ */
+#pnc-panel .pnc-signin {
+  display: inline-block;
+  margin-top: 3px;
+}
+
+/* "Pause" and "Resume" are different widths, and the row must not twitch. */
+#pnc-panel .pnc-pause { min-width: 52px; }
+
+#pnc-panel .pnc-stop,
+#pnc-panel .pnc-retry { white-space: nowrap; }
+
+/* The footer links: never wrapped, never squeezed by the notes beside them. */
+#pnc-panel .pnc-settings,
+#pnc-panel .pnc-clear,
+#pnc-panel .pnc-bug { flex: none; white-space: nowrap; }
+
+/* ------ progress */
+
+#pnc-panel .pnc-progress {
+  display: flex;
   flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--pnc-border-subtle);
+  background: var(--pnc-raised);
+}
+
+#pnc-panel .pnc-progress-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+#pnc-panel .pnc-progress-label {
+  color: var(--pnc-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+#pnc-panel .pnc-progress-count {
+  color: var(--pnc-text);
+  font-family: var(--pnc-mono);
+  font-size: 11.5px;
+}
+
+#pnc-panel .pnc-progress-count i {
+  color: var(--pnc-faint);
+  font-style: normal;
+}
+
+#pnc-panel .pnc-progress-eta {
+  color: var(--pnc-faint);
+  font-family: var(--pnc-mono);
+  font-size: 11.5px;
+}
+
+#pnc-panel .pnc-bar {
+  display: flex;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--pnc-chip);
+}
+
+#pnc-panel .pnc-bar-done {
+  background: var(--pnc-amber);
+  transition: width 0.3s ease;
+}
+
+/* The item in flight, as a pulsing sliver ahead of the solid fill. */
+#pnc-panel .pnc-bar-live {
+  width: 6%;
+  background: var(--pnc-amber-dark);
+  animation: pnc-blink 1.4s ease-in-out infinite;
+}
+
+#pnc-panel .pnc-progress-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--pnc-muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+#pnc-panel .pnc-progress-status .pnc-what { flex: 1; min-width: 0; }
+#pnc-panel .pnc-progress-status b { color: var(--pnc-text); font-weight: 400; }
+#pnc-panel .pnc-progress-status i { font-family: var(--pnc-mono); font-style: normal; }
+
+#pnc-panel .pnc-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pnc-amber);
+}
+
+#pnc-panel .pnc-dot--live { animation: pnc-blink 1.2s ease-in-out infinite; }
+#pnc-panel .pnc-dot--done { background: var(--pnc-ok); }
+#pnc-panel .pnc-dot--idle { background: var(--pnc-faint); }
+
+#pnc-panel .pnc-progress-buttons {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+
+/* Finished: the progress block collapses to one green line. */
+#pnc-panel .pnc-done {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border-bottom: 1px solid #22301f;
+  background: #141a17;
+  color: var(--pnc-ok-text);
+  font-size: 11.5px;
+}
+
+#pnc-panel .pnc-done .pnc-what { flex: 1; }
+#pnc-panel .pnc-done a { color: var(--pnc-ok-text); font-size: 11px; }
+
+/* ------ total */
+
+#pnc-panel .pnc-total {
+  flex: none;
+  padding: 15px 13px 13px;
+  border-bottom: 1px solid var(--pnc-border-subtle);
+}
+
+#pnc-panel .pnc-total-label {
+  color: var(--pnc-dim);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+#pnc-panel .pnc-total-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 5px;
+}
+
+#pnc-panel .pnc-total-value {
+  color: var(--pnc-amber-bright);
+  font-family: var(--pnc-mono);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+#pnc-panel .pnc-total-unit {
+  color: var(--pnc-amber-deep);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#pnc-panel .pnc-total-chaos {
+  color: var(--pnc-faint);
+  font-family: var(--pnc-mono);
+  font-size: 11px;
+  text-align: right;
+}
+
+#pnc-panel .pnc-total-cover {
+  margin-top: 6px;
+  color: var(--pnc-faint);
+  font-size: 11px;
+}
+
+/* What produced the number, stated once the pass is finished. */
+#pnc-panel .pnc-settings-line {
+  flex: none;
+  padding: 9px 13px;
+  border-bottom: 1px solid var(--pnc-border-subtle);
+  color: var(--pnc-dim);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+#pnc-panel .pnc-settings-line b {
+  color: var(--pnc-text);
+  font-family: var(--pnc-mono);
+  font-weight: 400;
+}
+
+/* ------ the item list */
+
+#pnc-panel .pnc-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+#pnc-panel .pnc-sec {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 11px 13px 6px;
+}
+
+#pnc-panel .pnc-sec-name {
+  color: var(--pnc-dim);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* Decoration, never body text — which is why it may sit this dim. */
+#pnc-panel .pnc-sec-count {
+  color: var(--pnc-deco);
+  font-size: 10.5px;
+}
+
+#pnc-panel .pnc-sec-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--pnc-border-subtle);
+}
+
+#pnc-panel .pnc-sec-total {
+  color: var(--pnc-amber-deep);
+  font-family: var(--pnc-mono);
+  font-size: 11.5px;
+}
+
+#pnc-panel .pnc-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 13px;
+}
+
+#pnc-panel .pnc-row--link { cursor: pointer; }
+#pnc-panel .pnc-row--link:hover,
+#pnc-panel .pnc-row--open { background: var(--pnc-hover); }
+
+/* Still queued or in flight: the whole row pulses, not just its chip. */
+#pnc-panel .pnc-row--pending { animation: pnc-blink 2s ease-in-out infinite; }
+#pnc-panel .pnc-row--pending .pnc-row-name { color: var(--pnc-muted); }
+
+/*
+ * 32px, not the 26px the handoff drew. The row is 46px tall and the two lines of
+ * text inside it are 34, so everything up to 34px is free — the icon grows into
+ * space the row was already holding and nothing below it moves. At 36px the row
+ * starts to grow, so 32 leaves a couple of pixels of margin.
+ *
+ * `object-fit: contain` because almost none of the art is square: a belt is
+ * 94×47 and a two-handed weapon 188×376. Contain letterboxes and keeps the
+ * silhouette, which is the whole point; `cover` would fill the box by cropping
+ * a sword down to a piece of its blade.
+ */
+#pnc-panel .pnc-icon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #313846;
+  border-radius: 3px;
+  background: #1b202a;
+  object-fit: contain;
+}
+
+/* Gems have no icon of their own on the page, so the mark stands in. */
+#pnc-panel .pnc-icon--blank {
+  display: grid;
+  place-items: center;
+}
+
+#pnc-panel .pnc-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+#pnc-panel .pnc-row-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--pnc-text);
+}
+
+#pnc-panel .pnc-row-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#pnc-panel .pnc-count {
+  flex: none;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: var(--pnc-chip);
+  color: var(--pnc-dim);
+  font-family: var(--pnc-mono);
+  font-size: 10px;
+}
+
+/*
+ * Slot plus the one fact that explains the price. The slot is the second
+ * identity cue when the icon is ambiguous, so it stays readable — never dimmer
+ * than #8b93a3.
+ */
+#pnc-panel .pnc-micro {
+  overflow: hidden;
+  color: var(--pnc-dim);
+  font-family: var(--pnc-mono);
+  font-size: 10.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+#pnc-panel .pnc-chip {
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  font-family: var(--pnc-mono);
+  font-size: 12.5px;
+}
+
+#pnc-panel .pnc-chip--firm {
+  padding: 2px 6px;
+  background: rgba(224, 165, 60, 0.13);
+  color: var(--pnc-amber-pale);
+}
+
+#pnc-panel .pnc-chip--floor {
+  padding: 1px 5px;
+  border-color: var(--pnc-amber-border);
+  color: #d9a544;
+}
+
+#pnc-panel .pnc-chip--unknown {
+  padding: 1px 7px;
+  border: 1px dashed var(--pnc-border-strong);
+  color: var(--pnc-faint);
+}
+
+#pnc-panel .pnc-chip--pending {
+  padding: 1px 5px;
+  border: 1px dashed var(--pnc-pending-border);
+  color: var(--pnc-pending-text);
+}
+
+/* Being priced right now: a shape where the number will be, not a spinner. */
+#pnc-panel .pnc-skeleton {
+  flex: none;
+  width: 52px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--pnc-chip);
+}
+
+#pnc-panel .pnc-info {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  border: 1px solid var(--pnc-border-hover);
+  border-radius: 50%;
+  background: none;
+  color: var(--pnc-dim);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+}
+
+/* Amber when the price is a floor or a guess, so the eye finds those rows. */
+#pnc-panel .pnc-info--flag {
+  border-color: #d9a544;
+  color: #d9a544;
+}
+
+/* Provisional rows keep the space but show nothing: there is no reason yet. */
+#pnc-panel .pnc-info--hidden {
+  border-color: transparent;
+  color: transparent;
+  cursor: default;
+}
+
+/* ------ the (i) tooltip */
+
+#pnc-panel .pnc-tip {
+  position: absolute;
+  right: 10px;
+  top: calc(100% - 2px);
+  z-index: 5;
+  width: 288px;
+  padding: 9px 11px;
+  border: 1px solid #3a4250;
+  border-radius: 4px;
+  background: #1c212b;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6);
+  color: var(--pnc-text-2);
+  font-size: 11.5px;
+  line-height: 1.5;
+  cursor: default;
+}
+
+/* Near the bottom of the list there is no room below, so it opens upwards. */
+#pnc-panel .pnc-tip--above {
+  top: auto;
+  bottom: calc(100% - 2px);
+}
+
+#pnc-panel .pnc-tip-head {
+  margin-bottom: 4px;
+  color: var(--pnc-amber-bright);
+  font-weight: 600;
+}
+
+/* The badge's own explanation, verbatim. Long sentences, so it wraps freely. */
+#pnc-panel .pnc-tip-body {
+  overflow-wrap: anywhere;
+}
+
+#pnc-panel .pnc-tip-mods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+#pnc-panel .pnc-tip-mod {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--pnc-chip);
+  color: var(--pnc-dim);
+  font-family: var(--pnc-mono);
+  font-size: 10px;
+}
+
+#pnc-panel .pnc-tip-meta {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid #2b323e;
+  color: var(--pnc-faint);
+  font-family: var(--pnc-mono);
+  font-size: 10.5px;
+}
+
+#pnc-panel .pnc-tip-link { margin-top: 7px; font-size: 11px; }
+
+/* ------ edge states in the body */
+
+#pnc-panel .pnc-loading {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 24px 13px;
+  text-align: center;
+}
+
+#pnc-panel .pnc-ring {
+  width: 26px;
+  height: 26px;
+  border: 2px solid #2b313d;
+  border-top-color: var(--pnc-amber);
+  border-radius: 50%;
+  animation: pnc-spin 0.9s linear infinite;
+}
+
+#pnc-panel .pnc-loading span {
+  color: var(--pnc-muted);
+  font-size: 12px;
+}
+
+#pnc-panel .pnc-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 9px;
+  padding: 16px 13px;
+}
+
+#pnc-panel .pnc-empty strong {
+  color: var(--pnc-text);
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--pnc-amber);
-  font-variant-numeric: tabular-nums;
 }
 
-#pnc-panel .pnc-row b.pnc-none {
+#pnc-panel .pnc-empty span {
+  color: var(--pnc-dim);
   font-size: 11.5px;
-  font-weight: 400;
-  color: var(--pnc-text-faint);
+  line-height: 1.5;
 }
 
-#pnc-panel .pnc-status {
-  margin-bottom: 14px;
-  font-size: 11.5px;
-  color: var(--pnc-text-faint);
+/* ------ footer */
+
+#pnc-panel .pnc-foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 13px;
+  border-top: 1px solid var(--pnc-border-subtle);
+  border-radius: 0 0 0 5px;
+  background: var(--pnc-raised);
 }
 
-#pnc-panel .pnc-note {
-  margin-top: 10px;
+#pnc-panel .pnc-notes {
+  color: var(--pnc-faint);
   font-size: 11px;
-  color: var(--pnc-text-faint);
+  line-height: 1.5;
 }
 
-#pnc-panel .pnc-warn,
-.pnc-warn {
-  color: oklch(72% 0.14 70);
+/*
+ * The only place the symbol legend is reachable from, so it must not be buried:
+ * collapsed by default but one click away, in the footer where the eye lands
+ * after reading the list.
+ */
+#pnc-panel .pnc-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px 9px;
+  border: 1px solid #262c37;
+  border-radius: 4px;
+  background: #1a1f27;
+}
+
+#pnc-panel .pnc-legend-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pnc-muted);
+  font-family: var(--pnc-ui);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+#pnc-panel .pnc-legend-caret {
+  color: var(--pnc-faint);
+  font-size: 8px;
+}
+
+#pnc-panel .pnc-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-left: 14px;
+}
+
+#pnc-panel .pnc-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#pnc-panel .pnc-legend-sym {
+  flex: none;
+  width: 34px;
+  text-align: center;
+}
+
+#pnc-panel .pnc-legend-text {
+  color: var(--pnc-dim);
+  font-size: 10.5px;
+}
+
+#pnc-panel .pnc-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11.5px;
+}
+
+#pnc-panel .pnc-link--muted { color: var(--pnc-dim); }
+#pnc-panel .pnc-link--muted:hover { color: var(--pnc-text); }
+
+#pnc-panel .pnc-donate {
+  padding: 4px 10px;
+  border-radius: 3px;
+  background: #d9a544;
+  color: #0b0d11;
+  font-weight: 600;
+}
+
+#pnc-panel .pnc-donate:hover {
+  background: var(--pnc-amber-pale);
+  color: #0b0d11;
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------- the ask, on top */
+/*
+ * One sheet over the panel, for the only question the extension asks: whether
+ * to hand over the run's diagnostics with a bug report. Covering the panel is
+ * the point — the answer decides what leaves the machine, so it does not sit in
+ * a corner competing with a list of prices.
+ */
+#pnc-panel .pnc-ask {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 14px;
+  background: rgba(11, 13, 17, 0.72);
+  animation: pnc-fade-in 0.12s ease both;
+}
+
+#pnc-panel .pnc-ask::before {
+  content: '';
+  flex: 1;
+}
+
+#pnc-panel .pnc-ask-head,
+#pnc-panel .pnc-ask-body,
+#pnc-panel .pnc-ask-buttons {
+  padding: 0 13px;
+  border: 1px solid #3a4250;
+  border-bottom: 0;
+  background: #1c212b;
+}
+
+#pnc-panel .pnc-ask-head {
+  padding-top: 12px;
+  border-radius: 4px 4px 0 0;
+  color: var(--pnc-amber-bright);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+#pnc-panel .pnc-ask-body {
+  padding-top: 6px;
+  color: var(--pnc-text-2);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+#pnc-panel .pnc-ask-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #3a4250;
+  border-radius: 0 0 4px 4px;
+}
+
+#pnc-panel .pnc-ask-buttons .pnc-btn {
+  padding: 5px 11px;
+  font-size: 11.5px;
+}
+
+/* Both labels are a phrase, and 360px is not wide enough to risk a wrap. */
+#pnc-panel .pnc-ask-no,
+#pnc-panel .pnc-ask-yes { white-space: nowrap; }
+
+/* The one it should land on: same amber as Donate, filled. */
+#pnc-panel .pnc-btn--go {
+  border-color: var(--pnc-amber-border);
+  background: #d9a544;
+  color: #0b0d11;
+  font-weight: 600;
+}
+
+#pnc-panel .pnc-btn--go:hover {
+  border-color: var(--pnc-amber-pale);
+  background: var(--pnc-amber-pale);
+  color: #0b0d11;
+}
+
+@keyframes pnc-fade-in {
+  from { opacity: 0; }
 }
 
 /* --------------------------------------------------------- badges on the page */
 
+/*
+ * Absolutely positioned *outside* the bottom-right corner of poe.ninja's item
+ * icon. Nothing of the art is covered and the badge never collides with the
+ * socket dots.
+ */
+/*
+ * The padding is 1.5px lighter at the bottom than the top, and that asymmetry
+ * is what makes the text look centred. Nothing a badge ever says has a
+ * descender — digits, `?`, `≈`, `≥`, `d`, `c` — so the space the font reserves
+ * below the baseline is always empty and the ink sits high in the box by that
+ * much. On a wide price nobody notices; on a 20px square holding one `?` it is
+ * the only thing to look at. Measured: this leaves the ink 3.75px from the top
+ * and 3.77px from the bottom, and the box exactly as tall as it was.
+ */
+/*
+ * Sized to its contents, always. A common minimum width was tried, to give the
+ * grid a line for the eye to run down, and it is the wrong trade on somebody
+ * else's layout: poe.ninja's tiles are 98px for a helmet and 46px for a ring,
+ * so one width is either a slab of empty padding around `10c` on the big tiles
+ * or a badge wider than the whole item on the small ones. Both happened.
+ *
+ * What adapts instead is the text — see `fitBadge()`. The box is the minimum
+ * the number needs and the number shrinks to stay inside its tile.
+ */
 .pnc-badge {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: var(--pnc-amber);
-  color: var(--pnc-on-amber);
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 2.75px 6px 1.25px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: var(--pnc-badge-fill);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+  color: var(--pnc-badge-ink);
+  font-family: var(--pnc-mono);
+  font-size: 11.5px;
   font-weight: 700;
-  line-height: 1.5;
+  line-height: 1.35;
   white-space: nowrap;
   vertical-align: middle;
-  animation: pnc-fade-up 0.3s ease both;
 }
 
-@keyframes pnc-fade-up {
-  from { transform: translateY(4px); opacity: 0; }
+/* "6L" and friends ride inside the badge without competing with the number. */
+.pnc-badge-qual {
+  font-size: 9px;
+  opacity: 0.65;
 }
 
-/*
- * Overlaid on the corner of an item icon. `pointer-events: none` on purpose:
- * capturing the mouse here would hide poe.ninja's own item tooltip, which is
- * more useful than ours. Clickable badges opt back in below.
- */
 .pnc-badge--corner {
   position: absolute;
   right: -4px;
   bottom: -7px;
   z-index: 5;
   margin: 0;
-  max-width: calc(100% + 8px);
-  overflow: hidden;
+  /*
+   * pointer-events: none on purpose — capturing the mouse here would hide
+   * poe.ninja's own item tooltip, which is more useful than ours. That is
+   * exactly why the panel row has an (i): the grid cannot carry the reason text.
+   */
   pointer-events: none;
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
 }
 
-/* Nothing to price: a rare's modifiers are its own, no market has that item. */
-.pnc-badge--noprice {
-  background: oklch(30% 0.01 250);
-  border: 1px solid oklch(40% 0.01 250);
-  color: var(--pnc-text-faint);
-  font-weight: 400;
+/* Right-aligned in a text row (gems), never inline after the name. */
+/*
+ * Gems: straight after the name, 6px of air, sized to its contents.
+ *
+ * No fitting here either: a gem row has the width of the panel behind it, so
+ * the number never has to give anything up. `fitBadge()` only touches corner
+ * badges, which are the ones living inside 36px of somebody else's tile.
+ */
+.pnc-badge--inline {
+  margin-left: 6px;
+  padding: 1.75px 5px 0.25px;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+/* Small tiles, like cluster jewels and rings: one step down to start with.
+   `fitBadge()` takes it further where the number is long. */
+.pnc-badge--small {
+  right: -3px;
+  bottom: -6px;
+  padding: 1.75px 5px 0.25px;
+  font-size: 10.5px;
 }
 
 /*
- * A floor rather than a value: >= or +-. Hollow instead of filled, so it reads
- * as "at least this" at a glance without having to find the symbol.
+ * Colour says how much to trust the number, not where it came from.
+ *
+ * Firm is a solid amber fill with dark text. Over a stack of loot art,
+ * dark-on-light is the only thing that reads reliably — amber-on-dark
+ * disappears against a bright unique.
  */
-.pnc-badge--warn {
-  background: oklch(24% 0.02 70);
-  border: 1px solid oklch(58% 0.13 70);
-  color: oklch(80% 0.14 70);
-  font-weight: 600;
+.pnc-badge--floor {
+  border-color: var(--pnc-badge-fill);
+  background: #1b1710;
+  color: var(--pnc-amber-bright);
+}
+
+.pnc-badge--unknown {
+  border-color: #3a4250;
+  background: #20242c;
+  color: var(--pnc-dim);
+}
+
+.pnc-badge--pending {
+  border: 1px dashed #7d6335;
+  background: #1b1710;
+  color: #a8905c;
+  animation: pnc-blink 2s ease-in-out infinite;
+}
+
+/*
+ * Being priced on trade right now. Where the design had an empty skeleton this
+ * keeps the provisional number and changes how it looks: a solid amber border
+ * instead of the provisional dash, and a quicker pulse. The difference from a
+ * merely-queued badge has to be visible at a glance across a whole gear grid,
+ * so it is the border rather than the timing that carries it.
+ */
+.pnc-badge--working {
+  border: 1px solid var(--pnc-amber);
+  background: #241d12;
+  color: var(--pnc-amber-bright);
+  animation: pnc-blink 1.2s ease-in-out infinite;
 }
 
 .pnc-badge--link {
@@ -340,36 +1330,14 @@
   cursor: pointer;
 }
 
-.pnc-badge--link:hover {
-  filter: brightness(1.15);
-}
+.pnc-badge--link:hover { filter: brightness(1.12); }
 
 /*
- * A summary row that knows which trade search produced its number. Same idea as
- * the badge on the item, for people reading the list rather than the build.
+ * Hovering a panel row rings its badge, and vice versa. No movement: with 25
+ * badges on screen this is the only way to tell which row is which item, and
+ * anything that moves makes the grid twitch.
  */
-#pnc-panel .pnc-row--link {
-  cursor: pointer;
-}
-
-#pnc-panel .pnc-row--link:hover {
-  background: var(--pnc-bg-fab);
-}
-
-#pnc-panel .pnc-row--link:hover b {
-  text-decoration: underline;
-}
-
-/*
- * Still being checked against trade. The number under it is poe.ninja's price
- * for the plain item, which for an altered copy can be off by two orders of
- * magnitude, so it has to read as provisional rather than as an answer.
- */
-.pnc-badge--pending {
-  opacity: 0.55;
-  animation: pnc-pending 1.2s ease-in-out infinite;
-}
-
-@keyframes pnc-pending {
-  50% { opacity: 0.9; }
+.pnc-badge--ring {
+  outline: 1px solid var(--pnc-amber-bright);
+  outline-offset: 1px;
 }

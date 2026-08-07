@@ -12,8 +12,14 @@ build would cost.
 4. Click the button in the bottom right corner.
 
 That one button does everything: poe.ninja's economy prices land immediately,
-then the trade pass runs behind them and the panel updates item by item. Click
-it again to close.
+then the trade pass runs behind them and the panel updates item by item.
+
+Clicking the button again folds the panel into a pill that keeps the running
+total in the corner of your eye, so you can read the passive tree while the pass
+finishes; clicking the pill opens it back up. That button is the only thing that
+opens and folds the panel. **Clear prices**, in the panel's footer, is the real
+exit — it stops the pass, takes the badges off the page and puts the button back
+where it started.
 
 ## Support
 
@@ -27,11 +33,18 @@ almost everything.
 If this saved you time and you feel like buying me a coffee, thank you — but the
 extension is free and will stay that way.
 
+[![Buy me a coffee](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/yaredmax)
+
 ## Options
 
-The toolbar icon opens a popup with the two settings that get revisited, and a
-way through to the rest. The full page is at `chrome://extensions` → Details →
-Extension options. All of it is explained on the page itself:
+The toolbar icon opens a popup with the two settings that get revisited, a way
+through to the rest, and the same status line the panel shows — so "is it still
+working?" is answerable without switching back to the tab. Changing a setting
+during a run says **applies to the next run**: a four-minute pass is never
+restarted behind your back.
+
+The full page is at `chrome://extensions` → Details → Extension options. All of
+it is explained on the page itself:
 
 - **Minimum roll** (default 80%) — how good a listing has to be to count as
   comparable. Ignored for uniques, whose ranges are narrow, except timeless and
@@ -542,6 +555,15 @@ percent apart in lightness, which on a ten-pixel badge is one colour and needed
 explaining every time. A trade appraisal that pinned every modifier is as firm as
 a published price, so it gets the same solid amber now.
 
+That solid amber carries **dark** text, which is the one thing that reads over a
+stack of loot art: amber-on-dark disappeared against a bright unique. The hollow
+badge keeps a dark fill so its outline stays visible either way.
+
+The full reason behind each number — the listing count, which modifiers went into
+the search, the confidence, what it cost — is in the panel, on the (i) at the end
+of each row. It has to be there rather than on the badge, because the badge
+cannot take the mouse without hiding poe.ninja's tooltip.
+
 ## Clicking a price
 
 Every appraised badge remembers the id of the search that produced its number
@@ -552,12 +574,145 @@ disagree with what's on screen. Summary rows link the same way.
 Corner badges are `pointer-events: none` so they don't cover poe.ninja's item
 tooltip; a clickable one opts back in, which costs the tooltip on that corner.
 
+## The floating button's radius, and why it is not 50%
+
+It used to flutter open and shut when the pointer sat near its bottom edge. The
+cause is worth writing down because it looks like a hover bug and is not:
+`border-radius: 50%` is not "a circle", it is half of each axis independently.
+On the 48px resting button that *is* a circle; while hover animates the width to
+120px it is an **ellipse**, whose bottom pinches to a single point at the
+centre. A cursor two pixels above the bottom edge is inside the circle and
+outside the ellipse, so hover dropped, the button shrank, the cursor was inside
+again, and it looped until you moved the mouse.
+
+`border-radius: 24px` draws the identical circle at 48px and stays a stadium at
+every width. Checked at 48, 80, 120 and 160px: the point stays inside at all of
+them, where `50%` puts it outside at the three larger ones. On top of that the
+button carries an 8px invisible halo (`#pnc-fab::before`), which also covers the
+resting circle's own corners, and the label animates on `max-width`/`opacity`
+instead of switching `display`, so folding back up is the same movement as
+opening. The progress ring gets a fixed `29px` for the same reason — it was 50%
+of a 58px box, the same trap one layer out.
+
 ## Where the price is painted
 
-On equipment, jewels and flasks the badge is overlaid on the bottom right corner
-of the icon, with `pointer-events: none` so it never covers poe.ninja's own item
-tooltip. Gems are a text list, so there it sits next to the name. `placeBadge()`
-decides based on the category and whether it finds an icon-sized container.
+On equipment, jewels and flasks the badge sits *outside* the bottom right corner
+of the icon — 4px right, 7px down — so none of the item art is covered and it
+never collides with the socket dots. `pointer-events: none`, so poe.ninja's own
+item tooltip still opens.
+
+Gems are a text list, and there the price goes straight after the name with 6px
+of air, sized to its contents. The design wanted a scannable column of prices
+down the right of the card and it was built that way twice. Appending to the
+widest flex ancestor swept every price in the card into a single strip.
+Identifying the gem's own row and appending there put the price on a line of its
+own *underneath* the name — which is the worst of the three, because a number on
+its own line belongs equally to the gem above and the gem below, and you end up
+counting rows to find out which.
+
+Measured on a live character before settling on it: sixteen of seventeen gems
+keep the badge on the name's line, with at least 103px still spare in the cell.
+The seventeenth is the copy the DPS block makes of the main skill, which the
+scanner already suppresses. The column only pays when the rows are uniform, and
+poe.ninja's are not.
+
+A gem's badge carries no qualifier. It used to show level and quality, which
+poe.ninja has already printed in the same row a centimetre to the left. `6L` on
+a weapon has no twin on the page and stays.
+
+`placeBadge()` decides between the two by category and by whether it finds an
+icon-sized container.
+
+**A badge is as small as its number, and the number shrinks to fit the tile.**
+One common width was tried first — 65px in the grid, 58px on a small tile — so
+the prices would form a column. It works when every tile is the same size, and
+poe.ninja's are not: a helmet is 98px and a ring 36px, so a single width leaves
+`10c` marooned in a slab of padding on the big tiles and hangs off both sides of
+the small ones, both on the same screen.
+
+So `fitBadge()` scales the *text* instead — never up, never below 8.5px. On a
+live character page: 78px tiles never shrink at all (badges 29–58px, inside the
+tile); on a 36px ring the short values are untouched and `≈ 152.3d` drops from
+11.5px to 8.5px, 58px wide to 49px. The worst overhang left is 13px, on the
+longest number over the smallest tile, and that is the honest limit rather than
+a bug — eight characters do not fit in 36px and stay readable. It was 22px
+before any of this.
+
+A trailing `.0` is trimmed for the same reason — `52d`, not `52.0d`, which is
+not more precise and is two characters wider. Gem badges are never fitted: a gem
+row has the width of the panel behind it, so the number never has to give
+anything up.
+
+The vertical padding is uneven — `2.75px 6px 1.25px` — and that is what makes
+the text look centred. Nothing a badge ever says has a descender: digits, `?`,
+`≈`, `≥`, `d`, `c`. So the space the font reserves below the baseline is always
+empty and the ink sits high in the box, measured at 3px above and 4.5px below.
+Invisible on a 46px price; on a 20px square holding one `?` it is the only thing
+in there. The bias closes it to 3.75 and 3.77 without changing the box.
+
+**No badge is ever an empty box.** The item being priced on trade right now used
+to blank to a grey skeleton, which says "no information" over an item that in
+most cases already has poe.ninja's number on it. It keeps the number and changes
+how it looks instead: solid amber border, 1.2s pulse. Only a rare with no
+published price has genuinely nothing to show, and there it says `··`, which the
+legend already defines as "still pricing".
+
+**Every badge carries its unit**, in the one-letter form a player writes in a
+whisper: `87.1d`, `10c`. It was briefly dropped on tiles under 80px to save
+room, which on a real character page is every flask, every cluster jewel and
+every base jewel — most of the grid reduced to bare numbers, where `8.0` could
+be eight chaos or eight divine and nothing on screen said which. A badge whose
+number means nothing is not worth the pixels it saves. What a small tile does
+drop is the qualifier (`6L`), which genuinely does not fit; and above a thousand
+divine the decimal goes, since `1285d` says everything `1284.6d` does.
+
+There is no third unit to worry about. A seller can price a listing in anything
+— exalts, annuls, a mirror — and `fetchPrices()` converts all of it to chaos
+through poe.ninja's currency rates before the number ever reaches a badge.
+Anything it cannot convert is recorded rather than dropped, so it stays a
+question somebody can answer.
+
+## Where the panel's item icons come from
+
+Off the page, never over the network. poe.ninja has already downloaded the art,
+and asking web.poecdn.com for it again would be a second copy of an image that
+is sitting in the tab.
+
+It draws the three kinds of item three different ways, and `iconSrcFor()` has to
+know all three:
+
+| | drawn as | found |
+| --- | --- | --- |
+| Equipment, flasks | a `<div>` the size of the item's grid footprint, art in `background-image` | two levels above the anchor |
+| Gems | an `<img>` | in the anchor itself |
+| Jewels | a 50×50 `<img>` in the jewel grid | two levels above the anchor |
+
+Two rules. **Background art wins wherever it turns up**, because an equipment
+tile also holds an `<img>` for every gem socketed into it, and reading images
+first puts a gem's icon on the body armour. **An `<img>` counts only when it is
+the only one in its subtree**, which is what stops the walk before it reaches a
+container of several items and grabs a neighbour's art.
+
+There was a third rule and it was wrong: `<img>` was ignored above the second
+level, because `basicint`/`basicdex` kept coming back for jewel after jewel and
+looked like the passive tree node underneath them. It is the jewel — a Cobalt
+Jewel *is* drawn as `basicint`, a Viridian as `basicdex`. They repeat because
+the base repeats. That rule blanked all nineteen jewels in the panel.
+
+Measured on a live character: **14/14 equipment and flasks, 24/24 gems, 19/19
+jewels, nothing blank.** The CSS mark is still there for an item poe.ninja does
+not draw, but on a normal character page it never appears.
+
+Two jewels of the same base do look alike, and that is the game, not a defect.
+The icon tells a jewel from a pair of boots; the name and the micro-line tell
+one jewel from another.
+
+The art is not square — a belt is 94×47, a two-handed weapon 188×376 — so the
+icon uses `object-fit: contain` and letterboxes rather than distorting. It is
+**32px** rather than the 26px the design drew, which is free: the row is 46px
+tall and its two lines of text are 34, so anything up to 34px grows into height
+the row was already reserving. At 36px the rows start to grow and the list holds
+fewer items.
 
 ## Fractured and crafted modifiers
 
@@ -697,7 +852,13 @@ dumps the candidate texts and icons so you can see what changed.
 
 ## Where a slow pass went
 
-After a trade pass, from the page console:
+**Report a bug**, in the panel's footer and on the error banner, offers to save
+this same JSON and copy it to the clipboard before it opens the tracker, so a
+report can carry the one thing that makes it actionable. It says what the file
+holds first: the items on a public character page, the searches they turned into
+and what trade answered. Nothing about the person, no account, no session.
+
+For us, after a trade pass, from the page console:
 
 ```js
 pncReport()
@@ -748,7 +909,8 @@ without it and shipped a `background.js` that could not resolve `./lib/trade.js`
 | `manifest.json` | MV3: permissions, content scripts, service worker |
 | `src/background.js` | Service worker: messages, User-Agent, cache, appraisal |
 | `src/content.js` | Panel, DOM scanning, badges, summary |
-| `src/content.css` | Panel and badge styles |
+| `src/content.css` | Panel and badge styles, scoped under `#pnc-` ids |
+| `src/ui.css` | Tokens, the icon mark and the shared controls, for the two extension pages |
 | `src/page-bridge.js` | Pulls the item JSON out of the MAIN world |
 | `src/lib/economy.js` | Economy API, price index, floor-price detection |
 | `src/lib/trade.js` | Trade queries, rare appraisal, reliability |
@@ -767,3 +929,12 @@ without it and shipped a `background.js` that could not resolve `./lib/trade.js`
 | `tools/fixtures/worn.json` | Items off real characters, the only ones that miss the wide query |
 | `tools/query-test.mjs` | What each query asks for, and what got dropped — costs no search |
 | `docs/poe-modifiers.md` | How PoE's modifiers work and what each fact implies here |
+| `docs/ui-design.md` | The 0.5.0 design handoff: tokens, every view, and the calls made building it |
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
+
+Not affiliated with, endorsed by or connected to poe.ninja or Grinding Gear
+Games. It reads two public APIs and the page you already have open; the names
+are theirs.

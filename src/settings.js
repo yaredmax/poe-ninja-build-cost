@@ -11,6 +11,30 @@ const PNC_DEFAULTS = {
   matchCorruptedImplicits: true,
 };
 
+/**
+ * The three links every surface offers.
+ *
+ * Flat constants rather than one object on purpose: check-wiring.mjs reads
+ * two-space-indented keys in this file as settings that both content.js and
+ * background.js have to pass through, and a donate URL is not one.
+ */
+const PNC_REPO = 'https://github.com/yaredmax/poe-ninja-build-cost';
+const PNC_BUG_URL = `${PNC_REPO}/issues/new`;
+/*
+ * Ko-fi's own tip panel rather than the profile page behind it. The query
+ * string is what their embed widget uses, and opened as a page it renders just
+ * the panel — "Buy a Coffee for Yared", the amount, the button, and nothing
+ * else. Verified: 97 characters of text, no feed, no gallery, no shop.
+ *
+ * If Ko-fi ever stops honouring those parameters the failure is graceful: they
+ * get ignored and the visitor lands on the normal page, which is where this
+ * would have pointed anyway.
+ *
+ * It used to point at `${PNC_REPO}#support`, which was a detour through the
+ * README to a paragraph that thanked people and gave them nowhere to go.
+ */
+const PNC_DONATE_URL = 'https://ko-fi.com/yaredmax/?hidefeed=true&widget=true&embed=true&preview=true';
+
 /** Same list the trade site shows in its own dropdown. */
 const PNC_SALE_MODES = [
   { id: 'available', label: 'Instant Buyout and In Person' },

@@ -1,110 +1,283 @@
-:root {
-  color-scheme: dark;
+/* The options page: two panes filling the window, one row per setting. */
+
+/*
+ * The design drew a 720px card floating on the page, and at a comfortable
+ * reading size that card is a stamp in the middle of a 1500px monitor —
+ * everything inside it reads as small because of what surrounds it. So the two
+ * panes are the window: the sidebar is full height, and the settings scroll
+ * inside a box whose size never changes. Switching pane used to resize the card
+ * to whatever that pane happened to need, which moved the footer and the
+ * sidebar's own edge under the cursor that had just clicked it.
+ */
+html, body {
+  height: 100%;
 }
 
 body {
-  margin: 0;
-  padding: 28px 20px 40px;
-  background: hsl(204 24% 8%);
-  color: hsl(204 12% 86%);
-  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  padding: 0;
+  overflow: hidden;
+  background: var(--pnc-bg);
 }
 
 main {
-  max-width: 560px;
-  margin: 0 auto;
+  display: flex;
+  height: 100%;
+  background: var(--pnc-bg);
 }
 
-h1 {
-  margin: 0 0 24px;
-  font-size: 19px;
-  color: hsl(43 60% 76%);
+/* ------ sidebar */
+
+aside {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 200px;
+  padding: 22px 0;
+  border-right: 1px solid var(--pnc-border-subtle);
+  background: var(--pnc-raised);
 }
 
-h2 {
-  margin: 0 0 6px;
-  font-size: 12px;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px 18px;
+  font-size: 12.5px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: hsl(43 55% 70%);
 }
 
-section {
-  margin-bottom: 28px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid hsl(204 20% 16%);
-}
+.brand .mark { --mark: 11px; }
 
-section:last-of-type {
-  border-bottom: 0;
-}
-
-p {
-  margin: 0 0 12px;
-  color: hsl(204 10% 66%);
-}
-
-.note {
+.nav-item {
+  padding: 8px 18px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--pnc-dim);
   font-size: 12px;
-  color: hsl(204 10% 52%);
+  text-align: left;
 }
 
-.row {
+.nav-item:hover {
+  background: none;
+  border-color: transparent;
+  color: var(--pnc-text);
+}
+
+.nav-item.active,
+.nav-item.active:hover {
+  border-left-color: var(--pnc-amber);
+  background: rgba(224, 165, 60, 0.06);
+  color: var(--pnc-amber-bright);
+}
+
+/* ------ content */
+
+.content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0; /* or the scroller below grows the page instead of scrolling */
+}
+
+/*
+ * The scrolling half. `max-width` on the panes rather than on the window: the
+ * prose column has a comfortable measure and a 2000px monitor should not stretch
+ * a paragraph across all of it, but the scrollbar still belongs to the edge of
+ * the window where the mouse expects it.
+ */
+.panes {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 30px 34px;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  max-width: 760px;
+}
+
+.pane[hidden] { display: none; }
+
+/* ------ scrollbar */
+
+.panes {
+  scrollbar-width: thin;
+  scrollbar-color: #2f3542 transparent;
+}
+
+.panes::-webkit-scrollbar { width: 10px; }
+.panes::-webkit-scrollbar-track { background: transparent; }
+
+.panes::-webkit-scrollbar-thumb {
+  border: 3px solid var(--pnc-bg); /* inset, so the bar is a 4px sliver */
+  border-radius: 5px;
+  background: #2f3542;
+}
+
+.panes::-webkit-scrollbar-thumb:hover { background: var(--pnc-border-hover); }
+
+.pane-head h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.pane-head p {
+  margin: 4px 0 0;
+  color: var(--pnc-faint);
+  font-size: 11.5px;
+}
+
+.setting {
+  display: flex;
+  gap: 26px;
+}
+
+.explain {
+  flex: none;
+  width: 184px;
+}
+
+.explain h2 {
+  margin: 0;
+  color: var(--pnc-text);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.explain p {
+  margin: 5px 0 0;
+  color: var(--pnc-dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Secondary prose: true but not needed to make the choice. */
+.aside {
+  margin: 7px 0 0;
+  color: var(--pnc-deco);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.control {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.control select { max-width: 280px; }
+
+.control.inline {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.control.inline button { padding: 6px 13px; }
+
+.count {
+  color: var(--pnc-faint);
+  font-family: var(--pnc-mono);
+  font-size: 11px;
+}
+
+.slider {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-input[type='range'] {
-  flex: 1;
-  accent-color: hsl(43 60% 50%);
-}
-
-output {
-  min-width: 3.5em;
+#minRollValue {
+  width: 38px;
+  color: var(--pnc-amber-bright);
+  font-family: var(--pnc-mono);
+  font-size: 13px;
+  font-weight: 700;
   text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: hsl(43 65% 78%);
-  font-weight: 600;
 }
 
-select {
-  width: 100%;
-  padding: 7px 8px;
-  border: 1px solid hsl(204 20% 26%);
-  border-radius: 5px;
-  background: hsl(204 24% 12%);
-  color: hsl(204 12% 84%);
-  font: inherit;
+.ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--pnc-deco);
+  font-family: var(--pnc-mono);
+  font-size: 10px;
 }
 
-button {
-  padding: 7px 14px;
-  border: 1px solid hsl(204 20% 32%);
-  border-radius: 5px;
-  background: hsl(204 22% 16%);
-  color: hsl(204 12% 84%);
-  font: inherit;
-  cursor: pointer;
+.rule {
+  height: 1px;
+  background: var(--pnc-border-faint);
 }
 
-button:hover {
-  background: hsl(204 22% 22%);
-}
+/* ------ the toggle */
 
-.check {
+.toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
+  font-size: 12.5px;
   cursor: pointer;
 }
 
-.check input {
-  accent-color: hsl(43 60% 50%);
+/* A real checkbox underneath, so it still answers to the keyboard. */
+.toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
 }
 
-.saved {
-  color: hsl(140 45% 62%);
+.toggle .track {
+  position: relative;
+  flex: none;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--pnc-border-strong);
+  transition: background 0.15s ease;
+}
+
+.toggle .track::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--pnc-dim);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.toggle input:checked + .track { background: var(--pnc-amber-dark); }
+
+.toggle input:checked + .track::after {
+  transform: translateX(14px);
+  background: var(--pnc-amber-bright);
+}
+
+.toggle input:focus-visible + .track { outline: 1px solid var(--pnc-amber-border); }
+
+/* ------ footer */
+
+/* Pinned, so it does not travel up and down as the panes change length. */
+nav {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 34px;
+  border-top: 1px solid var(--pnc-border-faint);
+  background: var(--pnc-raised);
   font-size: 12px;
 }
+
+nav .donate { padding: 6px 13px; }

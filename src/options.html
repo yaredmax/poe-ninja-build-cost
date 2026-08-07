@@ -3,72 +3,153 @@
   <head>
     <meta charset="utf-8" />
     <title>PoE Ninja Build Cost — Options</title>
+    <link rel="stylesheet" href="ui.css" />
     <link rel="stylesheet" href="options.css" />
   </head>
   <body>
     <main>
-      <h1>PoE Ninja Build Cost</h1>
+      <aside>
+        <div class="brand"><i class="mark"></i><span>Build Cost</span></div>
+        <button class="nav-item" type="button" data-pane="pricing">Pricing</button>
+        <button class="nav-item" type="button" data-pane="cache">Cache</button>
+        <button class="nav-item" type="button" data-pane="about">About</button>
+      </aside>
 
-      <section>
-        <h2>Minimum roll</h2>
-        <p>
-          Applies to every rare — armour, weapons, jewellery and jewels alike.
-          It sets how much of the item's own roll a listing has to match to count
-          as comparable. At 0% an item with three good modifiers matches anything
-          that has those modifiers at any value, and reports the price of the
-          worst one.
-        </p>
-        <div class="row">
-          <input id="minRoll" type="range" min="0" max="100" step="5" />
-          <output id="minRollValue"></output>
+      <div class="content">
+        <!-- The panes scroll inside this; the footer below does not. The box the
+             settings sit in is the window, so switching pane cannot resize it. -->
+        <div class="panes">
+        <!-- Every setting is a two-column row: explanation left, control right.
+             Stacking the paragraph above the control makes the eye re-scan to
+             find what it was reading about. -->
+        <section class="pane" data-pane="pricing">
+          <div class="pane-head">
+            <h1>Pricing</h1>
+            <p>Saved as you change them. Applies to the next run.</p>
+          </div>
+
+          <div class="setting">
+            <div class="explain">
+              <h2>Minimum roll</h2>
+              <p>
+                How much of a rare's own roll a listing has to match to count as
+                comparable. At 0% any item with the same three good mods matches
+                at any value, and reports the price of the worst one.
+              </p>
+              <p class="aside">
+                Ignored for uniques, except timeless and Time-Lost jewels, where
+                the number is the item.
+              </p>
+            </div>
+            <div class="control">
+              <div class="slider">
+                <input id="minRoll" type="range" min="0" max="100" step="5" />
+                <output id="minRollValue"></output>
+              </div>
+              <div class="ends">
+                <span>0 · anything matches</span><span>100 · exact roll</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rule"></div>
+
+          <div class="setting">
+            <div class="explain">
+              <h2>Which listings count</h2>
+              <p>
+                The trade site's own dropdown. "In Person" sellers have to be
+                messaged and may never reply, so their asking prices are softer
+                than what you would actually pay.
+              </p>
+            </div>
+            <div class="control">
+              <select id="saleMode"></select>
+            </div>
+          </div>
+
+          <div class="rule"></div>
+
+          <div class="setting">
+            <div class="explain">
+              <h2>Corrupted uniques</h2>
+              <p>
+                Match the implicit a corruption added. A Le Heup of All with "+1
+                to Maximum Power Charges" is worth many times a plain one, and
+                pricing them the same throws the whole build's total off.
+              </p>
+            </div>
+            <div class="control">
+              <label class="toggle">
+                <input id="matchCorruptedImplicits" type="checkbox" />
+                <span class="track"></span>
+                <span>Search for the corruption implicit</span>
+              </label>
+              <p class="aside">
+                Turn this off if a corrupted unique finds nothing — the implicit
+                may be rare enough that no copy is listed.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="cache" hidden>
+          <div class="pane-head">
+            <h1>Cache</h1>
+            <p>Cleared here, and only here. Nothing else removes it.</p>
+          </div>
+
+          <div class="setting">
+            <div class="explain">
+              <h2>Cached prices</h2>
+              <p>
+                Trade appraisals are kept for two hours, keyed on the item, the
+                league and the settings above. That is what makes re-opening a
+                build free instead of spending GGG's request budget again.
+              </p>
+            </div>
+            <div class="control inline">
+              <button id="clearCache" type="button">Clear cached prices</button>
+              <span id="cacheStatus" class="count"></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="about" hidden>
+          <div class="pane-head">
+            <h1>About</h1>
+            <p id="aboutVersion"></p>
+          </div>
+
+          <div class="setting">
+            <div class="explain">
+              <h2>What it does</h2>
+              <p>
+                Prices a poe.ninja character from poe.ninja's public economy API
+                and the official trade site. It never calls poe.ninja's builds
+                API: that one is documented as internal, so the extension reads
+                only what the page has already painted.
+              </p>
+            </div>
+            <div class="control">
+              <p class="aside">
+                The trade pass takes two to six minutes and is paced to stay well
+                inside GGG's rate limit, leaving room for your own searches.
+              </p>
+            </div>
+          </div>
+        </section>
         </div>
-        <p class="note">
-          Ignored for uniques, whose modifier ranges are narrow enough that a
-          minimum only costs listings — except timeless and Time-Lost jewels,
-          where the number is the item.
-        </p>
-      </section>
 
-      <section>
-        <h2>Which listings count</h2>
-        <p>
-          The same choice as the trade site's own dropdown. "In Person" sellers
-          have to be messaged and may never reply, so their asking prices are
-          softer than what you would actually pay.
-        </p>
-        <select id="saleMode"></select>
-      </section>
-
-      <section>
-        <h2>Corrupted uniques</h2>
-        <p>
-          Match the implicit a corruption added, when the item has one. A Le Heup
-          of All with "+1 to Maximum Power Charges" is worth many times a plain
-          one, and pricing them the same throws the whole build's total off.
-        </p>
-        <label class="check">
-          <input id="matchCorruptedImplicits" type="checkbox" />
-          <span>Search for the corruption implicit</span>
-        </label>
-        <p class="note">
-          Turn this off if a corrupted unique finds nothing: the implicit may be
-          rare enough that no copy is listed.
-        </p>
-      </section>
-
-      <section>
-        <h2>Cached prices</h2>
-        <p>
-          Trade appraisals are kept for two hours, keyed on the item, the league
-          and the settings above. That is what makes re-opening a build free
-          instead of spending GGG's request budget again.
-        </p>
-        <button id="clearCache" type="button">Clear cached prices</button>
-        <span id="cacheStatus" class="note"></span>
-      </section>
-
-      <p class="saved" id="saved" hidden>Saved.</p>
+        <nav>
+          <a id="report" href="#" target="_blank" rel="noopener">Report a bug</a>
+          <a id="source" class="muted" href="#" target="_blank" rel="noopener">Source</a>
+          <div class="spacer"></div>
+          <a id="donate" class="donate" href="#" target="_blank" rel="noopener">Buy me a coffee</a>
+        </nav>
+      </div>
     </main>
+
     <!-- settings.js first: options.js uses PNC_SALE_MODES and pncLoadSettings.
          The manifest only injects it into the content script, so the options
          page has to ask for it here. -->

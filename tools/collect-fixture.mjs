@@ -169,6 +169,7 @@ function slim(item, index, slot) {
     typeLine: item.typeLine || '',
     baseType: item.baseType || '',
     frameType: item.frameType,
+    support: !!item.support,
     ilvl: item.ilvl ?? null,
     corrupted: !!item.corrupted,
     identified: item.identified !== false,

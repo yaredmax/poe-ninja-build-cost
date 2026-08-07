@@ -9,87 +9,344 @@
       body {
         margin: 0;
         min-height: 100vh;
-        background: oklch(15% 0.012 250);
-        font-family: Inter, system-ui, sans-serif;
-        color: oklch(60% 0.01 250);
+        background: #0b0d11;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        color: #8b93a3;
       }
-      .host {
-        padding: 40px;
-        max-width: 900px;
-      }
-      h1 { font-size: 15px; color: oklch(72% 0.16 70); }
-      p { font-size: 12px; max-width: 60ch; }
-      /* A stand-in for a poe.ninja item slot, to check badge placement. */
-      .slots { display: flex; gap: 18px; margin-top: 28px; }
+      .host { padding: 40px; max-width: 900px; }
+      h1 { font-size: 15px; color: #e8b04a; }
+      p { font-size: 12px; max-width: 62ch; line-height: 1.55; }
+      /* Stand-ins for poe.ninja's item slots, to check badge placement. */
+      .slots { display: flex; gap: 26px; margin-top: 32px; align-items: flex-start; }
       .slot {
         position: relative;
-        width: 76px; height: 76px;
-        border: 1px solid oklch(65% 0.14 90);
-        border-radius: 6px;
-        background: oklch(22% 0.013 250);
+        width: 76px;
+        height: 76px;
+        border: 1px solid #2f3542;
+        border-radius: 3px;
+        background: repeating-linear-gradient(135deg, #2a3040 0 4px, #1f2530 4px 8px);
       }
-      .slot.small { width: 40px; height: 40px; }
+      .slot.small { width: 44px; height: 44px; }
+      /* A stand-in for poe.ninja's skill list: a flex row per gem. */
+      .gems { margin-top: 30px; width: 340px; }
+      .gem {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 9px;
+        border-radius: 3px;
+        background: #161a21;
+        margin-bottom: 3px;
+        font-size: 13px;
+      }
+      .gem b { color: #d8dce4; font-weight: 600; }
+      .gem .lvl { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+      .toggle-ask {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 30px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      /* The panel is fixed; the preview needs it in flow to sit beside things. */
+      #pnc-panel { position: relative; height: 720px; margin-top: 20px; }
+      /* The sheet covers the panel by design, so it is off unless asked for. */
+      #pnc-panel .pnc-ask { display: none; }
+      #pnc-panel.show-ask .pnc-ask { display: flex; }
     </style>
   </head>
   <body>
     <div class="host">
       <h1>Panel preview</h1>
       <p>
-        Renders the shipping stylesheet against sample markup, so the design can
-        be checked without loading the extension. Item slots below are stand-ins
-        for poe.ninja's, at the real 76px and at the 40px a cluster jewel gets.
+        Renders the shipping stylesheet against sample markup, so the design can be
+        checked without loading the extension. Item slots below are stand-ins for
+        poe.ninja's, at the real 76px and at the 44px a cluster jewel gets — the
+        badge sits <em>outside</em> the bottom-right corner, so none of the art is
+        covered.
       </p>
+
       <div class="slots">
-        <div class="slot"><span class="pnc-badge pnc-badge--corner">60.0 div</span></div>
-        <div class="slot"><span class="pnc-badge pnc-badge--corner pnc-badge--similar">≥ 2.0 div</span></div>
-        <div class="slot"><span class="pnc-badge pnc-badge--corner pnc-badge--noprice">–</span></div>
-        <div class="slot"><span class="pnc-badge pnc-badge--corner pnc-badge--warn">?</span></div>
-        <div class="slot small"><span class="pnc-badge pnc-badge--corner">40 c</span></div>
+        <div class="slot"><span class="pnc-badge pnc-badge--corner">90d</span></div>
+        <div class="slot"><span class="pnc-badge pnc-badge--corner">≈ 224.4d</span></div>
+        <div class="slot">
+          <span class="pnc-badge pnc-badge--corner pnc-badge--floor">≥ 207.1d</span>
+        </div>
+        <div class="slot"><span class="pnc-badge pnc-badge--corner pnc-badge--unknown">?</span></div>
+        <div class="slot">
+          <span class="pnc-badge pnc-badge--corner pnc-badge--pending">≈ 86.3d</span>
+        </div>
+        <!-- Being priced right now, with and without a poe.ninja number to
+             show meanwhile. Neither is an empty box. -->
+        <div class="slot">
+          <span class="pnc-badge pnc-badge--corner pnc-badge--working">≈ 86.3d</span>
+        </div>
+        <div class="slot">
+          <span class="pnc-badge pnc-badge--corner pnc-badge--working">··</span>
+        </div>
+        <div class="slot small">
+          <span class="pnc-badge pnc-badge--corner pnc-badge--small">20c</span>
+        </div>
       </div>
-    </div>
 
-    <button id="pnc-fab" type="button"><i class="pnc-mark"></i></button>
-
-    <div id="pnc-panel">
-      <div class="pnc-head">
-        <div class="pnc-brand"><i></i>Build cost</div>
-        <button class="pnc-close" type="button">×</button>
+      <!-- Gems: the other half of placeBadge(). The price goes straight after
+           the name and before poe.ninja's own level/quality, which is the order
+           in the real DOM. The names deliberately run from the shortest there
+           is to the longest, because the badge has to stay on the name's line
+           at both ends. No level/quality on these badges — the `4 / 23` beside
+           them is poe.ninja's, and printing it twice is what got it dropped. -->
+      <div class="gems">
+        <div class="gem"><b>Enlighten Support</b><span class="pnc-badge pnc-badge--inline">71.1d</span><span class="lvl">4 / 23</span></div>
+        <div class="gem"><b>Summon Flame Golem</b><span class="pnc-badge pnc-badge--inline">1.6d</span><span class="lvl">21 / 20</span></div>
+        <div class="gem"><b>Awakened Cast On Critical Strike Support</b><span class="pnc-badge pnc-badge--inline pnc-badge--floor">≥ 3.2d</span><span class="lvl">5 / 20</span></div>
+        <div class="gem"><b>Eclipse Support</b><span class="pnc-badge pnc-badge--inline pnc-badge--pending">58c</span><span class="lvl">4 / 23</span></div>
       </div>
-      <div class="pnc-body">
+
+      <label class="toggle-ask">
+        <input id="showAsk" type="checkbox" />
+        Show the "Report a bug" sheet over the panel
+      </label>
+
+      <div id="pnc-panel">
+        <div class="pnc-head">
+          <i class="pnc-mark" style="--pnc-mark:11px"></i>
+          <div class="pnc-brand">Build cost</div>
+          <div class="pnc-spacer"></div>
+          <div class="pnc-head-meta">12/25 · Grand Spectrum</div>
+        </div>
+
+        <!-- The three regions the script rewrites on its own, wrappers and all. -->
+        <div class="pnc-banners">
+        <div class="pnc-banner">
+          <div class="pnc-banner-icon">!</div>
+          <div class="pnc-banner-body">
+            Not signed in to pathofexile.com — your rate limit is halved, so this pass
+            takes about twice as long.
+            <a class="pnc-signin" href="#">Sign in, then re-run ↗</a>
+          </div>
+        </div>
+        </div>
+
+        <div class="pnc-progress-slot">
+        <div class="pnc-progress">
+          <div class="pnc-progress-head">
+            <div class="pnc-progress-label">Pricing on trade</div>
+            <div class="pnc-spacer"></div>
+            <div class="pnc-progress-count">12<i>/25</i></div>
+            <div class="pnc-progress-eta">~3 min left</div>
+          </div>
+          <div class="pnc-bar">
+            <div class="pnc-bar-done" style="width:48%"></div>
+            <div class="pnc-bar-live"></div>
+          </div>
+          <div class="pnc-progress-status">
+            <div class="pnc-dot pnc-dot--live"></div>
+            <div class="pnc-what"><b>Grand Spectrum</b> · waiting <i>23 s</i> for GGG's rate limit</div>
+            <div class="pnc-progress-buttons">
+              <button class="pnc-btn pnc-pause" type="button">Pause</button>
+              <button class="pnc-btn pnc-btn--stop pnc-stop" type="button">Stop</button>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <div class="pnc-total-slot">
         <div class="pnc-total">
           <div class="pnc-total-label">Minimum build cost</div>
-          <div class="pnc-total-value">758.4 div</div>
-          <div class="pnc-total-cover">47 of 53 items priced</div>
+          <div class="pnc-total-figure">
+            <div class="pnc-total-value">1200.0</div>
+            <div class="pnc-total-unit">div</div>
+            <div class="pnc-spacer"></div>
+            <div class="pnc-total-chaos">≈ 264k chaos</div>
+          </div>
+          <div class="pnc-total-cover">44 of 56 items priced · 12 still provisional</div>
         </div>
-        <div class="pnc-status">40 of 53 items priced — via page data.</div>
-
-        <div class="pnc-cat">
-          <div class="pnc-cat-head"><span>Equipment <em>(8)</em></span><strong>122.1 div</strong></div>
-          <div class="pnc-row"><span>Headhunter</span><b>60.0 div</b></div>
-          <div class="pnc-row"><span>Skin of the Lords</span><b class="pnc-none">unpriced</b></div>
-          <div class="pnc-row"><span>Foe Veil</span><b>≥ 3.0 div</b></div>
-          <div class="pnc-row"><span>Ming's Heart</span><b>3.0 c</b></div>
+        <div class="pnc-settings-line">
+          Priced at <b>80%</b> roll, Instant Buyout. Cached for 2 h — reopening this build
+          costs nothing.
         </div>
-
-        <div class="pnc-cat">
-          <div class="pnc-cat-head"><span>Jewels <em>(10)</em></span><strong>583.1 div</strong></div>
-          <div class="pnc-row"><span>Sublime Vision</span><b>≈ 360.0 div</b></div>
-          <div class="pnc-row"><span>Forbidden Flame</span><b>≈ 100.0 div</b></div>
-          <div class="pnc-row"><span>Dragon Sliver</span><b>≈ 10.0 div</b></div>
         </div>
 
-        <div class="pnc-cat">
-          <div class="pnc-cat-head"><span>Gems <em>(24)</em></span><strong>21.6 div</strong></div>
-          <div class="pnc-row"><span>Enlighten Support</span><b>18.0 div</b></div>
-          <div class="pnc-row"><span>Raise Spectre <em>×9</em></span><b>180 c</b></div>
+        <div class="pnc-list pnc-scroll">
+          <div class="pnc-sec">
+            <div class="pnc-sec-name">Equipment</div>
+            <div class="pnc-sec-count">8</div>
+            <div class="pnc-sec-rule"></div>
+            <div class="pnc-sec-total">731.3 div</div>
+          </div>
+
+          <div class="pnc-row pnc-row--link">
+            <div class="pnc-icon"></div>
+            <div class="pnc-row-main">
+              <div class="pnc-row-name"><span class="pnc-row-title">Rage Spur</span></div>
+              <div class="pnc-micro">Boots · 53 listings</div>
+            </div>
+            <div class="pnc-chip pnc-chip--firm">≈ 224.4d</div>
+            <button class="pnc-info" type="button">i</button>
+          </div>
+
+          <div class="pnc-row pnc-row--open">
+            <div class="pnc-icon"></div>
+            <div class="pnc-row-main">
+              <div class="pnc-row-name"><span class="pnc-row-title">Rune Collar</span></div>
+              <div class="pnc-micro">Helmet · 1 of 6 mods</div>
+            </div>
+            <div class="pnc-chip pnc-chip--floor">≥ 207.1d</div>
+            <button class="pnc-info pnc-info--flag" type="button">i</button>
+            <div class="pnc-tip">
+              <div class="pnc-tip-head">Worth at least 207.1 div</div>
+              <div class="pnc-tip-body">
+                53 listings matching 1 of the 6 modifiers searched for, cheapest median.
+                Replaces poe.ninja's published price. Priced on fewer mods than it has, so
+                it is worth at least this.
+              </div>
+              <div class="pnc-tip-mods">
+                <span class="pnc-tip-mod">+1 to Maximum Power Charges</span>
+                <span class="pnc-tip-mod">+90 to maximum Life</span>
+                <span class="pnc-tip-mod">+4 more</span>
+              </div>
+              <div class="pnc-tip-meta">
+                <span>medium confidence</span><span>7 searches</span><span>31 s</span>
+              </div>
+              <div class="pnc-tip-link"><a href="#">Open this search on trade ↗</a></div>
+            </div>
+          </div>
+
+          <div class="pnc-row pnc-row--link" style="margin-top:190px">
+            <div class="pnc-icon"></div>
+            <div class="pnc-row-main">
+              <div class="pnc-row-name">
+                <span class="pnc-row-title">Lost Unity</span>
+                <span class="pnc-count">×3</span>
+              </div>
+              <div class="pnc-micro">Shield · 8.0 div each</div>
+            </div>
+            <div class="pnc-chip pnc-chip--firm">24.0 div</div>
+            <button class="pnc-info" type="button">i</button>
+          </div>
+
+          <div class="pnc-row pnc-row--pending">
+            <div class="pnc-icon"></div>
+            <div class="pnc-row-main">
+              <div class="pnc-row-name"><span class="pnc-row-title">Blunderbore</span></div>
+              <div class="pnc-micro">Gloves · in queue</div>
+            </div>
+            <div class="pnc-chip pnc-chip--pending">≈ 86.3d</div>
+            <button class="pnc-info pnc-info--hidden" type="button">i</button>
+          </div>
+
+          <div class="pnc-row pnc-row--pending">
+            <div class="pnc-icon pnc-icon--blank">
+              <i class="pnc-mark pnc-mark--idle" style="--pnc-mark:9px"></i>
+            </div>
+            <div class="pnc-row-main">
+              <div class="pnc-row-name"><span class="pnc-row-title">Cinderswallow Urn</span></div>
+              <div class="pnc-micro">Sulphur Flask · pricing now</div>
+            </div>
+            <div class="pnc-skeleton"></div>
+            <button class="pnc-info pnc-info--hidden" type="button">i</button>
+          </div>
+
+          <div class="pnc-sec">
+            <div class="pnc-sec-name">Jewels</div>
+            <div class="pnc-sec-count">9</div>
+            <div class="pnc-sec-rule"></div>
+            <div class="pnc-sec-total">4.4 div</div>
+          </div>
+
+          <div class="pnc-row pnc-row--link">
+            <div class="pnc-icon"></div>
+            <div class="pnc-row-main">
+              <div class="pnc-row-name"><span class="pnc-row-title">Grand Spectrum</span></div>
+              <div class="pnc-micro">Medium Cluster Jewel · too many similar items</div>
+            </div>
+            <div class="pnc-chip pnc-chip--unknown">?</div>
+            <button class="pnc-info pnc-info--flag" type="button">i</button>
+          </div>
         </div>
 
-        <div class="pnc-note">1 div ≈ 187 c</div>
-        <div class="pnc-note pnc-warn">
-          3 item(s) marked ≥ or ±: their price depends on the roll or the variant
-          and can be far higher.
+        <div class="pnc-foot">
+          <div class="pnc-notes">
+            12 item(s) are not in the total: 9 gem(s) with no published price, 3 with no
+            comparable listing. This is a <strong>minimum</strong>: every ≥ above is a
+            floor rather than a price.
+          </div>
+          <div class="pnc-legend">
+            <button class="pnc-legend-toggle" type="button">
+              <span class="pnc-legend-caret">▾</span>
+              <span>What do the symbols mean?</span>
+            </button>
+            <div class="pnc-legend-list">
+              <div class="pnc-legend-row">
+                <span class="pnc-chip pnc-chip--firm pnc-legend-sym">≈</span>
+                <span class="pnc-legend-text">Priced on every mod it has</span>
+              </div>
+              <div class="pnc-legend-row">
+                <span class="pnc-chip pnc-chip--floor pnc-legend-sym">≥</span>
+                <span class="pnc-legend-text">Worth at least this — counts as a minimum</span>
+              </div>
+              <div class="pnc-legend-row">
+                <span class="pnc-chip pnc-chip--floor pnc-legend-sym">±</span>
+                <span class="pnc-legend-text">Several variants published, unsure which</span>
+              </div>
+              <div class="pnc-legend-row">
+                <span class="pnc-chip pnc-chip--unknown pnc-legend-sym">?</span>
+                <span class="pnc-legend-text">No usable number — out of the total</span>
+              </div>
+              <div class="pnc-legend-row">
+                <span class="pnc-chip pnc-chip--pending pnc-legend-sym">··</span>
+                <span class="pnc-legend-text">Still pricing — provisional</span>
+              </div>
+              <div class="pnc-legend-row">
+                <span class="pnc-chip pnc-chip--firm pnc-legend-sym">d</span>
+                <span class="pnc-legend-text">Divine orbs · c is chaos — every price converts to one of the two</span>
+              </div>
+            </div>
+          </div>
+          <div class="pnc-links">
+            <a class="pnc-settings" href="#">Settings</a>
+            <a class="pnc-link--muted pnc-clear" href="#">Clear prices</a>
+            <div class="pnc-spacer"></div>
+            <a class="pnc-link--muted pnc-bug" href="#">Report a bug</a>
+            <a class="pnc-donate" href="#">Donate</a>
+          </div>
+        </div>
+
+        <!-- The sheet "Report a bug" raises. Shown here on purpose: it is the
+             only thing in the extension that covers the panel, so it is the one
+             piece whose contrast against everything behind it has to be checked
+             rather than imagined. -->
+        <div class="pnc-ask">
+          <div class="pnc-ask-head">Send the run's diagnostics with it?</div>
+          <div class="pnc-ask-body">
+            Saves a JSON file to your downloads and copies it to the clipboard, for
+            you to attach to the report. It holds what this run did — the items on
+            this public character page, the searches they turned into, what trade
+            answered and how long each took. No account, no session, nothing about
+            you.
+          </div>
+          <div class="pnc-ask-buttons">
+            <button class="pnc-btn pnc-ask-no" type="button">Just open the tracker</button>
+            <button class="pnc-btn pnc-btn--go pnc-ask-yes" type="button">Save it and open</button>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- With the ring, so hovering it here shows what the pass looks like: the
+         spinner has to stop turning as the button stretches into the pill. -->
+    <button id="pnc-fab" class="pnc-fab--active" type="button">
+      <span class="pnc-fab-ring"></span>
+      <i class="pnc-mark" style="--pnc-mark:16px"></i>
+      <span class="pnc-fab-label">Hide the panel</span>
+    </button>
+
+    <script>
+      const panel = document.getElementById('pnc-panel');
+      document.getElementById('showAsk').addEventListener('change', (ev) => {
+        panel.classList.toggle('show-ask', ev.target.checked);
+      });
+    </script>
   </body>
 </html>

@@ -16,10 +16,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'icons');
 mkdirSync(outDir, { recursive: true });
 
-// Handoff tokens, converted to sRGB.
-const BG = [37, 43, 51]; // oklch(24% 0.02 250)
-const AMBER = [232, 168, 61]; // oklch(72% 0.16 70)
-const INNER = [40, 30, 12]; // oklch(18% 0.02 70)
+// Handoff tokens, verbatim.
+const BG = [26, 30, 38]; // #1a1e26, the plate the mark sits on
+const FRONT = [232, 176, 74]; // #e8b04a
+const BACK = [138, 106, 44]; // #8a6a2c
 
 const crcTable = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -76,19 +76,32 @@ function insideRounded(x, y, size, radius) {
 /** A diamond is a square rotated 45°, i.e. the L1 ball. */
 const inDiamond = (x, y, cx, cy, half) => Math.abs(x - cx) + Math.abs(y - cy) <= half;
 
+/**
+ * The mark: two stacked diamonds, a pile of currency rather than one divine orb.
+ * It reads as "a total", which is what the extension produces.
+ *
+ * Measured off the 44px plate in the handoff and expressed as fractions, so
+ * every size is the same drawing rather than four hand-tuned ones. The front
+ * diamond is drawn over the back one — that overlap is the whole effect, and it
+ * is what still survives at 16px where two separate shapes would not.
+ */
+const BACK_AT = [0.375, 0.58];
+const FRONT_AT = [0.625, 0.443];
+const DIAMOND = 0.241; // half-diagonal, i.e. the L1 radius
+
 for (const size of [16, 32, 48, 128]) {
   const radius = Math.round(size * 0.2);
-  const c = (size - 1) / 2;
-  const outer = size * 0.34;
-  const inner = size * 0.15;
+  const half = size * DIAMOND;
+  const back = BACK_AT.map((f) => f * size);
+  const front = FRONT_AT.map((f) => f * size);
 
   const buf = png(size, (x, y) => {
     // Sample the centre of the pixel so the diagonals don't look ragged.
     const px = x + 0.5;
     const py = y + 0.5;
     if (!insideRounded(px, py, size, radius)) return [0, 0, 0, 0];
-    if (inDiamond(px, py, c, c, inner)) return [...INNER, 255];
-    if (inDiamond(px, py, c, c, outer)) return [...AMBER, 255];
+    if (inDiamond(px, py, front[0], front[1], half)) return [...FRONT, 255];
+    if (inDiamond(px, py, back[0], back[1], half)) return [...BACK, 255];
     return [...BG, 255];
   });
 

@@ -293,6 +293,20 @@ async function cacheAppraisal(key, data) {
   await chrome.storage.local.set({ [key]: { at: Date.now(), data } });
 }
 
+/**
+ * What a search asked for, in the item's own words.
+ *
+ * The result already carries the stat ids it filtered on, but
+ * `explicit.stat_1671376347` is not something to put in front of a player, and
+ * the panel's (i) exists to say *why* a number is what it is. The mod objects
+ * that produced those ids still hold the line as poe.ninja wrote it, so the ids
+ * are mapped back rather than translated a second time.
+ */
+function modTextsFor(filters, mods) {
+  const byId = new Map(mods.map((mod) => [mod.id, mod.text]));
+  return filters.map((id) => byId.get(id)).filter(Boolean);
+}
+
 /** A trade link for any item, built without spending a request. */
 async function linkFor(item, league, minRollPercent) {
   const isUnique = item.frameType === 3 || item.frameType === 10;
@@ -395,6 +409,29 @@ const handlers = {
   },
 
   /**
+   * How much is in the cache, for the popup and the options page.
+   *
+   * Items rather than builds: the cache is keyed on what an item *is*, so the
+   * same jewel met on two characters is one entry. Counting "builds" would mean
+   * inventing a number the storage does not hold.
+   */
+  async cacheStats() {
+    const keys = chrome.storage.local.getKeys
+      ? await chrome.storage.local.getKeys()
+      : Object.keys(await chrome.storage.local.get(null));
+    return {
+      items: keys.filter((k) => k.startsWith('ap:')).length,
+      ttlHours: Math.round(APPRAISAL_TTL_MS / 3600000),
+    };
+  },
+
+  /** The panel's Settings link. A content script cannot open it itself. */
+  async openOptions() {
+    await chrome.runtime.openOptionsPage();
+    return { ok: true };
+  },
+
+  /**
    * What the rate limiter believes, for `pncReport()`.
    *
    * Costs nothing and answers the question a slow pass always raises: is the
@@ -410,6 +447,10 @@ const handlers = {
       rules: limiter.rules,
       buckets: limiter.state(),
       waitedMs: limiter.waitedMs,
+      // Non-zero only after a 429, i.e. GGG told us to stand down rather than
+      // us pacing ourselves. That is the difference between a wait worth
+      // explaining in the panel and one that needs no comment at all.
+      blockedUntil: limiter.blockedUntil,
     });
     return {
       search: view(searchLimit),
@@ -700,12 +741,14 @@ async function runAppraisal({
               mods: 0,
               rolled: mods.length,
               filters: [],
+              modTexts: [],
             };
           }
         }
       }
       if (!best) return { skipped: 'no listing found with any subset of its mods' };
 
+      const askedFor = best.query.query.stats[0].filters.map((f) => f.id);
       return {
         url: webUrl(resolved, best.id),
         total: best.total,
@@ -721,7 +764,8 @@ async function runAppraisal({
         mods: best.mods,
         rolled: best.rolled,
         queries: best.queriesUsed,
-        filters: best.query.query.stats[0].filters.map((f) => f.id),
+        filters: askedFor,
+        modTexts: modTextsFor(askedFor, mods),
       };
     }
 
@@ -762,6 +806,7 @@ async function runAppraisal({
         spend,
       });
       if (found) {
+        const askedFor = found.query.query.stats[0].filters.map((f) => f.id);
         return {
           url: webUrl(resolved, found.id),
           total: found.total,
@@ -790,7 +835,8 @@ async function runAppraisal({
           rolled: found.rolled,
           queries: found.queriesUsed,
           strategy: 'own-mods',
-          filters: found.query.query.stats[0].filters.map((f) => f.id),
+          filters: askedFor,
+          modTexts: modTextsFor(askedFor, geared),
         };
       }
     }

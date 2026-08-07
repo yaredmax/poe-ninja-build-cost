@@ -1,0 +1,209 @@
+/*
+ * Tokens and the two primitives the popup and the options page share.
+ *
+ * The same values as content.css, which cannot be imported here: it is injected
+ * into poe.ninja by the manifest and everything in it is scoped under `#pnc-`
+ * ids that do not exist on an extension page.
+ */
+:root {
+  --pnc-bg: #12151b;
+  --pnc-raised: #161a21;
+  --pnc-input: #1b202a;
+  --pnc-chip: #232935;
+  --pnc-border-subtle: #21262f;
+  --pnc-border-faint: #1e232c;
+  --pnc-border-input: #2f3542;
+  --pnc-border-strong: #343a46;
+  --pnc-border-hover: #4a5262;
+  --pnc-text: #d8dce4;
+  --pnc-dim: #8b93a3;
+  --pnc-faint: #6d7482;
+  --pnc-deco: #5f6674;
+  --pnc-amber: #e0a53c;
+  --pnc-amber-bright: #e8b04a;
+  --pnc-amber-pale: #f0bc5c;
+  --pnc-amber-dark: #8a6a2c;
+  --pnc-amber-border: #6b5426;
+  --pnc-warn-text: #c9b48c;
+  --pnc-ok: #6fa15c;
+  --pnc-ok-text: #9db892;
+
+  --pnc-ui: "Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif;
+  --pnc-mono: ui-monospace, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--pnc-bg);
+  color: var(--pnc-text);
+  font-family: var(--pnc-ui);
+  font-size: 13px;
+}
+
+a {
+  color: #d9a544;
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--pnc-amber-pale);
+  text-decoration: underline;
+}
+
+@keyframes pnc-blink {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.35; }
+}
+
+/* ------ the icon mark: two stacked diamonds, geometry only */
+
+.mark {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: calc(var(--mark, 11px) * 1.27);
+  height: var(--mark, 11px);
+}
+
+.mark::before,
+.mark::after {
+  content: '';
+  position: absolute;
+  width: calc(var(--mark, 11px) * 0.72);
+  height: calc(var(--mark, 11px) * 0.72);
+  border-radius: 1px;
+  transform: rotate(45deg);
+}
+
+.mark::before {
+  left: 0;
+  bottom: 0;
+  background: var(--pnc-amber-dark);
+}
+
+.mark::after {
+  right: 0;
+  top: 0;
+  background: var(--pnc-amber-bright);
+}
+
+/* ------ the slider, identical on both surfaces */
+
+input[type="range"] {
+  width: 100%;
+  height: 13px;
+  margin: 0;
+  background: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  /*
+   * The filled part is painted into the track by `--fill`, which the script
+   * sets as the value changes. A second element behind a transparent track
+   * would need the thumb's exact geometry to line up, and that differs between
+   * platforms.
+   */
+  background: linear-gradient(
+    to right,
+    #d9a544 0 var(--fill, 80%),
+    var(--pnc-chip) var(--fill, 80%) 100%
+  );
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--pnc-amber-bright);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ------ the select */
+
+select {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--pnc-border-input);
+  border-radius: 3px;
+  background: var(--pnc-input);
+  color: var(--pnc-text);
+  font-family: var(--pnc-ui);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+select:hover { border-color: var(--pnc-border-hover); }
+select:focus-visible { outline: 1px solid var(--pnc-amber-border); }
+
+/* ------ buttons */
+
+button {
+  border: 1px solid var(--pnc-border-strong);
+  border-radius: 3px;
+  background: none;
+  color: var(--pnc-text);
+  font-family: var(--pnc-ui);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--pnc-border-hover);
+  background: var(--pnc-input);
+}
+
+button.primary {
+  border-color: var(--pnc-amber-border);
+  color: var(--pnc-amber-bright);
+  font-weight: 600;
+}
+
+button.primary:hover { background: rgba(224, 165, 60, 0.1); }
+
+/* Both surfaces carry Donate, deliberately: it is the only ask the tool makes. */
+.donate {
+  padding: 5px 11px;
+  border-radius: 3px;
+  background: #d9a544;
+  color: #0b0d11;
+  font-weight: 600;
+}
+
+.donate:hover {
+  background: var(--pnc-amber-pale);
+  color: #0b0d11;
+  text-decoration: none;
+}
+
+.muted { color: var(--pnc-dim); }
+.muted:hover { color: var(--pnc-text); }
+
+.spacer { flex: 1; }
+
+/* ------ the status dot, shared with the panel's language */
+
+.dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pnc-faint);
+}
+
+.dot.ok { background: var(--pnc-ok); }
+
+.dot.live {
+  background: var(--pnc-amber);
+  animation: pnc-blink 1.2s ease-in-out infinite;
+}
