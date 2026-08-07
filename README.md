@@ -33,7 +33,7 @@ almost everything.
 If this saved you time and you feel like buying me a coffee, thank you — but the
 extension is free and will stay that way.
 
-[![Buy me a coffee](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/yaredmax)
+<a href="https://ko-fi.com/yaredmax/?hidefeed=true&amp;widget=true&amp;embed=true&amp;preview=true"><img src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" alt="Buy Me a Coffee at ko-fi.com" height="36"></a>
 
 ## Options
 
