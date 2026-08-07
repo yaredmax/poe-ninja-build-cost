@@ -1634,7 +1634,7 @@ function renderFooter() {
          title="Stops the pass, removes the prices from the page and puts the button back">Clear prices</a>
       <div class="pnc-spacer"></div>
       <a class="pnc-link--muted pnc-bug" href="${PNC_BUG_URL}" target="_blank" rel="noopener">Report a bug</a>
-      <a class="pnc-donate" href="${PNC_DONATE_URL}" target="_blank" rel="noopener">Buy me a coffee</a>
+      <a class="pnc-donate" href="${PNC_DONATE_URL}" target="_blank" rel="noopener">Buy me a Scroll</a>
     </div>`;
 
   els.foot.querySelector('.pnc-legend-toggle').addEventListener('click', () => {

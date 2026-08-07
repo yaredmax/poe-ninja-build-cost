@@ -295,8 +295,8 @@ today only `pncReport()` prints).
   number, `··` still pricing. This is the only place the legend is reachable from,
   so it must not be buried.
 - Links row: `Settings` (amber) · `Clear prices` (`#8b93a3`) · spacer ·
-  `Report a bug` (`#8b93a3`) · **`Donate`** as a filled `#d9a544` button with
-  `#0b0d11` text, hover `#f0bc5c`. Donate appears here as well as in the popup,
+  `Report a bug` (`#8b93a3`) · **`Buy me a Scroll`** as a filled `#d9a544` button with
+  `#0b0d11` text, hover `#f0bc5c`. It appears here as well as in the popup,
   deliberately. `Clear prices` is the panel's real exit and is described at the
   end of this file.
 
@@ -404,7 +404,7 @@ All of this is a restyle of what already renders. No new data, no new trade requ
   Then `Which listings count` as a select on `#1b202a`/`#2f3542`.
   Then a mono line `Cache: 18 builds · 2 h` with a `Clear` action.
 - **Footer** `#161a21`: `All settings` outlined in amber · spacer ·
-  `Report a bug` · `Donate` filled amber.
+  `Report a bug` · `Buy me a Scroll` filled amber.
 - Changing a setting mid-run shows **"applies to the next run"**. Never restart a
   four-minute pass behind the user's back.
 
@@ -436,7 +436,7 @@ added — the same four settings as today, with their existing copy:
 4. **Cached prices** — `Clear cached prices` outlined button and a mono
    `18 builds · 412 items` beside it.
 
-Footer row: `Report a bug` · `Source` · spacer · `Donate` filled amber. Pinned to
+Footer row: `Report a bug` · `Source` · spacer · `Buy me a Scroll` filled amber. Pinned to
 the bottom of the window on `#161a21` with a `#1e232c` top border, outside the
 scroller, so it does not travel with the pane's length.
 
@@ -795,3 +795,28 @@ half the rows do not reach.
 column; inline after names running from "Enlighten" to "Awakened Cast On
 Critical Strike Support" there is no column to buy, and all a minimum would add
 is dead space between a name and its own price.
+
+**The progress block reserves two lines, so nothing under it moves.** The status
+line reads `<item> · waiting 23 s for GGG's rate limit`, and the waiting half
+appears and disappears every few seconds for the whole length of a pass. One
+line without it, two with: the block measured 81px then 92px then 81px, and the
+total and the entire item list stepped 11px each way, over and over, while the
+user was reading them.
+
+`.pnc-what` now reserves `min-height: 32px` — two lines at 11.5px/1.4 — and
+centres its content, so a single line sits level with the dot beside it instead
+of at the top of an empty box. Measured across five item names with and without
+the waiting text: one block height, 92px, and the list starts at the same pixel
+in all ten.
+
+The same fault was one level up and worse. The header chip already had
+`white-space: nowrap` and `text-overflow: ellipsis`, and neither did anything,
+because a flex item defaults to `min-width: auto` — "never shrink below your
+content". So the chip held its full width, squeezed the title beside it, and the
+*title* wrapped: 43px of header became 62px on a long item name, moving
+everything. `min-width: 0` on the chip is what lets the ellipsis it already had
+actually happen, and the title is `nowrap` too now.
+
+**The donate button is "Buy me a Scroll".** A Scroll of Wisdom is the cheapest
+thing in the game, which is the joke, and it is 100px against the 104px of "Buy
+me a coffee" — 20px of slack in the panel footer, 24px in the popup.

@@ -30,7 +30,7 @@ links every price to the exact trade search behind it, so that link tells me
 almost everything.
 
 <a name="support"></a>
-If this saved you time and you feel like buying me a coffee, thank you — but the
+If this saved you time and you feel like buying me a Scroll, thank you — but the
 extension is free and will stay that way.
 
 <a href="https://ko-fi.com/yaredmax/?hidefeed=true&amp;widget=true&amp;embed=true&amp;preview=true"><img src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" alt="Buy Me a Coffee at ko-fi.com" height="36"></a>

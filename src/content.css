@@ -366,17 +366,28 @@
 }
 
 #pnc-panel .pnc-brand {
+  flex: none;
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 /*
  * Always the same count and the same item name as the status line below it. Two
  * places showing the same thing that disagree is worse than one place.
  */
+/*
+ * `min-width: 0` is what makes the ellipsis above work at all. A flex item
+ * defaults to `min-width: auto`, which is "never shrink below your content" —
+ * so this chip refused to give ground, squeezed the title next to it instead,
+ * and the title wrapped. The header went 43px to 62px on a long item name and
+ * took the whole panel down with it, which is the same jump the status line
+ * had, one level up and worse.
+ */
 #pnc-panel .pnc-head-meta {
   overflow: hidden;
+  min-width: 0;
   color: var(--pnc-faint);
   font-family: var(--pnc-mono);
   font-size: 11px;
@@ -593,7 +604,29 @@
   line-height: 1.4;
 }
 
-#pnc-panel .pnc-progress-status .pnc-what { flex: 1; min-width: 0; }
+/*
+ * Two lines are reserved whether or not there is anything on the second, so
+ * the item list below never moves.
+ *
+ * The status line says "<item> · waiting 23 s for GGG's rate limit", and the
+ * waiting half comes and goes every few seconds through a pass that runs for
+ * minutes. One line without it, two lines with: the progress block went 81px
+ * to 92px and back, and everything under it — the total, the whole list —
+ * jumped 11px each time, while the user was trying to read it.
+ *
+ * 32px is two lines at 11.5px/1.4, measured. Every real name fits: the longest
+ * there is, "Awakened Cast On Critical Strike Support" at 40 characters, still
+ * wraps to two with the waiting text on the end. The flex centring is so a
+ * single line sits in the middle of the reserved box rather than at the top of
+ * it, level with the dot beside it.
+ */
+#pnc-panel .pnc-progress-status .pnc-what {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 32px;
+}
 #pnc-panel .pnc-progress-status b { color: var(--pnc-text); font-weight: 400; }
 #pnc-panel .pnc-progress-status i { font-family: var(--pnc-mono); font-style: normal; }
 
