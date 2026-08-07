@@ -4,6 +4,10 @@ A Chrome extension (Manifest V3) that puts a price next to every item on a
 [poe.ninja](https://poe.ninja/poe1/builds) character page and works out what the
 build would cost.
 
+![A poe.ninja character page with an amber price badge on every item, and a side
+panel adding them up to a minimum build cost of 806.7 divine, broken down by
+slot](docs/screenshot.png)
+
 > **Path of Exile 1 for now — a Path of Exile 2 version is coming.**
 > The content script only runs on poe.ninja's PoE 1 build and profile pages, so
 > on a PoE 2 character nothing appears at all. That is the current state, not a
