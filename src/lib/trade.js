@@ -396,16 +396,20 @@ const CATEGORIES = {
   Boots: 'armour.boots',
   Gloves: 'armour.gloves',
   Offhand: 'armour.shield',
+  Offhand2: 'armour.shield',
   Weapon: 'weapon',
   Weapon2: 'weapon',
   Ring: 'accessory.ring',
   Ring2: 'accessory.ring',
   Amulet: 'accessory.amulet',
   Belt: 'accessory.belt',
+  Trinket: 'accessory.trinket',
 };
 
 function categoryFor(item) {
-  if (item.inventoryId === 'Offhand' && /quiver/i.test(item.baseType)) return 'armour.quiver';
+  // Both hands, not just the first: a bow build carries its quiver in whichever
+  // set the bow is in, and the swap set spells the slot "Offhand2".
+  if (/^Offhand2?$/.test(item.inventoryId) && /quiver/i.test(item.baseType)) return 'armour.quiver';
   return CATEGORIES[item.inventoryId] || null;
 }
 

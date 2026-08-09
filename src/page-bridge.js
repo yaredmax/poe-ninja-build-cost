@@ -40,16 +40,51 @@
     return null;
   }
 
+  const idOf = (item) => item.id || `${item.baseType}:${item.x},${item.y}`;
+
   /**
-   * Walks the fiber tree looking for items in props. `socketedItems` (the gems
-   * inside gear) are flattened separately because they hang off the containing
-   * item and have no fiber of their own.
+   * The full equipment list, both weapon sets included, as poe.ninja hands it to
+   * the page component before deciding what to paint.
+   *
+   * The walk below only reaches what is on screen, and the swap set is not:
+   * React mounts it when you press the "II" toggle over the weapon. So a bow and
+   * quiver parked in weapon set II were priced as if the character had nothing
+   * there, which is the whole of the "secondary weapon set" bug.
+   *
+   * It has to be climbed to, not walked into. The list sits two fibers *above*
+   * the <article> we start from — article, main, then the component holding
+   * `char` — so nothing below the starting point ever sees it.
+   */
+  function equipmentList(fiber) {
+    for (let node = fiber, guard = 0; node && guard < 40; guard++, node = node.return) {
+      const items = node.memoizedProps?.char?.items;
+      if (Array.isArray(items)) return items.map((entry) => entry?.itemData).filter(isItem);
+    }
+    return [];
+  }
+
+  /**
+   * Walks the fiber tree looking for items in props, then tops it up from the
+   * equipment list for anything the page is holding but not painting.
+   *
+   * `socketedItems` (the gems inside gear) are flattened separately because they
+   * hang off the containing item and have no fiber of their own.
    */
   function harvest(root) {
     const found = [];
     const seen = new Set();
-    const stack = [fiberOf(root)].filter(Boolean);
+    const startFiber = fiberOf(root);
+    const stack = [startFiber].filter(Boolean);
     let guard = 0;
+
+    const flattenGems = (item, id) => {
+      for (const gem of item.socketedItems || []) {
+        const gemId = gem.id || `${id}:${gem.socket}`;
+        if (seen.has(gemId)) continue;
+        seen.add(gemId);
+        found.push(slim(gem, found.length, null));
+      }
+    };
 
     while (stack.length && guard++ < 200000) {
       const fiber = stack.pop();
@@ -62,22 +97,33 @@
 
       for (const value of Object.values(props)) {
         if (!isItem(value)) continue;
-        const id = value.id || `${value.baseType}:${value.x},${value.y}`;
+        const id = idOf(value);
         if (seen.has(id)) continue;
         seen.add(id);
 
         const el = hostElement(fiber);
         if (el) el.setAttribute(ATTR, String(found.length));
         found.push(slim(value, found.length, el ? found.length : null));
-
-        for (const gem of value.socketedItems || []) {
-          const gemId = gem.id || `${id}:${gem.socket}`;
-          if (seen.has(gemId)) continue;
-          seen.add(gemId);
-          found.push(slim(gem, found.length, null));
-        }
+        flattenGems(value, id);
       }
     }
+
+    // Whatever the walk already caught keeps its anchor; only the unpainted
+    // slots come from here, and those get none. With the set hidden there is no
+    // element to hang a badge on — they still count towards the total, which is
+    // what the bug was about.
+    //
+    // Their socketed gems deliberately do not. A swap weapon is where players
+    // park spare Empowers to level, and the character page shows nine of them in
+    // one bow and quiver — pricing storage as if it were the build would have
+    // moved the total by more than the weapons themselves.
+    for (const item of equipmentList(startFiber)) {
+      const id = idOf(item);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      found.push(slim(item, found.length, null));
+    }
+
     return found;
   }
 

@@ -151,7 +151,7 @@ export function preferExplicit(statIndex, id) {
  * stat instead.
  */
 const LOCAL_SLOTS = new Set([
-  'Helm', 'BodyArmour', 'Boots', 'Gloves', 'Offhand', 'Weapon', 'Weapon2',
+  'Helm', 'BodyArmour', 'Boots', 'Gloves', 'Offhand', 'Offhand2', 'Weapon', 'Weapon2',
 ]);
 
 export function wantsLocalStats(item) {

@@ -82,7 +82,7 @@ const isGem = (item) => item.frameType === 4;
 
 const EQUIPMENT_SLOTS = new Set([
   'Helm', 'BodyArmour', 'Boots', 'Gloves', 'Weapon', 'Weapon2',
-  'Offhand', 'Ring', 'Ring2', 'Amulet', 'Belt',
+  'Offhand', 'Offhand2', 'Ring', 'Ring2', 'Amulet', 'Belt', 'Trinket',
 ]);
 
 /**

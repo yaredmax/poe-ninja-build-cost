@@ -47,7 +47,7 @@ function priceForItem(item) {
 
 // mirror of categoryOf() in src/content.js
 const EQUIPMENT_SLOTS = new Set(['Helm', 'BodyArmour', 'Boots', 'Gloves', 'Weapon',
-  'Weapon2', 'Offhand', 'Ring', 'Ring2', 'Amulet', 'Belt']);
+  'Weapon2', 'Offhand', 'Offhand2', 'Ring', 'Ring2', 'Amulet', 'Belt', 'Trinket']);
 function categoryOf(item) {
   if (isGem(item)) return 'Gems';
   if (item.inventoryId === 'Flask') return 'Flasks';
