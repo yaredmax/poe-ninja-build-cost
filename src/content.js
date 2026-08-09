@@ -86,6 +86,22 @@ const EQUIPMENT_SLOTS = new Set([
 ]);
 
 /**
+ * The swap weapon set.
+ *
+ * It is not part of the build often enough to count by default: players park
+ * spare Empowers and Enlightens in a second bow purely to level them, and the
+ * character this was traced on had nine of them in there. So it stays out of
+ * the total until asked for, and the panel only offers the switch on a build
+ * that actually has one — an option that does nothing is worse than no option.
+ */
+const SWAP_SLOTS = new Set(['Weapon2', 'Offhand2']);
+
+const isSwapSet = (match) => SWAP_SLOTS.has(match.item?.inventoryId);
+
+/** In the panel and on the page, but deliberately out of the total. */
+const isExcluded = (match) => isSwapSet(match) && !state.includeSwapSet;
+
+/**
  * Section order in the summary, matching how poe.ninja lays the page out:
  * equipment first, then flasks under it, then the jewel blocks, then skills.
  *
@@ -252,9 +268,16 @@ function priceForItem(item, index) {
 function scanFromBridge(items, index) {
   const found = [];
   for (const item of items) {
-    if (item.anchor == null) continue;
-    const el = document.querySelector(`[data-pnc-item="${item.anchor}"]`);
-    if (!el) continue;
+    // No anchor means the page holds the item but is not painting it — the swap
+    // weapon set while set I is the one on screen. That used to end the item's
+    // journey here, which quietly undid the whole point of harvesting it: it can
+    // be priced and listed perfectly well, it just has nowhere to put a badge
+    // until poe.ninja mounts the set. An anchor that resolves to nothing is a
+    // different story and still gets dropped.
+    const el = item.anchor == null
+      ? null
+      : document.querySelector(`[data-pnc-item="${item.anchor}"]`);
+    if (item.anchor != null && !el) continue;
 
     const price = priceForItem(item, index);
     // An unpriced unique is not the same as a rare. The rare *cannot* have a
@@ -659,6 +682,10 @@ const state = {
   searches: 0,
   fromCache: 0,
   collapsed: false,
+  // Per build, not a saved preference: it answers "does *this* character's swap
+  // set matter", which is a different question on every character. The settings
+  // that apply to everything live in the popup and the options page.
+  includeSwapSet: false,
   legendOpen: false,
   openTip: null,
   notSignedIn: false,
@@ -817,6 +844,11 @@ function placeBadge(match, badge) {
 
 /** Builds or refreshes the badge over one item. */
 function paintBadge(match) {
+  // Nothing on screen to badge. True of the swap set until you press "II" on
+  // poe.ninja, at which point the re-harvest gives the item an anchor and the
+  // badge appears on the next paint.
+  if (!match.el) return;
+
   let badge = match.badge;
   if (!badge) {
     badge = document.createElement('span');
@@ -841,8 +873,28 @@ function paintBadge(match) {
 
   badge.classList.remove(
     'pnc-badge--floor', 'pnc-badge--unknown', 'pnc-badge--pending', 'pnc-badge--working',
+    'pnc-badge--skipped',
   );
   badge.textContent = '';
+
+  /*
+   * Set II, switched off. Leaving the corner blank would read as "we could not
+   * price this", which is the one thing it does not mean — so the badge says
+   * the item was left out and how to change that, in the place the price would
+   * have been. It is not a link to a search, so any old one is cleared.
+   */
+  if (isExcluded(match)) {
+    badge.classList.add('pnc-badge--skipped');
+    badge.textContent = 'set II';
+    badge.title = 'Not counted: the swap weapon set is usually storage. '
+      + 'Turn it on under the total to price it.';
+    // It may have been priced a moment ago, under the switch turned back off.
+    // The number goes, so the link to the search behind it has to go too.
+    badge.dataset.searchUrl = '';
+    badge.classList.remove('pnc-badge--link');
+    fitBadge(badge);
+    return;
+  }
 
   /*
    * The item being priced on trade right this second. It used to blank to an
@@ -915,6 +967,9 @@ function linkToSearch(badge, url) {
   badge.addEventListener('click', (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
+    // The listener outlives the URL: a badge that has been emptied again — the
+    // swap set switched back off — would otherwise open a blank tab.
+    if (!badge.dataset.searchUrl) return;
     // Straight from the click, with no await in between, or Chrome treats it as
     // a popup and blocks it.
     window.open(badge.dataset.searchUrl, '_blank', 'noopener');
@@ -992,9 +1047,15 @@ function totalsOf() {
   let priced = 0;
   let provisional = 0;
   let unknown = 0;
+  let units = 0;
   const sections = new Map();
 
   for (const group of state.groups) {
+    // Left out on purpose. It is not unpriced — counting it as such would put
+    // "1 item is not in the total" under a build where nothing failed.
+    if (group.members.every(isExcluded)) continue;
+    units += group.count;
+
     const price = groupPrice(group);
     if (price.pending) provisional += group.count;
 
@@ -1008,7 +1069,7 @@ function totalsOf() {
     }
   }
 
-  return { chaos, priced, provisional, unknown, sections, units: state.matches.length };
+  return { chaos, priced, provisional, unknown, sections, units };
 }
 
 // ----------------------------------------------------------------- the panel
@@ -1253,13 +1314,6 @@ function renderTotal() {
   const cover = `${totals.priced} of ${totals.units} items priced`
     + (totals.provisional ? ` · ${totals.provisional} still provisional` : '');
 
-  // Labelled *Minimum* on purpose: many items are deliberately priced low, and
-  // every `≥` in the list below is another reason the real figure is higher.
-  const settingsLine = state.phase === 'done'
-    ? `<div class="pnc-settings-line">Priced at <b>${settings.minRollPercent}%</b> roll,
-        ${escapeHtml(saleModeLabel())}. Cached for 2 h — reopening this build costs nothing.</div>`
-    : '';
-
   els.total.innerHTML = `
     <div class="pnc-total">
       <div class="pnc-total-label">Minimum build cost</div>
@@ -1271,7 +1325,54 @@ function renderTotal() {
       </div>
       <div class="pnc-total-cover">${escapeHtml(cover)}</div>
     </div>
-    ${settingsLine}`;
+    ${swapSetOption()}`;
+
+  els.total.querySelector('.pnc-opt-swap')?.addEventListener('change', toggleSwapSet);
+}
+
+/**
+ * The one control that lives in the panel, and the reason the rule against it
+ * does not apply: it is not a copy of anything.
+ *
+ * Everything in the popup and the options page applies to every build, so a
+ * second copy in the panel would be a second thing to keep in step. This asks
+ * about *this* character — does its swap set hold gear or spare gems — and it
+ * has no twin anywhere. It is also only drawn when the answer could differ,
+ * i.e. when the build has a swap set at all.
+ */
+function swapSetOption() {
+  const swap = state.matches.filter(isSwapSet);
+  if (!swap.length || state.phase === 'reading') return '';
+
+  const on = state.includeSwapSet;
+  const what = swap.length === 1 ? '1 item' : `${swap.length} items`;
+  return `
+    <label class="pnc-opt">
+      <input class="pnc-opt-swap" type="checkbox" ${on ? 'checked' : ''}>
+      <span class="pnc-opt-text">Count the swap weapon set<span class="pnc-opt-note"
+        > · ${what}, usually storage</span></span>
+    </label>`;
+}
+
+/**
+ * Switching it on has to go and price two items nobody asked about yet, so it
+ * costs searches; switching it off only takes them back out of a sum we already
+ * have. Hence the asymmetry — one re-runs the pass, the other just redraws.
+ */
+function toggleSwapSet(ev) {
+  state.includeSwapSet = !!ev.target.checked;
+
+  state.groups = buildGroups(state.matches);
+  paintBadges();
+  buildList();
+  render();
+
+  if (!state.includeSwapSet || !lastRun || state.phase !== 'done') return;
+  // Everything already priced comes back from the two-hour cache without a
+  // request, so this spends searches on the newly included items and nothing
+  // else.
+  tradePass({ league: lastRun.league, index: lastRun.index, token: runToken })
+    .catch(() => {});
 }
 
 function saleModeLabel() {
@@ -1613,8 +1714,19 @@ function renderFooter() {
     notes.push(`Failed to load: ${escapeHtml(state.failed.map((f) => f.type).join(', '))}.`);
   }
 
+  // Moved down here off the total. It reads as configuration, and configuration
+  // that applies to every build belongs in the popup and the options page — but
+  // the 80% is also the sentence that makes the number mean "one like this costs
+  // X" rather than "this is worth X", so it stays visible as a fact with no
+  // control attached.
+  const settingsLine = state.phase === 'done'
+    ? `<div class="pnc-settings-line">Priced at <b>${settings.minRollPercent}%</b> roll,
+        ${escapeHtml(saleModeLabel())}. Cached for 2 h — reopening this build costs nothing.</div>`
+    : '';
+
   els.foot.innerHTML = `
     <div class="pnc-notes">${notes.join(' ')}</div>
+    ${settingsLine}
     <div class="pnc-legend">
       <button class="pnc-legend-toggle" type="button">
         <span class="pnc-legend-caret">${state.legendOpen ? '▾' : '▸'}</span>
@@ -1756,6 +1868,7 @@ function cancelRun() {
   running = false;
   for (const id of tickers) clearInterval(id);
   tickers.clear();
+  stopWatchingForDrawnItems();
 }
 
 /**
@@ -1869,6 +1982,64 @@ function retryPass() {
 
 /** State of the last run, so the rare appraisal can reuse it. */
 let lastRun = null;
+
+// ------------------------------------------------- items the page hasn't drawn
+//
+// The swap set comes out of the harvest with no element, because poe.ninja only
+// mounts it when you press "II" over the weapon. Press it and the tiles appear —
+// so we watch for that, ask the bridge to mark the page again, and hand the
+// matches the anchor they never had. Until then they live in the panel only.
+
+let swapWatcher = null;
+let reattaching = false;
+
+async function reattachDrawnItems() {
+  if (reattaching) return;
+  // Costs nothing on the overwhelmingly common case: no orphans, no bridge call,
+  // and the observer fires on every hover poe.ninja re-renders.
+  const orphans = state.matches.filter((m) => !m.el && m.item?.id);
+  if (!orphans.length) return;
+
+  reattaching = true;
+  try {
+    const items = await askBridge();
+    const anchorById = new Map(
+      (items || []).filter((i) => i.id && i.anchor != null).map((i) => [i.id, i.anchor]),
+    );
+    let attached = 0;
+    for (const match of orphans) {
+      const anchor = anchorById.get(match.item.id);
+      if (anchor == null) continue;
+      const el = document.querySelector(`[data-pnc-item="${anchor}"]`);
+      if (!el) continue;
+      match.el = el;
+      attached++;
+    }
+    if (attached) paintBadges();
+  } catch {
+    // The page changed under us or the bridge is gone. The panel is unaffected:
+    // these items keep their prices, they just keep having nowhere to sit.
+  } finally {
+    reattaching = false;
+  }
+}
+
+function watchForDrawnItems() {
+  if (swapWatcher) return;
+  const root = document.querySelector('article');
+  if (!root) return;
+  let timer = 0;
+  swapWatcher = new MutationObserver(() => {
+    clearTimeout(timer);
+    timer = setTimeout(reattachDrawnItems, 400);
+  });
+  swapWatcher.observe(root, { childList: true, subtree: true });
+}
+
+function stopWatchingForDrawnItems() {
+  swapWatcher?.disconnect();
+  swapWatcher = null;
+}
 
 /**
  * Which rares are worth sending to trade.
@@ -2162,7 +2333,7 @@ async function tradePass({ league, index, token }) {
   // Same order the panel lists them in — equipment, flasks, jewels, gems — so
   // watching the run makes sense against what you are reading.
   const pending = state.matches
-    .filter((m) => needsTradeLookup(m))
+    .filter((m) => !isExcluded(m) && needsTradeLookup(m))
     .sort((a, b) => SECTION_ORDER.indexOf(categoryOf(a)) - SECTION_ORDER.indexOf(categoryOf(b)));
   // Closed while the economy was loading, before a single trade request went
   // out. Nothing to mark and nothing to ask for.
@@ -2370,7 +2541,10 @@ async function run() {
     paintBadges();
     buildList();
     render();
-    lastRun = { matches, chaosPerDivine, league, failed };
+    watchForDrawnItems();
+    // `index` rides along so switching the swap set on after the pass has
+    // finished can price the two items it adds without reloading the economy.
+    lastRun = { matches, chaosPerDivine, league, failed, index };
 
     // Every badge gets a trade link, including the ones priced from poe.ninja's
     // economy. The trade site accepts the query in the URL, so this costs no

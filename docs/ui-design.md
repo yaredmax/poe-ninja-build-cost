@@ -309,10 +309,25 @@ Same panel, same full item list, later in time. Differences only:
   "Changed after the first build".
 - Total is firm; the sub-line reads `56 of 56 items priced`.
 - One 10.5px line: `Priced at 80% roll, Instant Buyout. Cached for 2 h — reopening
-  this build costs nothing.`
-- **No settings and no re-run button in the panel.** Controls live in the popup and
-  the options page only; three copies of the same control means three things that
-  can drift, and a re-run button invites requests the rate limit cannot afford.
+  this build costs nothing.` **It now sits in the footer, under the notes**, not
+  under the total — see the rule below for why it moved.
+- **No *global* settings and no re-run button in the panel.** Anything that applies
+  to every build lives in the popup and the options page only; a second copy in the
+  panel is a second thing that can drift, and a re-run button invites requests the
+  rate limit cannot afford.
+- **One exception, and the test it has to pass: the control must have no twin.**
+  Options *about this search* belong next to the number they change, because they
+  exist nowhere else and so cannot fall out of step with anything. They are also
+  drawn only when they apply — an option that cannot change the answer is worse
+  than no option, so a build with no swap weapon set never sees the swap switch.
+  The first of them is `Count the swap weapon set · 2 items, usually storage`, a
+  checkbox directly under the total, off by default.
+
+  That is also why the `80% roll` line moved down. It reads as configuration but
+  is not one — the control for it is global and lives in the popup — and leaving
+  it where the per-search options now go would have put a setting you cannot
+  change next to switches you can. It stays visible as a fact, because it is what
+  makes the total mean "one like this costs X" and not "this is worth X".
 
 (In the mockup `1b`'s list is abbreviated to subtotals to save canvas room. In the
 real panel it is the same full list as `1a`.)
@@ -349,6 +364,7 @@ Colour says how much to trust the number, not where it came from:
 | State | Style | In the total? |
 | --- | --- | --- |
 | firm (`90.0 div`, `≈ 224.4 div`) | fill `#c8912e`, text `#14100a` | yes |
+| skipped (`set II`) | `#12151b` fill, `1px solid #343a46`, text `#6d7482`, 9.5px UI face | no, on purpose |
 | floor (`≥ 207.1 div`, `± 20 c`) | `#1b1710` fill, `1px solid #c8912e`, text `#e8b04a` | yes, as a minimum |
 | unknown (`?`) | `#20242c` fill, `1px solid #3a4250`, text `#8b93a3` | no |
 | provisional | `#1b1710` fill, `1px dashed #7d6335`, text `#a8905c`, blink 2s | not yet |
