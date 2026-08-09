@@ -98,6 +98,44 @@ export function mutationKey(mods) {
     .join('|');
 }
 
+/** A published modifier, comparable, but with its numbers left in. */
+export function fixedModKey(text) {
+  return String(text).replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * The published modifiers that name a variant rather than vary within it.
+ *
+ * poe.ninja splits some uniques into lines that differ by nothing but a
+ * modifier — Mageblood by how many flasks it applies, Ralakesh's Impatience by
+ * which charge it maxes — and the spread is not cosmetic: 221 divine for a
+ * four-flask Mageblood against 1426 for a five.
+ *
+ * `modTemplate` cannot tell those apart, because the first thing it does is
+ * replace every number with `#`, which turns "Leftmost 4 Magic Utility Flasks"
+ * and "Leftmost 3" into the same string. So this keeps the text as written and
+ * instead drops the modifiers carrying a published *range* — `+(30-60) to
+ * Dexterity` is a roll every copy has in some amount, and no copy will match it
+ * literally. What is left is fixed for the line: it either appears on the item
+ * word for word or the item is a different variant.
+ */
+export function variantMods(mods) {
+  const texts = (mods || []).map((m) => m.text || m);
+  return {
+    // *Which* modifiers the line has, numbers ignored. Atziri's Splendour has
+    // nine lines that differ by which defences roll — armour, evasion, energy
+    // shield, life — and every one of those is a range no copy matches word for
+    // word. Templates separate them; literals cannot.
+    tpl: texts.map(modTemplate),
+    // ...and the ones whose number *is* the variant, kept as written. These
+    // separate what templates cannot: "leftmost # magic utility flasks" is one
+    // template for four different Mageblood prices.
+    fixed: texts
+      .filter((text) => !/\(\s*-?\d+(?:\.\d+)?\s*-\s*-?\d+(?:\.\d+)?\s*\)/.test(text))
+      .map(fixedModKey),
+  };
+}
+
 async function cacheGet(key) {
   const store = await chrome.storage.local.get(key);
   const entry = store[key];
@@ -354,6 +392,11 @@ export async function buildPriceIndex(league) {
           l.chaosValue,
           mutationKey(l.mutatedModifiers),
           l.listingCount ?? 0,
+          // What tells two lines apart when links, corruption and mutation are
+          // all the same — which for a belt is always. Without it the four
+          // Mageblood lines collapse into whichever poe.ninja sent first, and it
+          // sends them dearest first.
+          variantMods(l.explicitModifiers),
         ]);
     }
 

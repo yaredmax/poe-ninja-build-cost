@@ -37,8 +37,11 @@ function priceForItem(item) {
   }
   if (isUnique(item) && entry.uniq?.length) {
     const corrupted = item.corrupted ? 1 : 0;
-    const exact = entry.uniq.find(([l, c]) => l === item.links && c === corrupted);
-    const sameLinks = entry.uniq.filter(([l]) => l === item.links);
+    // Mirror of src/content.js: poe.ninja publishes 5, 6 or nothing, never 1-4,
+    // so an item's own count has to be read the same way before comparing.
+    const links = item.links >= 5 ? item.links : 0;
+    const exact = entry.uniq.find(([l, c]) => l === links && c === corrupted);
+    const sameLinks = entry.uniq.filter(([l]) => l === links);
     const hit = exact || sameLinks[0];
     if (hit) return { ...entry, chaos: hit[2], detail: item.links >= 5 ? `${item.links}L` : null };
   }

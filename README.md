@@ -195,9 +195,10 @@ This is an estimate with a floor, not a valuation:
   by counting `optional` modifiers (a normal unique has 0; a Watcher's Eye has
   87), plus a hand-written list for the ones that vary by something that isn't a
   mod. The trade pass prices these properly — see below.
-- **Items marked `±`**: poe.ninja publishes several variants (gem level/quality,
-  links, corruption) and the fallback path can't tell which one the character
-  has. The best-selling one is shown.
+- **Items marked `±`**: poe.ninja publishes several variants and nothing
+  separates them. Most are separable and are resolved without a search — see
+  "Which published variant an item is" — but where two lines really do read
+  alike, the best-selling one is shown and marked.
 - **Uniques marked "unpriced"**: poe.ninja doesn't publish them at all, usually
   because their value depends on something the economy doesn't break down. Skin
   of the Lords is the example: only "Skin of the Loyal" is listed, because the
@@ -223,6 +224,46 @@ Dragon Sliver   3 mods -> 0 listings   2 mods -> 11 listings   =>  4.0 div
 ```
 
 **Uniques marked `≥`**, by their roll — see below.
+
+## Which published variant an item is
+
+poe.ninja splits some uniques into a line per variant, and the gap between them
+is not decoration:
+
+```
+Mageblood              5 Flasks  1426 div (7 listings)     Ralakesh's   Power      212 c
+                       4 Flasks   221 div (295 listings)                Endurance  130 c
+                       3 Flasks   154 div                               Frenzy     115 c
+                       2 Flasks    74 div
+```
+
+The line was picked by link count, corruption and Foulborn mutation — a belt has
+none of the three, so all four Mageblood lines tied and the first won. poe.ninja
+sends them dearest first, so a 221-divine belt was priced at 1426. Worse, a tie
+counted as an exact match, which turned off both the `±` mark and the trade pass
+that might have caught it.
+
+Two things fix it, and the second is wider than the first.
+
+**The modifiers say which line it is.** Each line publishes its own, so a line is
+ruled out the moment the item is missing one: a four-flask Mageblood does not say
+"Leftmost 5 Magic Utility Flasks". Both halves of the comparison are needed —
+*which* modifiers a line has, numbers ignored, separates Atziri's Splendour's nine
+lines, which differ by which defences roll; the numbers **as written** separate
+Mageblood's four, which are one template with four different prices. Of the lines
+left standing the one confirmed by the most modifiers wins, because the
+five-flask line publishes no modifiers at all and would otherwise survive every
+elimination by saying nothing.
+
+**And link counts have to be read the way poe.ninja writes them.** Measured over
+every unique it lists: the only values published are 5, 6, and none. There is no
+four-link line. So every two-, three- and four-link unique matched nothing, fell
+through to whichever line came first, and got the dearest variant's price — which
+is what Ralakesh's Impatience was, four-link boots priced as the Power Charge line.
+
+Where the lines genuinely cannot be told apart the item keeps the `±` and goes to
+trade, same as before. `node tools/unique-variant-test.mjs` checks both real items
+and the seven other uniques that split this way; it costs no trade searches.
 
 ## Pricing `≥` uniques by their actual roll
 
@@ -963,6 +1004,7 @@ without it and shipped a `background.js` that could not resolve `./lib/trade.js`
 | `tools/fixtures/` | Real texts, icons, items and mods from a character page |
 | `tools/fixtures/worn.json` | Items off real characters, the only ones that miss the wide query |
 | `tools/query-test.mjs` | What each query asks for, and what got dropped — costs no search |
+| `tools/unique-variant-test.mjs` | Which published line a unique gets — costs no search |
 | `docs/poe-modifiers.md` | How PoE's modifiers work and what each fact implies here |
 | `docs/ui-design.md` | The 0.5.0 design handoff: tokens, every view, and the calls made building it |
 

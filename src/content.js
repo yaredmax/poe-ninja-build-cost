@@ -207,6 +207,56 @@ function askBridge(timeoutMs = 3000) {
   });
 }
 
+/** A modifier as written, comparable. Mirrors `fixedModKey` in economy.js. */
+function pncFixedModKey(text) {
+  return String(text).replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * Which published line is *this* copy, when links and corruption cannot tell.
+ *
+ * Each line carries the modifiers that are fixed for it, so a line is ruled out
+ * the moment the item is missing one of them: a four-flask Mageblood does not
+ * say "Leftmost 5 Magic Utility Flasks", so the 1426-divine line is not it.
+ *
+ * Of the lines left standing, the one confirmed by the most modifiers wins.
+ * That tie-break is not decoration — poe.ninja publishes the five-flask line
+ * with **no** modifiers at all, so it survives every elimination by saying
+ * nothing, and picking "the only one not ruled out" would hand it every item.
+ * Confirmed beats un-contradicted.
+ *
+ * Returns null when the top score is shared, which leaves the caller to fall
+ * back and, more importantly, to stop claiming the answer is exact.
+ */
+function variantByMods(lines, item) {
+  const mods = item.explicitMods || [];
+  const ownText = new Set(mods.map(pncFixedModKey));
+  const ownTemplate = new Set(mods.map(pncModTemplate));
+
+  let best = null;
+  let bestScore = -1;
+  let tied = false;
+
+  for (const line of lines) {
+    const { tpl = [], fixed = [] } = line[5] || {};
+    // Either kind of mismatch rules the line out: a modifier the item does not
+    // have at all, or one it has with a different number written into it.
+    if (tpl.some((mod) => !ownTemplate.has(mod))) continue;
+    if (fixed.some((mod) => !ownText.has(mod))) continue;
+
+    const score = tpl.length + fixed.length;
+    if (score > bestScore) {
+      best = line;
+      bestScore = score;
+      tied = false;
+    } else if (score === bestScore) {
+      tied = true;
+    }
+  }
+
+  return tied ? null : best;
+}
+
 /** Picks the price line matching this specific item. */
 function priceForItem(item, index) {
   const entry = index[normalizeName(isGem(item) ? item.baseType : item.name)];
@@ -241,22 +291,37 @@ function priceForItem(item, index) {
     // last one collapsed every mutation sharing a link count into whichever
     // line came first, and on Null's Inclination those run from 3 c to 1562 c.
     const mutation = mutationKeyOf(item, index);
-    const matches = (l, c, k) => l === item.links && c === corrupted && k === mutation;
+    // poe.ninja only ever publishes a link count of 5, 6 or none: measured over
+    // every unique it lists, there is no such thing as a four-link line. So an
+    // item's own count has to be read the same way before comparing, or every
+    // two-, three- and four-link unique fails to match any line, falls through
+    // to whichever came first, and gets the dearest variant's price. That was
+    // Ralakesh's Impatience: four-link boots priced as the Power Charge line at
+    // 212 c when the item is a Frenzy one at 115 c.
+    const links = item.links >= 5 ? item.links : 0;
+    const matches = (l, c, k) => l === links && c === corrupted && k === mutation;
 
-    const exact = entry.uniq.find(([l, c, , k]) => matches(l, c, k));
+    const keyed = entry.uniq.filter(([l, c, , k]) => matches(l, c, k));
+    // One line fits the key, so there is nothing to be ambiguous about. Several
+    // means the key does not separate them — a belt has no links and cannot be
+    // Foulborn, so every Mageblood line looks identical here — and then the
+    // modifiers are the only thing left that tells them apart.
+    const byMods = keyed.length > 1 ? variantByMods(keyed, item) : null;
+    const settled = keyed.length === 1 ? keyed[0] : byMods;
+
     const sameMutation = entry.uniq.filter(([, , , k]) => k === mutation);
-    const sameLinks = entry.uniq.filter(([l]) => l === item.links);
-    const hit = exact || sameMutation[0] || sameLinks[0];
+    const sameLinks = entry.uniq.filter(([l]) => l === links);
+    const hit = settled || keyed[0] || sameMutation[0] || sameLinks[0];
     if (hit) {
       return {
         ...entry,
         chaos: hit[2],
-        // Still uncertain when we had to settle for a different link count or a
-        // different mutation: those are genuinely other items.
-        variantCount: exact ? 0 : entry.uniq.length,
+        // Still uncertain when we had to settle for a different link count, a
+        // different mutation, or a line the modifiers could not single out.
+        variantCount: settled ? 0 : entry.uniq.length,
         // Whether this is the published line for *this* copy, rather than the
         // nearest one. It decides whether trade has anything to add.
-        variantMatched: Boolean(exact),
+        variantMatched: Boolean(settled),
         detail: item.links >= 5 ? `${item.links}L` : null,
       };
     }
@@ -2072,11 +2137,13 @@ function needsTradeLookup(match) {
     // poe.ninja publishes one price for every roll of these, and it is the
     // cheapest. `floor` is the same thing detected by counting.
     if (match.price?.floor || match.price?.rollPool?.length) return true;
-    // Several published variants and no way to tell from the economy data which
-    // one this is, so we show the best-selling one and mark it `±`. Ralakesh's
-    // Impatience is the case: the copy that grants Power Charges is worth many
-    // times the Frenzy or Endurance ones, and its modifiers are not flagged
-    // optional, so nothing above catches it.
+    // Several published variants and the modifiers could not single one out, so
+    // we show the best-selling one and mark it `±`. Ralakesh's Impatience used
+    // to be the example — Power Charges against Frenzy or Endurance, with the
+    // modifiers not flagged optional so nothing else caught it — and it is not
+    // any more: each of its lines publishes the charge it maxes, and matching
+    // that picks the right one without a search. What is left here is the case
+    // where two lines really are indistinguishable from the economy data.
     if (match.price?.variantCount > 1) return true;
     // A Foulborn only when we could not pin its own published line. poe.ninja
     // prices each mutation separately once you account for links, so a matched
