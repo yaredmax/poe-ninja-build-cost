@@ -8,6 +8,14 @@ build would cost.
 panel adding them up to a minimum build cost of 806.7 divine, broken down by
 slot](docs/screenshot.png)
 
+> **Beta. Not finished, and the numbers still move.**
+> It works and every price is real, but this is a 0.x: some items still come out
+> unpriced, the total shifts as the pricing gets better, and how it looks and
+> reads is still changing. Treat a number as a good estimate, not a settled
+> fact. If one looks wrong,
+> [open an issue](https://github.com/yaredmax/poe-ninja-build-cost/issues/new) —
+> that is exactly what this stage is for.
+
 > **Path of Exile 1 for now — a Path of Exile 2 version is coming.**
 > The content script only runs on poe.ninja's PoE 1 build and profile pages, so
 > on a PoE 2 character nothing appears at all. That is the current state, not a
@@ -15,10 +23,22 @@ slot](docs/screenshot.png)
 
 ## Install
 
+[**Add it from the Chrome Web Store**](https://chromewebstore.google.com/detail/build-cost-for-poeninja-u/nhiklpmgkdbjoeabjnlndfmedekjicbh)
+— that is the whole install, and it updates itself.
+
+Then:
+
+1. Open any build: `https://poe.ninja/poe1/builds/.../character/...`
+2. Click the button in the bottom right corner.
+
+### From source instead
+
+If you'd rather run the code in this repo:
+
 1. `chrome://extensions` → turn on **Developer mode**.
 2. **Load unpacked** → pick this folder.
-3. Open any build: `https://poe.ninja/poe1/builds/.../character/...`
-4. Click the button in the bottom right corner.
+
+Same extension, except updating it is on you.
 
 That one button does everything: poe.ninja's economy prices land immediately,
 then the trade pass runs behind them and the panel updates item by item.
@@ -904,7 +924,9 @@ node tools/package.mjs
 
 Builds `dist/poe-ninja-build-cost-<version>.zip` with an INSTALL.txt, for
 "Load unpacked". Chrome will not install a bare `.crx` from outside the Web
-Store, so an unzipped folder is the only route that works without publishing.
+Store, so an unzipped folder is the only route that skips the store — which is
+what you want for a build that isn't published yet. For anything already
+released, send the store link instead.
 
 It ships what the manifest names, what the HTML pages pull in, and what the
 service worker imports. That last one is not optional: the first zip was built

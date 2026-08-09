@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Build Cost for poe.ninja (unofficial)",
   "version": "0.5.1",
-  "description": "Estimates what a poe.ninja build costs, using poe.ninja's public economy API and the official trade site.",
+  "description": "Beta. Estimates what a poe.ninja build costs, using poe.ninja's public economy API and the official trade site.",
   "homepage_url": "https://github.com/yaredmax/poe-ninja-build-cost",
   "permissions": [
     "storage",
