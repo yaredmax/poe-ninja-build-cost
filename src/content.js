@@ -109,7 +109,7 @@ const isExcluded = (match) => isSwapSet(match) && !state.includeSwapSet;
  * shuffled itself between builds and never lined up with what was on screen.
  */
 const SECTION_ORDER = [
-  'Equipment', 'Flasks', 'Jewels', 'Gems', 'Passive tree', 'Other', 'Unpriced',
+  'Equipment', 'Flasks', 'Jewels', 'Passive tree', 'Gems', 'Other', 'Unpriced',
 ];
 
 /**

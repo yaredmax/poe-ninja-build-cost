@@ -326,9 +326,10 @@ Same panel, same full item list, later in time. Differences only:
   knows whether the build swaps weapons, and guessing "off" was overriding an
   answer we were being handed.
 
-  The section list gains **Passive tree** between Gems and Other, for tattoos and
-  runegrafts. They have no element on the page, so no badge; several copies of
-  one tattoo are a single row with a `x14` count.
+  The section list gains **Passive tree** between Jewels and Gems, for tattoos and
+  runegrafts. Like every other section it exists only when it has rows, so a
+  character with no tattoos never sees it. They have no element on the page, so
+  no badge; several copies of one tattoo are a single row with a `x14` count.
 
   That is also why the `80% roll` line moved down. It reads as configuration but
   is not one — the control for it is global and lives in the popup — and leaving
