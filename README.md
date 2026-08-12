@@ -88,6 +88,18 @@ it is explained on the page itself:
 - **Corrupted uniques** (default on) — match the implicit a corruption added. A
   Le Heup of All with "+1 to Maximum Power Charges" is worth many times a plain
   one. Turn it off if a corrupted unique finds nothing.
+- **How much of the rate limit to use** (default Balanced) — GGG counts trade
+  searches per IP address, so a pass and the trade site you have open are
+  spending the same allowance, and going over locks you out for **half an hour**.
+  Balanced leaves you about 5 searches every 5 minutes, which is enough to browse
+  and not enough to work; pick *Leave room for my own searches* to get about 10,
+  at roughly half again the pass time. This is the setting for "the extension
+  rate-limited me".
+- **Your pathofexile.com session** (default off) — searches go out signed out, so
+  nothing the extension does is charged to your account and no penalty can land
+  on it. Turning it on is faster, because GGG gives an account a larger allowance
+  than a bare IP address. It does **not** avoid the half-hour lockout on its own:
+  the rule carrying that penalty counts by IP either way.
 - **Clear cached prices** — appraisals are kept for two hours, keyed on what the
   item *is* rather than which copy it is: two identical jewels are one lookup,
   and so is the same item met again on another character.

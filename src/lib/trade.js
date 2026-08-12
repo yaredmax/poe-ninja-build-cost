@@ -36,11 +36,28 @@ export const network = { ms: 0 };
  */
 export const unconverted = new Set();
 
-/** `fetch`, timed. */
+/**
+ * Whether trade requests carry the player's pathofexile.com session.
+ *
+ * Off unless they say otherwise. Signing in is what GGG rates you by, and this
+ * extension asking questions on someone's account without being told to is not
+ * ours to assume — the account is theirs and so is whatever penalty lands on it.
+ *
+ * It is not, on its own, the answer to the thirty-minute lockouts people hit:
+ * the rule that carries that penalty is `ip`, which applies signed in or not.
+ * See `BUDGET_SHARES` for the setting that does address it.
+ */
+let useSession = false;
+
+export function setUseSession(on) {
+  useSession = Boolean(on);
+}
+
+/** `fetch`, timed, and explicit about the session either way. */
 async function timedFetch(url, init) {
   const started = Date.now();
   try {
-    return await fetch(url, init);
+    return await fetch(url, { ...init, credentials: useSession ? 'include' : 'omit' });
   } finally {
     network.ms += Date.now() - started;
   }

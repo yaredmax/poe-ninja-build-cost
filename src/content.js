@@ -1233,7 +1233,10 @@ function renderBanners() {
 
   // The one warning worth putting at the top, because it doubles a four-minute
   // wait — and the fix is one click away.
-  if (state.notSignedIn && state.phase !== 'done') {
+  // Only worth saying when signing in would change something. With the session
+  // switched off we are the reason GGG sees no account, so telling them to sign
+  // in would be sending them to do a thing that changes nothing.
+  if (state.notSignedIn && state.phase !== 'done' && settings.useSession) {
     blocks.push(`
       <div class="pnc-banner">
         <div class="pnc-banner-icon">!</div>
@@ -2477,6 +2480,11 @@ async function tradePass({ league, index, token }) {
         minRollPercent: settings.minRollPercent,
         saleMode: settings.saleMode,
         matchCorruptedImplicits: settings.matchCorruptedImplicits,
+        // Sent per item rather than set once: the settings page is a separate
+        // tab and can change under a pass that is already running, and the
+        // sensible moment for that to take effect is the next request.
+        budgetShare: settings.budgetShare,
+        useSession: settings.useSession,
       });
       // Cancelled while this one was in the air. Its answer belongs to a panel
       // that is gone, so painting a badge or rebuilding the summary now would

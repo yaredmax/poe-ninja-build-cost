@@ -2,6 +2,9 @@ const minRoll = document.getElementById('minRoll');
 const minRollValue = document.getElementById('minRollValue');
 const saleMode = document.getElementById('saleMode');
 const matchCorrupted = document.getElementById('matchCorruptedImplicits');
+const budgetShare = document.getElementById('budgetShare');
+const budgetShareNote = document.getElementById('budgetShareNote');
+const useSession = document.getElementById('useSession');
 const cacheStatus = document.getElementById('cacheStatus');
 
 document.getElementById('report').href = PNC_BUG_URL;
@@ -15,6 +18,19 @@ for (const mode of PNC_SALE_MODES) {
   option.value = mode.id;
   option.textContent = mode.label;
   saleMode.append(option);
+}
+
+for (const share of PNC_BUDGET_SHARES) {
+  const option = document.createElement('option');
+  option.value = share.id;
+  option.textContent = share.label;
+  budgetShare.append(option);
+}
+
+/** What the choice costs, under the choice, rather than in a table nobody reads. */
+function paintBudgetNote() {
+  budgetShareNote.textContent =
+    PNC_BUDGET_SHARES.find((s) => s.id === budgetShare.value)?.note || '';
 }
 
 // ------ the sidebar
@@ -48,7 +64,10 @@ pncLoadSettings().then((settings) => {
   minRoll.value = settings.minRollPercent;
   saleMode.value = settings.saleMode;
   matchCorrupted.checked = settings.matchCorruptedImplicits;
+  budgetShare.value = settings.budgetShare;
+  useSession.checked = settings.useSession;
   paintSlider();
+  paintBudgetNote();
 });
 
 minRoll.addEventListener('input', paintSlider);
@@ -64,6 +83,15 @@ saleMode.addEventListener('change', () => {
 
 matchCorrupted.addEventListener('change', () => {
   pncSaveSettings({ matchCorruptedImplicits: matchCorrupted.checked });
+});
+
+budgetShare.addEventListener('change', () => {
+  pncSaveSettings({ budgetShare: budgetShare.value });
+  paintBudgetNote();
+});
+
+useSession.addEventListener('change', () => {
+  pncSaveSettings({ useSession: useSession.checked });
 });
 
 // ------ the cache

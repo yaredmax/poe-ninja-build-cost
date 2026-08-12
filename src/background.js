@@ -9,6 +9,7 @@ import {
   isMutated,
   searchUrl,
   setSaleMode,
+  setUseSession,
   DEFAULT_SALE_MODE,
   SALE_MODES,
   fetchPrices,
@@ -23,6 +24,7 @@ import {
   network,
   unconverted,
 } from './lib/trade.js';
+import { setBudgetShare } from './lib/rate-limit.js';
 import {
   GEAR_FIELDS,
   FLASK_FIELDS,
@@ -379,9 +381,14 @@ const handlers = {
    */
   async appraise({
     item, rollPool, implicitPool, basePool, league, chaosPerDivine, minRollPercent,
-    saleMode, matchCorruptedImplicits,
+    saleMode, matchCorruptedImplicits, budgetShare, useSession,
   }) {
     setSaleMode(saleMode);
+    // Both apply to the request about to go out rather than to the cached
+    // answer, so they are deliberately not part of `cacheKey`: how fast we were
+    // allowed to ask, and whose session asked, do not change what came back.
+    setBudgetShare(budgetShare);
+    setUseSession(useSession);
     await installUserAgentRule();
     const resolved = await resolveLeague(null, league);
 

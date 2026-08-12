@@ -9,7 +9,25 @@ const PNC_DEFAULTS = {
   // A corrupted unique is a different item at a different price: a Le Heup of
   // All with "+1 to Maximum Power Charges" is worth many times a plain one.
   matchCorruptedImplicits: true,
+  // How much of GGG's rate limit a pass may take. The buckets are per IP, so
+  // the trade site the player has open is spending the same allowance, and
+  // going over costs half an hour of lockout.
+  budgetShare: 'balanced',
+  // Whether to send their pathofexile.com session with trade requests. Off
+  // until asked: the account is theirs, and so is any penalty landing on it.
+  useSession: false,
 };
+
+/** Mirrors BUDGET_SHARES in src/lib/rate-limit.js, for the options page. */
+const PNC_BUDGET_SHARES = [
+  { id: 'fast', label: 'Fastest pass', note: 'Leaves you about 3 searches every 5 minutes.' },
+  { id: 'balanced', label: 'Balanced', note: 'Leaves you about 5 searches every 5 minutes.' },
+  {
+    id: 'gentle',
+    label: 'Leave room for my own searches',
+    note: 'Leaves you about 10, and the pass takes roughly half as long again.',
+  },
+];
 
 /**
  * The three links every surface offers.

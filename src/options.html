@@ -91,6 +91,50 @@
               </p>
             </div>
           </div>
+
+          <div class="rule"></div>
+
+          <div class="setting">
+            <div class="explain">
+              <h2>How much of the rate limit to use</h2>
+              <p>
+                GGG counts trade searches per IP address, so this extension and
+                the trade site you have open are spending the same allowance —
+                and going over locks you out for half an hour. A pass keeps some
+                of it free for you; this is how much.
+              </p>
+            </div>
+            <div class="control">
+              <select id="budgetShare"></select>
+              <p class="aside" id="budgetShareNote"></p>
+            </div>
+          </div>
+
+          <div class="rule"></div>
+
+          <div class="setting">
+            <div class="explain">
+              <h2>Your pathofexile.com session</h2>
+              <p>
+                Off by default. Searches go out signed out, which is slower —
+                GGG gives an account a larger allowance than a bare IP address —
+                but nothing this extension does is charged to your account, and
+                no penalty can land on it.
+              </p>
+            </div>
+            <div class="control">
+              <label class="toggle">
+                <input id="useSession" type="checkbox" />
+                <span class="track"></span>
+                <span>Search using my session</span>
+              </label>
+              <p class="aside">
+                This does not remove the half-hour lockout on its own: the rule
+                that carries it counts by IP address either way. The setting
+                above is the one for that.
+              </p>
+            </div>
+          </div>
         </section>
 
         <section class="pane" data-pane="cache" hidden>

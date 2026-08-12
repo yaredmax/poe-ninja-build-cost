@@ -33,11 +33,15 @@ your browser:
   what comparable items are listed for.
 
 Those requests carry the item data described above and nothing else. They do not
-carry your identity, and the extension never sends your Path of Exile session
-cookie or asks you to sign in. If you happen to be signed in to pathofexile.com
-in the same browser, your session cookie travels with requests to that domain
-the same way it would if you used the trade site yourself, and Grinding Gear
-Games' own privacy policy applies to it.
+carry your identity, and the extension never asks you to sign in.
+
+**Your Path of Exile session is not used unless you switch it on.** Requests to
+pathofexile.com go out signed out, so nothing the extension does is attached to
+your account or counted against it. There is a setting — *Your pathofexile.com
+session*, off by default — that sends it instead: searches are then rated the
+way your own are, which is faster, and any rate-limit penalty they earn lands on
+your account. Turning it on is the only way this extension touches your session,
+and Grinding Gear Games' own privacy policy applies to what they do with it.
 
 Nothing is sent anywhere else. There is no third destination.
 

@@ -65,13 +65,37 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  */
 const USER_RESERVE = 1 / 6;
 
+/**
+ * The three the player can pick from, and why it is their call.
+ *
+ * The table above optimises one thing: how long a pass takes. It is the right
+ * default and the wrong answer for somebody who is pricing a build *and*
+ * trading at the same time — five searches every five minutes for a quarter of
+ * an hour is enough to browse and not enough to work, and the 300 s bucket
+ * punishes going over by thirty minutes. That is what people were running into.
+ *
+ * So the number stops being a constant. `balanced` is the tuned sixth and
+ * changes nothing for anyone who never opens the settings.
+ */
+export const BUDGET_SHARES = [
+  { id: 'fast', label: 'Fastest pass', reserve: 1 / 12 },
+  { id: 'balanced', label: 'Balanced', reserve: USER_RESERVE },
+  { id: 'gentle', label: 'Leave room for my own searches', reserve: 1 / 3 },
+];
+
+export const DEFAULT_BUDGET_SHARE = 'balanced';
+
+let userReserve = USER_RESERVE;
+
+export function setBudgetShare(id) {
+  const share = BUDGET_SHARES.find((s) => s.id === id);
+  userReserve = (share || BUDGET_SHARES.find((s) => s.id === DEFAULT_BUDGET_SHARE)).reserve;
+}
+
 /** One `hits per period` bucket. */
 class Bucket {
   constructor(max, windowSeconds, rule = 'ip') {
     this.max = max;
-    // Never take the whole bucket. At least one slot stays free even on the
-    // small ones, where a share would round down to nothing.
-    this.usable = Math.max(1, max - Math.max(1, Math.ceil(max * USER_RESERVE)));
     this.windowSeconds = windowSeconds;
     this.windowMs = (windowSeconds + DESYNC_PAD) * 1000;
     // Which of GGG's rules this came from — `ip`, `account`, `client`. Several
@@ -82,6 +106,19 @@ class Bucket {
     // charged twice for one request.
     this.rule = rule;
     this.hits = [];
+  }
+
+  /**
+   * Never take the whole bucket. At least one slot stays free even on the small
+   * ones, where a share would round down to nothing.
+   *
+   * Read fresh rather than stored at construction: the buckets outlive a change
+   * of setting — they are rebuilt only when GGG publishes a different policy —
+   * so a stored figure would keep the old share until the policy happened to
+   * move, which could be never.
+   */
+  get usable() {
+    return Math.max(1, this.max - Math.max(1, Math.ceil(this.max * userReserve)));
   }
 
   matches(spec) {
