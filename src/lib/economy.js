@@ -18,6 +18,21 @@ const TTL_MS = 10 * 60 * 1000;
 const CONCURRENCY = 3;
 
 /**
+ * What a character buys that is not gear: tattoos and runegrafts.
+ *
+ * They live on the passive tree, so they never appear among the items and had
+ * no way into the total at all. Not a rounding error either — the character
+ * this was measured on carried 28 tattoos and 2 runegrafts, and one runegraft
+ * alone was 1463 chaos.
+ *
+ * They are published under the **exchange** endpoint rather than the item one,
+ * which is why they were missed: `type=Tattoo` on the item overview is a 404.
+ * And they cost nothing to add — poe.ninja publishes a price for each, so not
+ * one trade search goes out for them.
+ */
+export const EXCHANGE_TYPES = ['Tattoo', 'Runegraft'];
+
+/**
  * Categories of `stash/current/item/overview` that can show up as gear on a
  * build. Order barely matters; they're fetched with limited parallelism.
  */
@@ -263,9 +278,34 @@ function pickRepresentative(lines) {
  * `normalised name -> price summary`. It stays at a few thousand entries, far
  * lighter than shipping the full lines.
  */
+/**
+ * One exchange category, as `[display name, chaos]` pairs.
+ *
+ * The two halves of the response are useless apart: `lines` prices an opaque
+ * id (`runegraft-of-the-fortress`) and `items` is what turns that id back into
+ * the name the character page writes.
+ */
+async function fetchExchange(league, type) {
+  const url = `${BASE}/exchange/current/overview`
+    + `?league=${encodeURIComponent(league)}&type=${encodeURIComponent(type)}`;
+  const data = await getJson(url, `ex:${league}:${type}`);
+  const nameById = new Map((data.items || []).map((entry) => [entry.id, entry.name]));
+
+  const priced = [];
+  for (const line of data.lines || []) {
+    const name = nameById.get(line.id);
+    if (name && line.primaryValue > 0) priced.push([name, line.primaryValue]);
+  }
+  return priced;
+}
+
 export async function buildPriceIndex(league) {
   const settled = await pooled(
     GEAR_TYPES.map((type) => () => fetchOverview(league, type).then((lines) => ({ type, lines }))),
+    CONCURRENCY,
+  );
+  const exchanged = await pooled(
+    EXCHANGE_TYPES.map((type) => () => fetchExchange(league, type).then((priced) => ({ type, priced }))),
     CONCURRENCY,
   );
 
@@ -437,6 +477,29 @@ export async function buildPriceIndex(league) {
       spread: null,
       floor: true, // the real price depends on which passive it grants
     };
+  }
+
+  // Last, so a real item always wins the name: gear is what the panel can put a
+  // badge on, and nothing here should ever shadow it.
+  for (let i = 0; i < exchanged.length; i++) {
+    const result = exchanged[i];
+    if (!result.ok) {
+      failed.push({ type: EXCHANGE_TYPES[i], error: String(result.error.message || result.error) });
+      continue;
+    }
+    for (const [name, chaos] of result.value.priced) {
+      const key = normalizeName(name);
+      if (index[key]) continue;
+      index[key] = {
+        name,
+        baseType: null,
+        chaos,
+        divine: null,
+        listings: 0,
+        variantCount: 0,
+        spread: null,
+      };
+    }
   }
 
   for (const art of Object.keys(icons)) {

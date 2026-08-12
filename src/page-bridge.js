@@ -55,12 +55,39 @@
    * the <article> we start from — article, main, then the component holding
    * `char` — so nothing below the starting point ever sees it.
    */
-  function equipmentList(fiber) {
+  function charOf(fiber) {
     for (let node = fiber, guard = 0; node && guard < 40; guard++, node = node.return) {
-      const items = node.memoizedProps?.char?.items;
-      if (Array.isArray(items)) return items.map((entry) => entry?.itemData).filter(isItem);
+      const char = node.memoizedProps?.char;
+      if (char && Array.isArray(char.items)) return char;
     }
-    return [];
+    return null;
+  }
+
+  function equipmentList(char) {
+    return (char?.items || []).map((entry) => entry?.itemData).filter(isItem);
+  }
+
+  /**
+   * What the character bought that is not an item.
+   *
+   * Tattoos and runegrafts are applied to the passive tree, so they never
+   * appear in `items` and had no way into the total — on the character this was
+   * measured on that was 28 tattoos and 2 runegrafts, and one of the runegrafts
+   * alone was worth seven divine.
+   *
+   * `useSecondWeaponSet` comes along because poe.ninja already answers the
+   * question the swap-set switch was guessing at.
+   */
+  function buildExtras(char) {
+    const named = (list) => (Array.isArray(list) ? list : [])
+      .map((entry) => entry?.name)
+      .filter((name) => typeof name === 'string' && name);
+
+    return {
+      useSecondWeaponSet: Boolean(char?.useSecondWeaponSet),
+      tattoos: named(char?.tattoos),
+      runegrafts: named(char?.runegrafts),
+    };
   }
 
   /**
@@ -74,6 +101,7 @@
     const found = [];
     const seen = new Set();
     const startFiber = fiberOf(root);
+    const char = charOf(startFiber);
     const stack = [startFiber].filter(Boolean);
     let guard = 0;
 
@@ -117,14 +145,14 @@
     // park spare Empowers to level, and the character page shows nine of them in
     // one bow and quiver — pricing storage as if it were the build would have
     // moved the total by more than the weapons themselves.
-    for (const item of equipmentList(startFiber)) {
+    for (const item of equipmentList(char)) {
       const id = idOf(item);
       if (seen.has(id)) continue;
       seen.add(id);
       found.push(slim(item, found.length, null));
     }
 
-    return found;
+    return { items: found, build: buildExtras(char) };
   }
 
   const toNumber = (text) => parseFloat(String(text ?? '').replace(/[^\d.-]/g, '')) || 0;
@@ -220,14 +248,17 @@
   function publish() {
     const root = document.querySelector('article');
     if (!root) return;
-    let items = [];
+    let harvested = { items: [], build: null };
     try {
-      items = harvest(root);
+      harvested = harvest(root);
     } catch (err) {
       window.postMessage({ source: 'pnc-bridge', error: String(err && err.message) }, '*');
       return;
     }
-    window.postMessage({ source: 'pnc-bridge', items }, '*');
+    window.postMessage(
+      { source: 'pnc-bridge', items: harvested.items, build: harvested.build },
+      '*',
+    );
   }
 
   // ------------------------------------------------------- console helpers

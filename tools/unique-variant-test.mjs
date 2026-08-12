@@ -180,4 +180,6 @@ for (const [type, name] of SPREAD) {
 }
 
 console.log(failures ? `\n${failures} case(s) wrong` : '\nall resolved');
-process.exit(failures ? 1 : 0);
+// Set rather than `process.exit()`: forcing the exit while a socket from the
+// last fetch is still closing trips a libuv assertion on Windows.
+process.exitCode = failures ? 1 : 0;

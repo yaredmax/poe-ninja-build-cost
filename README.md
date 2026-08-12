@@ -237,6 +237,26 @@ Dragon Sliver   3 mods -> 0 listings   2 mods -> 11 listings   =>  4.0 div
 
 **Uniques marked `≥`**, by their roll — see below.
 
+## Tattoos and runegrafts
+
+They are bought like everything else and worn on the passive tree, so they never
+appear among a character's items — which is exactly why they were missing from
+the total. On the character this was measured on that is 28 tattoos and 2
+runegrafts, and one runegraft alone was **1435 chaos**.
+
+poe.ninja publishes them under the *exchange* endpoint rather than the item one.
+`type=Tattoo` on the item overview is a 404, which is how they stayed missed.
+Two halves have to be joined: `lines` prices an opaque id
+(`runegraft-of-the-fortress`) and `items` maps that id back to the name the
+character page writes.
+
+They cost **no trade searches at all** — every one has a published price — so
+they add two poe.ninja requests and nothing to GGG's rate limit. They get their
+own section in the panel and no badge, there being nothing on the page to put
+one on. Fourteen of the same tattoo is one row reading `x14`.
+
+`node tools/tree-test.mjs` checks the join still holds, and costs no searches.
+
 ## Which published variant an item is
 
 poe.ninja splits some uniques into a line per variant, and the gap between them
@@ -1017,6 +1037,7 @@ without it and shipped a `background.js` that could not resolve `./lib/trade.js`
 | `tools/fixtures/worn.json` | Items off real characters, the only ones that miss the wide query |
 | `tools/query-test.mjs` | What each query asks for, and what got dropped — costs no search |
 | `tools/unique-variant-test.mjs` | Which published line a unique gets — costs no search |
+| `tools/tree-test.mjs` | Tattoos and runegrafts still join to a price — costs no search |
 | `docs/poe-modifiers.md` | How PoE's modifiers work and what each fact implies here |
 | `docs/ui-design.md` | The 0.5.0 design handoff: tokens, every view, and the calls made building it |
 

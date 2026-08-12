@@ -108,7 +108,18 @@ const isExcluded = (match) => isSwapSet(match) && !state.includeSwapSet;
  * Sorting by subtotal put the money first, which read well but meant the panel
  * shuffled itself between builds and never lined up with what was on screen.
  */
-const SECTION_ORDER = ['Equipment', 'Flasks', 'Jewels', 'Gems', 'Other', 'Unpriced'];
+const SECTION_ORDER = [
+  'Equipment', 'Flasks', 'Jewels', 'Gems', 'Passive tree', 'Other', 'Unpriced',
+];
+
+/**
+ * Bought, worn on the passive tree, and never in the item list.
+ *
+ * They get their own section rather than landing in "Other" because there is
+ * nothing miscellaneous about them: a character carries dozens of tattoos and
+ * they are the answer to "why is the total lower than what this cost me".
+ */
+const TREE_SLOTS = { Tattoo: 'Tattoo', Runegraft: 'Runegraft' };
 
 /**
  * Category for the summary breakdown.
@@ -123,6 +134,7 @@ function categoryOf(match) {
     if (isGem(item)) return 'Gems';
     if (item.inventoryId === 'Flask') return 'Flasks';
     if (item.inventoryId === 'PassiveJewels') return 'Jewels';
+    if (item.inventoryId in TREE_SLOTS) return 'Passive tree';
     if (EQUIPMENT_SLOTS.has(item.inventoryId)) return 'Equipment';
     return 'Other';
   }
@@ -155,6 +167,7 @@ const SLOT_NAMES = {
   Belt: 'Belt',
   Flask: 'Flask',
   PassiveJewels: 'Jewel',
+  ...TREE_SLOTS,
 };
 
 /**
@@ -192,19 +205,49 @@ function askBridge(timeoutMs = 3000) {
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       window.removeEventListener('message', onMessage);
-      resolve(null);
+      fail();
     }, timeoutMs);
 
+    const fail = () => resolve({ items: null, build: null });
     function onMessage(ev) {
       if (ev.source !== window || ev.data?.source !== 'pnc-bridge') return;
       clearTimeout(timer);
       window.removeEventListener('message', onMessage);
-      resolve(ev.data.items || null);
+      resolve({ items: ev.data.items || null, build: ev.data.build || null });
     }
 
     window.addEventListener('message', onMessage);
     window.postMessage({ source: 'pnc-request' }, '*');
   });
+}
+
+/**
+ * Tattoos and runegrafts, as matches the rest of the panel already understands.
+ *
+ * One match per copy rather than one per kind with a quantity: the grouping
+ * downstream counts members and multiplies, so fourteen of the same tattoo
+ * become a single row reading `x14` for free, and the count stays honest if a
+ * future character mixes them.
+ *
+ * They have no element. That is not a special case any more — the swap set made
+ * an anchorless match a normal thing — so they list and total like anything
+ * else and simply never get a badge, there being nothing on the page to put one
+ * on.
+ */
+function scanTreePurchases(build, index) {
+  const found = [];
+  const kinds = [['Tattoo', build?.tattoos], ['Runegraft', build?.runegrafts]];
+
+  for (const [slot, names] of kinds) {
+    for (const name of names || []) {
+      // frameType 5 is currency: not a unique, not a gem, so nothing downstream
+      // tries to appraise it on trade. poe.ninja publishes its price outright.
+      const item = { name, baseType: '', typeLine: name, frameType: 5, inventoryId: slot };
+      const price = priceForItem(item, index);
+      found.push({ el: null, item, price, reason: price ? null : 'unpriced' });
+    }
+  }
+  return found;
 }
 
 /** A modifier as written, comparable. Mirrors `fixedModKey` in economy.js. */
@@ -2591,12 +2634,21 @@ async function run() {
 
     // Primary path: the real JSON the page holds in memory. If the bridge fails
     // (poe.ninja changed its internals) we fall back to scanning the DOM.
-    const items = await askBridge();
+    const { items, build } = await askBridge();
     if (token !== runToken) return;
 
     const usingBridge = Boolean(items?.length);
-    const matches = usingBridge ? scanFromBridge(items, index) : scanItems(index, icons);
+    const matches = usingBridge
+      ? [...scanFromBridge(items, index), ...scanTreePurchases(build, index)]
+      : scanItems(index, icons);
     state.source = usingBridge ? 'page data' : 'text and icons (fallback)';
+
+    // poe.ninja knows whether the build actually swaps weapons, so the switch
+    // starts where the character says rather than always off. A set II that is
+    // really used is counted without anyone touching anything; one holding
+    // levelling gems stays out. Only on the bridge path — the fallback has no
+    // character data to ask.
+    if (usingBridge) state.includeSwapSet = Boolean(build?.useSecondWeaponSet);
 
     if (!matches.length) {
       state.phase = 'error';

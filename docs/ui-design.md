@@ -321,7 +321,14 @@ Same panel, same full item list, later in time. Differences only:
   drawn only when they apply — an option that cannot change the answer is worse
   than no option, so a build with no swap weapon set never sees the swap switch.
   The first of them is `Count the swap weapon set · 2 items, usually storage`, a
-  checkbox directly under the total, off by default.
+  checkbox directly under the total. It starts wherever poe.ninja's own
+  `useSecondWeaponSet` says, rather than at a fixed default: the page already
+  knows whether the build swaps weapons, and guessing "off" was overriding an
+  answer we were being handed.
+
+  The section list gains **Passive tree** between Gems and Other, for tattoos and
+  runegrafts. They have no element on the page, so no badge; several copies of
+  one tattoo are a single row with a `x14` count.
 
   That is also why the `80% roll` line moved down. It reads as configuration but
   is not one — the control for it is global and lives in the popup — and leaving
