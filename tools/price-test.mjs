@@ -15,6 +15,7 @@ globalThis.chrome = { storage: { local: {
   async set(o) { for (const [k, v] of Object.entries(o)) store.set(k, v); } } } };
 
 const { buildPriceIndex, fetchLeagues, normalizeName } = await import('../src/lib/economy.js');
+const { gemImpliesCorruption } = await import('../src/lib/pob-item.js');
 const items = JSON.parse(readFileSync(join(here, 'fixtures', 'character-items.json'), 'utf8')).items;
 
 const league = (await fetchLeagues())[0].id;
@@ -28,9 +29,15 @@ function priceForItem(item) {
   const entry = index[normalizeName(isGem(item) ? item.baseType : item.name)];
   if (!entry) return null;
   if (isGem(item) && entry.gems?.length) {
+    const corrupted = gemImpliesCorruption({
+      name: item.baseType || item.typeLine || item.name || '',
+      level: item.gemLevel,
+      quality: item.gemQuality,
+      corrupted: item.corrupted,
+    }) ? 1 : 0;
     const exact = entry.gems.find(
-      ([l, q, c]) => l === item.gemLevel && q === item.gemQuality && c === (item.corrupted ? 1 : 0));
-    const sameLevel = entry.gems.filter(([l]) => l === item.gemLevel);
+      ([l, q, c]) => l === item.gemLevel && q === item.gemQuality && c === corrupted);
+    const sameLevel = entry.gems.filter(([l, , c]) => l === item.gemLevel && c === corrupted);
     const hit = exact || sameLevel[0];
     if (hit) return { ...entry, chaos: hit[3], detail: `${item.gemLevel}/${item.gemQuality}` };
     return entry;

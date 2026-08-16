@@ -207,6 +207,51 @@ let bridgeFields;
   check(real === copy && real.length > 0, 'content.js pncModTemplate matches stats.js modTemplate');
 }
 
+{
+  const body = (src, name) => {
+    const at = src.indexOf(`function ${name}(`);
+    const open = src.indexOf('{', at);
+    let depth = 0;
+    for (let i = open; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) {
+        return src.slice(open + 1, i).replace(/\s+/g, ' ').trim();
+      }
+    }
+    return '';
+  };
+  const real = body(read('src/lib/pob-item.js'), 'gemImpliesCorruption');
+  const copy = body(read('src/content.js'), 'pncGemImpliesCorruption');
+  check(real === copy && real.length > 0, 'content.js pncGemImpliesCorruption matches pob-item.js gemImpliesCorruption');
+}
+
+// --- page-bridge.js's PoB helpers still match the module they were copied from
+{
+  const body = (src, name) => {
+    const at = src.indexOf(`function ${name}(`);
+    const open = src.indexOf('{', at);
+    let depth = 0;
+    for (let i = open; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}' && --depth === 0) {
+        return src.slice(open + 1, i).replace(/\s+/g, ' ').trim();
+      }
+    }
+    return '';
+  };
+  const lib = read('src/lib/pob-item.js');
+  const bridge = read('src/page-bridge.js');
+  for (const name of [
+    'stripPobHeaders', 'joinWrappedMods', 'linksFromSocketLine', 'defencesFromModLines',
+    'flaskBaseType', 'slotOf', 'stableId', 'withoutImplicitDupes',
+    'gemStatQueues', 'takeGemStats', 'gemImpliesCorruption',
+  ]) {
+    const a = body(lib, name);
+    const b = body(bridge, name);
+    check(a === b && a.length > 0, `page-bridge.js ${name} matches pob-item.js`);
+  }
+}
+
 // --- content.js passes nothing it never declared -----------------------------
 // The background guard above only covers background.js, and the same mistake
 // landed here: `basePoolFor(match, priceIndex)` where no `priceIndex` existed.

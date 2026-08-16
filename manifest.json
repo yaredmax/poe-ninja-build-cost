@@ -24,7 +24,8 @@
     {
       "matches": [
         "https://poe.ninja/poe1/builds/*",
-        "https://poe.ninja/poe1/profile/*"
+        "https://poe.ninja/poe1/profile/*",
+        "https://poe.ninja/poe1/pob/*"
       ],
       "js": [
         "src/page-bridge.js"
@@ -35,7 +36,8 @@
     {
       "matches": [
         "https://poe.ninja/poe1/builds/*",
-        "https://poe.ninja/poe1/profile/*"
+        "https://poe.ninja/poe1/profile/*",
+        "https://poe.ninja/poe1/pob/*"
       ],
       "js": [
         "src/settings.js",

@@ -42,14 +42,18 @@ function normalizeName(raw) {
 }
 
 /**
- * The same build is reachable through three different routes:
+ * Pages that show a gear grid we can price.
  *   /poe1/builds/streamers/character/{account}/{character}
  *   /poe1/builds/{league}/character/{account}/{character}
  *   /poe1/profile/{account}/{league}/character/{character}
- * The only thing they share is the `/character/` segment, so that's what we test.
+ *   /poe1/pob/{id}   — a pasted Path of Building code, same sheet, no account
+ * Character routes share `/character/`. The paste route does not, so it is
+ * matched on its own.
  */
 function isCharacterPage() {
-  return /^\/poe1\/(builds|profile)\/.*\/character\//.test(location.pathname);
+  const path = location.pathname;
+  return /^\/poe1\/(builds|profile)\/.*\/character\//.test(path)
+    || /^\/poe1\/pob\/[^/]+$/.test(path);
 }
 
 /**
@@ -79,6 +83,30 @@ function send(type, payload = {}) {
 
 const isUnique = (item) => item.frameType === 3 || item.frameType === 10;
 const isGem = (item) => item.frameType === 4;
+
+/**
+ * PoB (and sometimes the item JSON) omits `corrupted` on gems. The rolls still
+ * give it away: a gem cannot reach these numbers without Vaal.
+ *
+ *   quality > 20
+ *   level > 20                    — ordinary gems
+ *   Empower / Enlighten / Enhance — uncorrupted max is 3
+ *   Awakened                      — uncorrupted max is 5, including Awakened Enlighten
+ *
+ * Duplicated from `gemImpliesCorruption` in src/lib/pob-item.js, which this
+ * classic script cannot import. tools/check-wiring.mjs compares the two.
+ */
+function pncGemImpliesCorruption(gem) {
+  const { name = '', level = 0, quality = 0, corrupted = false } = gem || {};
+  if (corrupted) return true;
+  if (Number(quality) > 20) return true;
+  const lvl = Number(level) || 0;
+  if (!lvl) return false;
+  const label = String(name);
+  if (/\bawakened\b/i.test(label)) return lvl > 5;
+  if (/\b(empower|enlighten|enhance)(\s+support)?$/i.test(label)) return lvl > 3;
+  return lvl > 20;
+}
 
 const EQUIPMENT_SLOTS = new Set([
   'Helm', 'BodyArmour', 'Boots', 'Gloves', 'Weapon', 'Weapon2',
@@ -319,10 +347,20 @@ function priceForItem(item, index) {
 
   if (isGem(item) && entry.gems?.length) {
     const { gemLevel: level, gemQuality: quality } = item;
+    // Prefer the published line that is the same corruption, not merely the
+    // same level. Falling through to sameLevel[0] handed a 21/0 Raise Spectre
+    // the first 21 line poe.ninja listed, and searched trade as uncorrupted
+    // because PoB never sets the flag. 21 and 23 quality are always Vaal.
+    const corrupted = pncGemImpliesCorruption({
+      name: item.baseType || item.typeLine || item.name || '',
+      level,
+      quality,
+      corrupted: item.corrupted,
+    }) ? 1 : 0;
     const exact = entry.gems.find(
-      ([l, q, c]) => l === level && q === quality && c === (item.corrupted ? 1 : 0),
+      ([l, q, c]) => l === level && q === quality && c === corrupted,
     );
-    const sameLevel = entry.gems.filter(([l]) => l === level);
+    const sameLevel = entry.gems.filter(([l, , c]) => l === level && c === corrupted);
     const hit = exact || sameLevel[0];
     if (hit) return { ...entry, chaos: hit[3], variantCount: 0, detail: `${level}/${quality}` };
     return entry;
@@ -480,8 +518,15 @@ function refineGem(entry, el) {
   const lq = gemLevelQuality(el, entry.name);
   if (!lq) return null;
 
-  const exact = entry.gems.find(([lvl, q]) => lvl === lq.level && q === lq.quality);
-  const sameLevel = entry.gems.filter(([lvl]) => lvl === lq.level);
+  const corrupted = pncGemImpliesCorruption({
+    name: entry.name,
+    level: lq.level,
+    quality: lq.quality,
+  }) ? 1 : 0;
+  const exact = entry.gems.find(
+    ([lvl, q, c]) => lvl === lq.level && q === lq.quality && c === corrupted,
+  );
+  const sameLevel = entry.gems.filter(([lvl, , c]) => lvl === lq.level && c === corrupted);
   const hit = exact || sameLevel[0];
   if (!hit) return entry;
 
@@ -2199,6 +2244,10 @@ function needsTradeLookup(match) {
     // Corrupted is not enough on its own — most corrupted uniques are worth what
     // the plain one is. It is the added implicit that moves the price.
     if (item.corrupted && hasAddedImplicit(match)) return true;
+    // Two extras, not one. A single lab enchant on a helmet is a cheap extra
+    // and sending every such unique to trade would spend the pass on items
+    // poe.ninja already priced. Two beast mods on a Greatwolf *are* the item.
+    if (extraUniqueMods(item, match.price?.implicitPool) >= 2) return true;
     return false;
   }
 
@@ -2274,6 +2323,25 @@ function hasAddedImplicit(match) {
   const published = new Set((match.price?.implicitPool || []).map(pncModTemplate));
   return (match.item?.implicitMods || [])
     .some((mod) => !published.has(pncModTemplate(mod)));
+}
+
+/**
+ * Extras this unique did not come with: beastcrafted implicits and lab
+ * enchants. Anointments and Instilling triggers are not extras — the buyer
+ * applies those.
+ *
+ * Counted, not named. A list of "uniques that have two enchants" would miss
+ * the next talisman and still send a helmet that happens to be on the list.
+ * Two extras is what makes Eyes of the Greatwolf a different item from the
+ * 1 divine floor; one lab enchant is not.
+ */
+function extraUniqueMods(item, implicitPool) {
+  const known = new Set((implicitPool || []).map(pncModTemplate));
+  const enchants = (item.enchantMods || []).filter((mod) =>
+    !/^Allocates\s/i.test(mod) && !/^Used when\b/i.test(mod)
+  );
+  const extras = (item.implicitMods || []).filter((mod) => !known.has(pncModTemplate(mod)));
+  return enchants.length + extras.length;
 }
 
 // ------------------------------------------------------------------ debug log

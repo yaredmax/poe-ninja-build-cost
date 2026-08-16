@@ -11,14 +11,15 @@ other end to send it to.
 
 ## What it reads
 
-When you press its button on a poe.ninja character page, it reads the items that
-page has **already loaded** — their names, base types, modifiers, sockets and
-quality. It does not fetch the character from anywhere; that data is on the page
-in front of you and is public, since the character page itself is public.
+When you press its button on a poe.ninja character page or a pasted Path of
+Building code, it reads the items that page has **already loaded** — their
+names, base types, modifiers, sockets and quality. It does not fetch the
+character from anywhere; that data is on the page in front of you and is
+public, since the page itself is public.
 
 It does not read any other page, and it does not run on any other site. The
-content script is limited to `poe.ninja/poe1/builds/*` and
-`poe.ninja/poe1/profile/*` by the manifest.
+content script is limited to `poe.ninja/poe1/builds/*`,
+`poe.ninja/poe1/profile/*` and `poe.ninja/poe1/pob/*` by the manifest.
 
 ## What leaves your browser, and where it goes
 
