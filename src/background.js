@@ -33,6 +33,8 @@ import {
   mutatedMods,
   rolledMods,
   significantMods,
+  isClusterJewel,
+  isFlexUniqueMod,
   totalElementalResistance,
   totalChaosResistance,
   totalLife,
@@ -524,6 +526,55 @@ async function runAppraisal({
         .filter((mod) => !seen.has(mod.id) && seen.add(mod.id))
         .slice(0, MAX_COMBO_MODS);
       if (!mods.length) return { skipped: 'none of its mods could be translated' };
+
+      // Eyes of the Greatwolf (and any unique with two beast/lab extras): the
+      // pair is rare, each half is not. `and` of both plus the unique's own
+      // roll is the precise item. If that pair is not listed, one `count min 1`
+      // query asks for either extra — two searches, not a permutation of
+      // subsets. The unique's explicit (the 100% enchantment magnitude) stays
+      // in `and` either way. Other Greatwolfs do the same with *their* extras.
+      const flex = isUnique && !isClusterJewel(item) && item.inventoryId !== 'Flask'
+        ? mods.filter((mod) => isFlexUniqueMod(mod, item, implicitPool))
+        : [];
+      if (flex.length >= 2) {
+        const fixed = mods.filter((mod) => !flex.includes(mod));
+        const minRoll = minRollFor(item, minRollPercent);
+        for (const countMin of [flex.length, 1]) {
+          const query = buildComboQuery(item, fixed, {
+            byName: true,
+            minRoll,
+            countMods: flex,
+            countMin,
+            resistance: totalElementalResistance(item),
+            chaos: totalChaosResistance(item),
+          });
+          if (!query) continue;
+          const phase = countMin === flex.length ? 'wide' : 'fallback';
+          spend[phase].searches++;
+          const attempt = await runQuery(query, resolved);
+          if (!attempt.total) continue;
+          spend[phase].fetches++;
+          const prices = await fetchPrices(attempt.id, attempt.result, chaosPerDivine, resolved);
+          const median = medianPrice(prices, attempt.total);
+          if (median == null) continue;
+          const askedFor = [
+            ...(query.query.stats || []).flatMap((group) => (group.filters || []).map((f) => f.id)),
+          ];
+          return {
+            url: webUrl(resolved, attempt.id),
+            total: attempt.total,
+            chaos: median,
+            reliability: reliability(attempt.total),
+            reliable: true,
+            partial: countMin < flex.length,
+            mods: countMin + fixed.length,
+            rolled: mods.length,
+            strategy: 'own-mods',
+            filters: askedFor,
+            modTexts: modTextsFor(askedFor, mods),
+          };
+        }
+      }
 
       // What actually varies between copies. A unique's explicit modifiers are
       // the same on every one of them, so dropping an explicit does not widen

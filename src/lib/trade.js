@@ -9,6 +9,7 @@
 
 import { RateLimiter } from './rate-limit.js';
 import { fetchCurrencyRates, fetchExchangeRates } from './economy.js';
+import { gemImpliesCorruption } from './pob-item.js';
 
 const API = 'https://www.pathofexile.com/api/trade/search';
 const FETCH = 'https://www.pathofexile.com/api/trade/fetch';
@@ -75,7 +76,13 @@ export function buildQuery(item) {
 
   if (item.frameType === 4) {
     query.type = item.baseType;
-    const misc = { corrupted: { option: String(!!item.corrupted) } };
+    const corrupted = gemImpliesCorruption({
+      name: item.baseType || item.typeLine || item.name || '',
+      level: item.gemLevel,
+      quality: item.gemQuality,
+      corrupted: item.corrupted,
+    });
+    const misc = { corrupted: { option: String(!!corrupted) } };
     if (item.gemLevel) misc.gem_level = { min: item.gemLevel, max: item.gemLevel };
     if (item.gemQuality) misc.quality = { min: item.gemQuality };
     query.filters = { misc_filters: { filters: misc } };
@@ -245,6 +252,44 @@ function weaponFilters(item, minRoll) {
 }
 
 
+/** One modifier as a trade stat filter, with the roll floor applied. */
+export function statFilter(mod, minRoll = 0) {
+  const filter = { id: mod.id };
+  const value = mod.values[0];
+  // An id like `enchant.stat_3948993189|23` already names the exact variant —
+  // the "|23" *is* the choice. Trade has nothing to compare a minimum against,
+  // so asking for one on top returns nothing at all.
+  const isOption = mod.id.includes('|');
+  // An enchantment has no roll range — the wiki is explicit that its values
+  // are fixed, which is why a Blessed Orb does nothing to one. So the roll
+  // slider must not touch it: asking a "Adds 5 Passive Skills" cluster jewel
+  // for 80% of five is asking for four, and a four-passive jewel is a
+  // different, cheaper item. We were pricing five-passive jewels off them.
+  if (typeof value === 'number' && !isOption && mod.id.startsWith('enchant.')) {
+    filter.value = { min: value, max: value };
+    return filter;
+  }
+  // A timeless jewel's number is its seed, and the seed is not a magnitude:
+  // it is which passives the jewel rewrites. Seed 4240 and seed 5301 are two
+  // unrelated jewels, so asking for "at least 80% of 5301" prices one off the
+  // other. The seed is matched exactly or not at all.
+  if (typeof value === 'number' && TIMELESS_SEED.test(mod.id)) {
+    filter.value = { min: value, max: value };
+    return filter;
+  }
+  if (minRoll > 0 && typeof value === 'number' && !isOption) {
+    const floor = Math.floor((Math.abs(value) * minRoll) / 100);
+    // A negative roll has to be bounded from above, not below. "33% reduced
+    // Poison Duration on you" is -33 of the increased stat, and asking for
+    // `min: -26` excludes every copy with more than 26% reduction —
+    // including the item we are pricing, which would then fail to match its
+    // own query. The invariant is that it always matches: whatever else a
+    // search gets wrong, an item has to be in its own result set.
+    filter.value = value < 0 ? { max: -floor } : { min: floor };
+  }
+  return filter;
+}
+
 /** Query for one specific set of modifiers. */
 export function buildComboQuery(item, mods, opts = {}) {
   const {
@@ -252,6 +297,10 @@ export function buildComboQuery(item, mods, opts = {}) {
     // Leaves the corrupted filter off entirely, which is trade's "any". For
     // asking what an item is worth ignoring its corruption — see the caller.
     anyCorrupted = false,
+    // Beastcrafted extras on a unique (Greatwolf's two implicits). `and` would
+    // demand the exact pair; `count` asks for at least `countMin` of them.
+    countMods = [],
+    countMin = 0,
   } = opts;
   const misc = {
     // Trade labels this flag "Foulborn". Set both ways, like corrupted: with it
@@ -281,48 +330,23 @@ export function buildComboQuery(item, mods, opts = {}) {
   pseudoTotal(PSEUDO_CHAOS, chaos, 15);
   const hasTotals =
     useCategory && (defenceFilters(item, minRoll) || weaponFilters(item, minRoll));
-  if (!mods.length && !pseudo.length && !hasTotals) return null;
+  if (!mods.length && !countMods.length && !pseudo.length && !hasTotals) return null;
 
-  const filters = pseudo.concat(mods.map((mod) => {
-    const filter = { id: mod.id };
-    const value = mod.values[0];
-    // An id like `enchant.stat_3948993189|23` already names the exact variant —
-    // the "|23" *is* the choice. Trade has nothing to compare a minimum against,
-    // so asking for one on top returns nothing at all.
-    const isOption = mod.id.includes('|');
-    // An enchantment has no roll range — the wiki is explicit that its values
-    // are fixed, which is why a Blessed Orb does nothing to one. So the roll
-    // slider must not touch it: asking a "Adds 5 Passive Skills" cluster jewel
-    // for 80% of five is asking for four, and a four-passive jewel is a
-    // different, cheaper item. We were pricing five-passive jewels off them.
-    if (typeof value === 'number' && !isOption && mod.id.startsWith('enchant.')) {
-      filter.value = { min: value, max: value };
-      return filter;
-    }
-    // A timeless jewel's number is its seed, and the seed is not a magnitude:
-    // it is which passives the jewel rewrites. Seed 4240 and seed 5301 are two
-    // unrelated jewels, so asking for "at least 80% of 5301" prices one off the
-    // other. The seed is matched exactly or not at all.
-    if (typeof value === 'number' && TIMELESS_SEED.test(mod.id)) {
-      filter.value = { min: value, max: value };
-      return filter;
-    }
-    if (minRoll > 0 && typeof value === 'number' && !isOption) {
-      const floor = Math.floor((Math.abs(value) * minRoll) / 100);
-      // A negative roll has to be bounded from above, not below. "33% reduced
-      // Poison Duration on you" is -33 of the increased stat, and asking for
-      // `min: -26` excludes every copy with more than 26% reduction —
-      // including the item we are pricing, which would then fail to match its
-      // own query. The invariant is that it always matches: whatever else a
-      // search gets wrong, an item has to be in its own result set.
-      filter.value = value < 0 ? { max: -floor } : { min: floor };
-    }
-    return filter;
-  }));
+  const filters = pseudo.concat(mods.map((mod) => statFilter(mod, minRoll)));
+  const stats = [];
+  if (filters.length) stats.push({ type: 'and', filters });
+  if (countMods.length && countMin > 0) {
+    stats.push({
+      type: 'count',
+      value: { min: countMin },
+      filters: countMods.map((mod) => statFilter(mod, minRoll)),
+    });
+  }
+  if (!stats.length) return null;
 
   const query = {
     status: status(),
-    stats: [{ type: 'and', filters }],
+    stats,
     filters: { misc_filters: { filters: misc } },
   };
 
@@ -653,20 +677,25 @@ export function medianPrice(prices, total = Infinity) {
   // four mirrors have a median of four mirrors, and nothing gets trimmed at
   // all. The lower middle is 250 there, and the mirror goes.
   const anchor = prices[Math.floor((prices.length - 1) / 2)];
-  const kept = prices.filter((p) => p <= anchor * 5);
+  let kept = prices.filter((p) => p <= anchor * 5);
 
-  // With ten listings or fewer we are not looking at the cheap tail of a
-  // market, we are looking at the whole market: `/fetch` reads ten ids and
-  // there were never more than ten. Six amulets like yours are on sale and you
-  // would buy the cheapest, so the median of the six — the fourth cheapest —
-  // is not a price anybody pays. The second cheapest instead, which is one
-  // step of protection against a single mistake or somebody fishing, and the
-  // cheapest when there are not even three.
+  // With ten listings or fewer we are looking at the whole market, not the
+  // cheap tail of a bigger one: `/fetch` reads ten ids and there were never
+  // more than ten. You would buy the cheapest of those, so that is the price.
+  //
+  // The old answer was the second cheapest, as a guard against one misclick.
+  // On Demon Clutches that skipped a real 55 divine listing and quoted 124
+  // divine — the next seller — which is not what anyone pays. A cheap outlier
+  // still gets dropped, with the same 5× ratio the other way: 1 c next to 124
+  // divine is junk, 55 next to 124 is an undercut.
   //
   // Above ten the reasoning inverts and the median stays: those ten are the
   // bottom of a much larger pool, and their cheapest is the 1 c of junk that
   // put the median here in the first place.
-  if (total <= FETCH_PAGE) return kept.length >= 3 ? kept[1] : kept[0];
+  if (total <= FETCH_PAGE) {
+    while (kept.length >= 2 && kept[0] * 5 < kept[1]) kept = kept.slice(1);
+    return kept[0];
+  }
   return kept[Math.floor(kept.length / 2)];
 }
 

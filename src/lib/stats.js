@@ -516,6 +516,25 @@ export function isInstilling(text, type) {
   return type === 'enchant' && /^Used when\b/i.test(String(text));
 }
 
+/**
+ * A modifier this unique did not come with: a beastcrafted talisman implicit
+ * or a lab enchant. Those are what split one Eyes of the Greatwolf from
+ * another. The unique's own explicit ("#% increased Enchantment Modifier
+ * magnitudes") is not this — every copy has that line, only the number varies.
+ *
+ * Anointments and Instilling triggers stay out: the buyer applies those.
+ */
+export function isFlexUniqueMod(mod, item, implicitPool) {
+  const text = modTemplate(mod.text || '');
+  if (!text) return false;
+  if ((item.enchantMods || []).some((line) => modTemplate(line) === text)) {
+    return !isAnointment(mod.text, 'enchant') && !isInstilling(mod.text, 'enchant');
+  }
+  const known = new Set(implicitPool || []);
+  return (item.implicitMods || []).some((line) => modTemplate(line) === text)
+    && !known.has(text);
+}
+
 /** Reorders a cluster jewel's modifiers so the notables come first. */
 function clusterFirst(entries) {
   const rank = (text) => {
@@ -617,9 +636,21 @@ export function rolledMods(statIndex, item, limit, rollPool, fields = ROLLED_FIE
     if (out.length >= limit) break;
     const hit = matchMod(statIndex, mod, type, local);
     if (!hit || out.some((s) => s.id === hit.id)) continue;
-    out.push({ ...hit, text: mod });
+    // PoB files a talisman's beast mods as enchantments. Trade lists the same
+    // text as an implicit. Asking for the enchant id finds the lab version,
+    // which a Greatwolf does not have, and the amulet stays on the 1 divine
+    // floor. Clusters and flasks keep the enchant id: that is the real slot.
+    const id = preferImplicitEnchant(statIndex, hit.id, item);
+    out.push({ ...hit, id, text: mod });
   }
   return out;
+}
+
+function preferImplicitEnchant(statIndex, id, item) {
+  if (!id.startsWith('enchant.')) return id;
+  if (isClusterJewel(item) || item?.inventoryId === 'Flask') return id;
+  const twin = `implicit.${id.replace(/^[a-z]+\./, '')}`;
+  return statIndex.allIds?.has(twin) ? twin : id;
 }
 
 /** Picks the item's significant mods, already translated to stat ids. */

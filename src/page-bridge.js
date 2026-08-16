@@ -14,6 +14,162 @@
 (() => {
   const ATTR = 'data-pnc-item';
 
+  // Mirrors src/lib/pob-item.js. This file cannot import — MAIN-world classic
+  // script — and tools/check-wiring.mjs compares the bodies so they cannot drift.
+  const POB_HEADER_LINE =
+    /^(Armour|Evasion Rating|Energy Shield|Ward|Quality|Sockets|Limited to|Radius|Item Level|Requires|LevelReq|Unique ID)\s*:/i;
+  const FLASK_BASE =
+    /\b(Quicksilver|Diamond|Ruby|Sapphire|Topaz|Granite|Jade|Quartz|Silver|Basalt|Aquamarine|Stibnite|Sulphur|Bismuth|Gold|Corundum|Iron|Amethyst|Life|Mana|Hybrid) Flask\b/i;
+
+  function stripPobHeaders(mods) {
+    return (mods || []).filter((text) => !POB_HEADER_LINE.test(String(text).trim()));
+  }
+
+  /**
+   * PoB wraps a long modifier onto the next line. Trade indexes the whole
+   * sentence as one stat, so a split copy matches nothing.
+   *
+   * Impossible Escape is the one that made this visible: the keystone arrives as
+   *
+   *   Passive Skills in Radius of Chaos Inoculation can be Allocated
+   *   without being connected to your tree
+   *   Passage
+   *
+   * and "Passage" is part of the official wording, not leftover flavour.
+   * A continuation starts with a lowercase letter, or is that one word.
+   */
+  function joinWrappedMods(mods) {
+    const out = [];
+    for (const raw of mods || []) {
+      const text = String(raw).trim();
+      if (!text) continue;
+      if (out.length && (/^[a-z]/.test(text) || /^Passage$/i.test(text))) {
+        out[out.length - 1] = `${out[out.length - 1]} ${text}`;
+        continue;
+      }
+      out.push(text);
+    }
+    return out;
+  }
+
+  function linksFromSocketLine(mods) {
+    const line = (mods || []).find((text) => /^Sockets\s*:/i.test(String(text).trim()));
+    if (!line) return 0;
+    const groups = String(line).replace(/^Sockets\s*:\s*/i, '').trim().split(/\s+/).filter(Boolean);
+    return Math.max(0, ...groups.map((group) => group.split('-').filter(Boolean).length), 0);
+  }
+
+  function defencesFromModLines(mods) {
+    const read = (label) => {
+      const line = (mods || []).find((text) => new RegExp(`^${label}\\s*:`, 'i').test(String(text).trim()));
+      if (!line) return 0;
+      return parseInt(String(line).replace(/[^\d]/g, ''), 10) || 0;
+    };
+    return {
+      ar: read('Armour'),
+      ev: read('Evasion Rating'),
+      es: read('Energy Shield'),
+      ward: read('Ward'),
+      block: 0,
+    };
+  }
+
+  function flaskBaseType(item) {
+    const current = item.baseType || '';
+    if (FLASK_BASE.test(current) && current.trim().length === current.match(FLASK_BASE)[0].length) {
+      return current;
+    }
+    const fromName = `${current} ${item.typeLine || ''}`.match(FLASK_BASE);
+    return fromName ? fromName[0] : current;
+  }
+
+  function slotOf(item) {
+    const slot = item.inventoryId || null;
+    if (slot && slot !== 'MainInventory') return slot;
+    const base = `${item.baseType || ''} ${item.typeLine || ''}`;
+    if (/\bflask\b/i.test(base)) return 'Flask';
+    if (/\bjewel\b/i.test(base)) return 'PassiveJewels';
+    return slot;
+  }
+
+  function stableId(item) {
+    const id = String(item.id || '');
+    if (id.startsWith('Unique ID:')) return id;
+    if (/^[0-9a-f]{20,}$/i.test(id)) return id;
+    return null;
+  }
+
+  function withoutImplicitDupes(explicit, implicit) {
+    const have = new Set((implicit || []).map((text) => String(text).trim().toLowerCase()));
+    return (explicit || []).filter((text) => !have.has(String(text).trim().toLowerCase()));
+  }
+
+  function gemStatQueues(skills) {
+    const queues = new Map();
+    for (const skill of skills || []) {
+      for (const gem of skill.allGems || []) {
+        const data = gem.itemData || {};
+        const name = gem.name || data.baseType || data.typeLine;
+        if (!name) continue;
+        if (!queues.has(name)) queues.set(name, []);
+        const level = gem.level ?? null;
+        const quality = gem.quality ?? 0;
+        queues.get(name).push({
+          level,
+          quality,
+          support: !!data.support || /\bSupport$/i.test(name),
+          corrupted: gemImpliesCorruption({
+            name,
+            level,
+            quality,
+            corrupted: !!gem.corrupted || !!data.corrupted,
+          }),
+        });
+      }
+    }
+    return queues;
+  }
+
+  function takeGemStats(queues, item) {
+    const name = item.baseType || item.typeLine || item.name;
+    const queue = queues.get(name);
+    if (!queue || !queue.length) {
+      return {
+        level: null,
+        quality: 0,
+        support: !!item.support || /\bSupport$/i.test(name || ''),
+        corrupted: gemImpliesCorruption({
+          name: name || '',
+          level: item.gemLevel,
+          quality: item.gemQuality,
+          corrupted: !!item.corrupted,
+        }),
+      };
+    }
+    return queue.shift();
+  }
+
+  /**
+   * PoB (and sometimes the item JSON) omits `corrupted` on gems. The rolls still
+   * give it away: a gem cannot reach these numbers without Vaal.
+   *
+   *   quality > 20
+   *   level > 20                    — ordinary gems
+   *   Empower / Enlighten / Enhance — uncorrupted max is 3
+   *   Awakened                      — uncorrupted max is 5, including Awakened Enlighten
+   */
+  function gemImpliesCorruption(gem) {
+    const { name = '', level = 0, quality = 0, corrupted = false } = gem || {};
+    if (corrupted) return true;
+    if (Number(quality) > 20) return true;
+    const lvl = Number(level) || 0;
+    if (!lvl) return false;
+    const label = String(name);
+    if (/\bawakened\b/i.test(label)) return lvl > 5;
+    if (/\b(empower|enlighten|enhance)(\s+support)?$/i.test(label)) return lvl > 3;
+    return lvl > 20;
+  }
+
   /** Does this object look like a GGG item? */
   function isItem(value) {
     return (
@@ -39,8 +195,6 @@
     }
     return null;
   }
-
-  const idOf = (item) => item.id || `${item.baseType}:${item.x},${item.y}`;
 
   /**
    * The full equipment list, both weapon sets included, as poe.ninja hands it to
@@ -99,18 +253,29 @@
    */
   function harvest(root) {
     const found = [];
-    const seen = new Set();
+    const seenIds = new Set();
+    const seenRef = new WeakSet();
     const startFiber = fiberOf(root);
     const char = charOf(startFiber);
+    const gemStats = gemStatQueues(char?.skills);
     const stack = [startFiber].filter(Boolean);
     let guard = 0;
 
-    const flattenGems = (item, id) => {
+    const accept = (item) => {
+      if (seenRef.has(item)) return false;
+      seenRef.add(item);
+      const id = stableId(item);
+      if (id) {
+        if (seenIds.has(id)) return false;
+        seenIds.add(id);
+      }
+      return true;
+    };
+
+    const flattenGems = (item) => {
       for (const gem of item.socketedItems || []) {
-        const gemId = gem.id || `${id}:${gem.socket}`;
-        if (seen.has(gemId)) continue;
-        seen.add(gemId);
-        found.push(slim(gem, found.length, null));
+        if (!accept(gem)) continue;
+        found.push(slim(gem, found.length, null, gemStats));
       }
     };
 
@@ -125,14 +290,12 @@
 
       for (const value of Object.values(props)) {
         if (!isItem(value)) continue;
-        const id = idOf(value);
-        if (seen.has(id)) continue;
-        seen.add(id);
+        if (!accept(value)) continue;
 
         const el = hostElement(fiber);
         if (el) el.setAttribute(ATTR, String(found.length));
-        found.push(slim(value, found.length, el ? found.length : null));
-        flattenGems(value, id);
+        found.push(slim(value, found.length, el ? found.length : null, gemStats));
+        flattenGems(value);
       }
     }
 
@@ -146,10 +309,8 @@
     // one bow and quiver — pricing storage as if it were the build would have
     // moved the total by more than the weapons themselves.
     for (const item of equipmentList(char)) {
-      const id = idOf(item);
-      if (seen.has(id)) continue;
-      seen.add(id);
-      found.push(slim(item, found.length, null));
+      if (!accept(item)) continue;
+      found.push(slim(item, found.length, null, gemStats));
     }
 
     return { items: found, build: buildExtras(char) };
@@ -172,7 +333,7 @@
   const round1 = (n) => Math.round(n * 10) / 10;
 
   /** Keep only what pricing and trade queries actually need. */
-  function slim(item, index, anchor) {
+  function slim(item, index, anchor, gemStats = new Map()) {
     const props = {};
     for (const p of item.properties || []) {
       props[p.name] = p.values?.[0]?.[0] ?? null;
@@ -181,26 +342,48 @@
     for (const s of item.sockets || []) {
       socketGroups[s.group] = (socketGroups[s.group] || 0) + 1;
     }
+    const fromSockets = Math.max(0, ...Object.values(socketGroups), 0);
+    const fromPob = linksFromSocketLine(item.explicitMods);
+    const implicitMods = joinWrappedMods(stripPobHeaders(item.implicitMods || []));
+    const explicitMods = withoutImplicitDupes(
+      joinWrappedMods(stripPobHeaders(item.explicitMods || [])),
+      implicitMods,
+    );
+    const pobDefences = defencesFromModLines(item.explicitMods);
+    const gem = item.frameType === 4 ? takeGemStats(gemStats, item) : null;
+    const inventoryId = slotOf(item);
+    const baseType = inventoryId === 'Flask' ? flaskBaseType(item) : (item.baseType || '');
+    const gemLevel = parseInt(props.Level, 10) || gem?.level || null;
+    const gemQuality = parseInt(String(props.Quality || '').replace('+', ''), 10) || gem?.quality || 0;
+    const corrupted = item.frameType === 4
+      ? gemImpliesCorruption({
+          name: item.baseType || item.typeLine || item.name || '',
+          level: gemLevel,
+          quality: gemQuality,
+          corrupted: !!item.corrupted || !!gem?.corrupted,
+        })
+      : !!item.corrupted;
 
     return {
       index,
       anchor,
-      id: item.id || null,
+      id: stableId(item) || item.id || null,
       name: item.name || '',
       typeLine: item.typeLine || '',
-      baseType: item.baseType || '',
+      baseType,
       frameType: item.frameType, // 0 normal, 1 magic, 2 rare, 3 unique, 4 gem, 10 foil
       // GGG's own flag, so the panel can say "Support gem" without deciding it
       // from a name ending in " Support" — which is a guess, and an English one.
-      support: !!item.support,
+      // PoB item JSON has no `support`; the skill name still does.
+      support: gem ? gem.support : !!item.support,
       ilvl: item.ilvl ?? null,
-      corrupted: !!item.corrupted,
+      corrupted,
       identified: item.identified !== false,
-      inventoryId: item.inventoryId || null,
-      links: Math.max(0, ...Object.values(socketGroups), 0),
-      sockets: (item.sockets || []).length,
-      gemLevel: parseInt(props.Level, 10) || null,
-      gemQuality: parseInt(String(props.Quality || '').replace('+', ''), 10) || 0,
+      inventoryId,
+      links: fromSockets || fromPob,
+      sockets: (item.sockets || []).length || (fromPob ? fromPob : 0),
+      gemLevel,
+      gemQuality,
       // The totals the item actually has, after its own modifiers and quality.
       // Searching these directly beats filtering on the flat and percentage
       // modifiers that produce them: one filter instead of two, and it matches
@@ -210,10 +393,10 @@
       // Rating", "Energy Shield", "Chance to Block", "Physical Damage",
       // "Attacks per Second", "Critical Strike Chance".
       defences: {
-        ar: parseInt(props.Armour, 10) || 0,
-        ev: parseInt(props['Evasion Rating'], 10) || 0,
-        es: parseInt(props['Energy Shield'], 10) || 0,
-        ward: parseInt(props.Ward, 10) || 0,
+        ar: parseInt(props.Armour, 10) || pobDefences.ar,
+        ev: parseInt(props['Evasion Rating'], 10) || pobDefences.ev,
+        es: parseInt(props['Energy Shield'], 10) || pobDefences.es,
+        ward: parseInt(props.Ward, 10) || pobDefences.ward,
         block: parseInt(props['Chance to Block'], 10) || 0,
       },
       // The same five boxes Awakened PoE Trade shows for a weapon. Searching
@@ -237,11 +420,11 @@
       // "Foulborn" and exposes it as misc_filters.mutated.
       mutated: !!item.mutated || (item.mutatedMods || []).length > 0,
       mutatedMods: item.mutatedMods || [],
-      implicitMods: item.implicitMods || [],
-      explicitMods: item.explicitMods || [],
+      implicitMods,
+      explicitMods,
       craftedMods: item.craftedMods || [],
       fracturedMods: item.fracturedMods || [],
-      enchantMods: item.enchantMods || [],
+      enchantMods: joinWrappedMods(item.enchantMods || []),
     };
   }
 

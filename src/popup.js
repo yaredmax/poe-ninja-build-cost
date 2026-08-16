@@ -99,7 +99,7 @@ async function showStatus() {
   // undefined everywhere else, which answers the question either way.
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const url = tab?.url || '';
-  const onCharacter = /^https:\/\/poe\.ninja\/poe1\/(builds|profile)\/.*\/character\//.test(url);
+  const onCharacter = /^https:\/\/poe\.ninja\/poe1\/((builds|profile)\/.*\/character\/|pob\/)/.test(url);
   const onNinja = url.startsWith('https://poe.ninja/');
 
   const stored = await chrome.storage.local.get(STATUS_KEY);

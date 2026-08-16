@@ -21,9 +21,9 @@ slot](docs/screenshot.png)
 > that is exactly what this stage is for.
 
 > **Path of Exile 1 for now — a Path of Exile 2 version is coming.**
-> The content script only runs on poe.ninja's PoE 1 build and profile pages, so
-> on a PoE 2 character nothing appears at all. That is the current state, not a
-> failure worth reporting.
+> The content script only runs on poe.ninja's PoE 1 build, profile and Path of
+> Building paste pages, so on a PoE 2 character nothing appears at all. That is
+> the current state, not a failure worth reporting.
 
 ## Install
 
@@ -33,6 +33,7 @@ slot](docs/screenshot.png)
 Then:
 
 1. Open any build: `https://poe.ninja/poe1/builds/.../character/...`
+   or a pasted Path of Building code: `https://poe.ninja/poe1/pob/...`
 2. Click the button in the bottom right corner.
 
 ### From source instead
@@ -1037,6 +1038,7 @@ without it and shipped a `background.js` that could not resolve `./lib/trade.js`
 | `tools/fixtures/worn.json` | Items off real characters, the only ones that miss the wide query |
 | `tools/query-test.mjs` | What each query asks for, and what got dropped — costs no search |
 | `tools/unique-variant-test.mjs` | Which published line a unique gets — costs no search |
+| `tools/pob-test.mjs` | PoB paste items still get a slot, a flask base, and gem levels |
 | `tools/tree-test.mjs` | Tattoos and runegrafts still join to a price — costs no search |
 | `docs/poe-modifiers.md` | How PoE's modifiers work and what each fact implies here |
 | `docs/ui-design.md` | The 0.5.0 design handoff: tokens, every view, and the calls made building it |
